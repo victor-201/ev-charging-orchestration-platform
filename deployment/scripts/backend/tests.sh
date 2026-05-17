@@ -1,7 +1,13 @@
 #!/bin/bash
-# ==============================================================================
-# tests.sh - He thong kiem thu toan dien (Unit + Smoke Tests)
-# ==============================================================================
+# Usage:
+#   bash tests.sh                   # Run unit tests (default)
+#   bash tests.sh --unit            # Unit tests only
+#   bash tests.sh --smoke           # Smoke / API gateway tests only
+#   bash tests.sh --all             # Both unit and smoke tests
+#   bash tests.sh --service <name>  # Unit test a single service
+#   bash tests.sh --gateway <url>   # Override gateway URL for smoke tests
+
+set -uo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 BACKEND_DIR="$PROJECT_ROOT/backend"
@@ -17,109 +23,137 @@ RUN_SMOKE=false
 TARGET_SERVICE=""
 GATEWAY="http://localhost:8000"
 
-# Neu khong co tham so, mac dinh chay Unit Test
-if [ $# -eq 0 ]; then
+if [[ $# -eq 0 ]]; then
     RUN_UNIT=true
 fi
 
 while [[ "$#" -gt 0 ]]; do
-    case $1 in
+    case "$1" in
         --unit)    RUN_UNIT=true ;;
         --smoke)   RUN_SMOKE=true ;;
         --all)     RUN_UNIT=true; RUN_SMOKE=true ;;
         --service) TARGET_SERVICE="$2"; shift ;;
         --gateway) GATEWAY="$2"; shift ;;
-        *) echo "Unknown parameter: $1"; exit 1 ;;
+        *) echo -e "${RED}[ERROR] Unknown flag: $1${NC}"; exit 1 ;;
     esac
     shift
 done
 
-# ------------------------------------------------------------------------------
-# 1. UNIT TESTS
-# ------------------------------------------------------------------------------
+ALL_SERVICES=(
+    "iam-service"
+    "ev-infrastructure-service"
+    "session-service"
+    "billing-service"
+    "notification-service"
+    "analytics-service"
+    "telemetry-ingestion-service"
+    "ocpp-gateway-service"
+)
+
+UNIT_PASS=0
+UNIT_FAIL=0
+
 run_unit_tests() {
-    SERVICES=("iam-service" "ev-infrastructure-service" "session-service" "billing-service" "notification-service" "analytics-service" "telemetry-ingestion-service" "ocpp-gateway-service")
-    
-    if [ ! -z "$TARGET_SERVICE" ]; then
-        SERVICES=("$TARGET_SERVICE")
+    local services=("${ALL_SERVICES[@]}")
+    if [[ -n "$TARGET_SERVICE" ]]; then
+        services=("$TARGET_SERVICE")
     fi
 
-    echo -e "${CYAN}======================================================"
-    echo -e "  [UNIT TEST] Kiem thu logic Microservices"
-    echo -e "======================================================${NC}"
+    echo -e "${CYAN}======================================================================"
+    echo -e "  UNIT TESTS"
+    echo -e "======================================================================${NC}"
 
-    for svc in "${SERVICES[@]}"; do
-        if [ ! -d "$BACKEND_DIR/$svc" ]; then
-            echo -e "${RED}[ERROR] Service '$svc' khong ton tai.${NC}"
+    for svc in "${services[@]}"; do
+        local svc_dir="$BACKEND_DIR/$svc"
+        echo -e "\n${CYAN}>>> $svc${NC}"
+
+        if [[ ! -d "$svc_dir" ]]; then
+            echo -e "  [${RED}SKIP${NC}] Directory not found: $svc_dir"
+            ((UNIT_FAIL++)) || true
             continue
         fi
-        
-        echo -e "\n${CYAN}>>> Testing: $svc${NC}"
-        cd "$BACKEND_DIR/$svc"
-        if [ -d "node_modules" ]; then
-            if npm run | grep -q "test:unit"; then
-                npm run test:unit
-            else
-                npm test
-            fi
+
+        # Skip services without installed dependencies; avoids misleading failures.
+        if [[ ! -d "$svc_dir/node_modules" ]]; then
+            echo -e "  [${YELLOW}SKIP${NC}] node_modules absent. Run: npm install"
+            continue
+        fi
+
+        cd "$svc_dir"
+        local test_cmd="npm test"
+        if npm run 2>/dev/null | grep -q "test:unit"; then
+            test_cmd="npm run test:unit"
+        fi
+
+        if $test_cmd; then
+            echo -e "  [${GREEN}PASS${NC}] $svc"
+            ((UNIT_PASS++)) || true
         else
-            echo -e "${YELLOW}[SKIP] node_modules khong ton tai. Vui long install truoc.${NC}"
+            echo -e "  [${RED}FAIL${NC}] $svc"
+            ((UNIT_FAIL++)) || true
         fi
     done
+
+    echo -e "\n${CYAN}--- Unit Test Summary: ${GREEN}${UNIT_PASS} PASS${NC} / ${RED}${UNIT_FAIL} FAIL${CYAN} ---${NC}"
 }
 
-# ------------------------------------------------------------------------------
-# 2. SMOKE TESTS (API Gateway)
-# ------------------------------------------------------------------------------
 run_smoke_tests() {
-    echo -e "\n${CYAN}======================================================"
-    echo -e "  [SMOKE TEST] Kiem thu luong API (Integration)"
-    echo -e "======================================================${NC}"
-    echo -e "Gateway: $GATEWAY\n"
+    echo -e "\n${CYAN}======================================================================"
+    echo -e "  SMOKE TESTS — API Gateway: $GATEWAY"
+    echo -e "======================================================================${NC}"
 
-    # 1. IAM Service
-    echo -e "--- [IAM Service] ---"
-    # POST /api/v1/auth/register (missing body) -> 400
-    curl -s -o /dev/null -w "IAM Register (Invalid): %{http_code}\n" -X POST "$GATEWAY/api/v1/auth/register"
-    # GET /api/v1/users/me (no token) -> 401
-    curl -s -o /dev/null -w "IAM Me (Unauthorized): %{http_code}\n" -X GET "$GATEWAY/api/v1/users/me"
+    TMP_DIR=$(mktemp -d)
+    declare -a PIDS=()
 
-    # 2. Infrastructure Service
-    echo -e "\n--- [Infrastructure Service] ---"
-    # GET /api/v1/stations (public) -> 200
-    curl -s -o /dev/null -w "Station List: %{http_code}\n" -X GET "$GATEWAY/api/v1/stations"
+    fire_test() {
+        local label="$1"
+        local method="$2"
+        local path="$3"
+        (
+            code=$(curl -s -o /dev/null -w "%{http_code}" \
+                --connect-timeout 4 --max-time 8 \
+                -X "$method" "${GATEWAY}${path}" 2>/dev/null || echo "000")
+            # Accept any response code indicating the gateway routed the request,
+            # including 4xx (auth/validation errors are expected without a body).
+            if [[ "$code" =~ ^(200|201|400|401|403|404|422)$ ]]; then
+                echo -e "  [${GREEN}OK${NC}]   [$method] $path  → HTTP $code  ($label)"
+                touch "$TMP_DIR/ok_${RANDOM}"
+            else
+                echo -e "  [${RED}FAIL${NC}] [$method] $path  → HTTP $code  ($label)"
+                touch "$TMP_DIR/fail_${RANDOM}"
+            fi
+        ) &
+        PIDS+=($!)
+    }
 
-    # 3. Session Service
-    echo -e "\n--- [Session Service] ---"
-    # POST /api/v1/bookings (no token) -> 401
-    curl -s -o /dev/null -w "Booking Create (Unauthorized): %{http_code}\n" -X POST "$GATEWAY/api/v1/bookings"
+    fire_test "IAM - Register (no body)"       POST "/api/v1/auth/register"
+    fire_test "IAM - Me (unauthenticated)"     GET  "/api/v1/users/me"
+    fire_test "Infra - Station list (public)"  GET  "/api/v1/stations"
+    fire_test "Session - Booking (unauth)"     POST "/api/v1/bookings"
+    fire_test "Billing - Wallet (unauth)"      GET  "/api/v1/wallets/balance"
+    fire_test "Notify - List (unauth)"         GET  "/api/v1/notifications"
+    fire_test "Analytics - Dashboard (unauth)" GET  "/api/v1/analytics/dashboard"
+    fire_test "Telemetry - Health"             GET  "/api/v1/telemetry/health"
 
-    # 4. Billing Service
-    echo -e "\n--- [Billing Service] ---"
-    # GET /api/v1/wallets/balance (no token) -> 401
-    curl -s -o /dev/null -w "Wallet Balance (Unauthorized): %{http_code}\n" -X GET "$GATEWAY/api/v1/wallets/balance"
+    for pid in "${PIDS[@]}"; do
+        wait "$pid" 2>/dev/null || true
+    done
 
-    # 5. Notification Service
-    echo -e "\n--- [Notification Service] ---"
-    # GET /api/v1/notifications (no token) -> 401
-    curl -s -o /dev/null -w "Notification List (Unauthorized): %{http_code}\n" -X GET "$GATEWAY/api/v1/notifications"
+    smoke_ok=$(ls -1 "$TMP_DIR"/ok_* 2>/dev/null | wc -l)
+    smoke_fail=$(ls -1 "$TMP_DIR"/fail_* 2>/dev/null | wc -l)
+    rm -rf "$TMP_DIR"
 
-    # 6. Analytics Service
-    echo -e "\n--- [Analytics Service] ---"
-    # GET /api/v1/analytics/dashboard (no token) -> 401
-    curl -s -o /dev/null -w "Analytics Dashboard (Unauthorized): %{http_code}\n" -X GET "$GATEWAY/api/v1/analytics/dashboard"
+    echo -e "\n${CYAN}--- Smoke Test Summary: ${GREEN}${smoke_ok} PASS${NC} / ${RED}${smoke_fail} FAIL${CYAN} ---${NC}"
 }
 
-# ------------------------------------------------------------------------------
-# EXECUTION
-# ------------------------------------------------------------------------------
-
-if [ "$RUN_UNIT" = true ]; then
+if [[ "$RUN_UNIT" == "true" ]]; then
     run_unit_tests
 fi
 
-if [ "$RUN_SMOKE" = true ]; then
+if [[ "$RUN_SMOKE" == "true" ]]; then
     run_smoke_tests
 fi
 
-echo -e "\n${GREEN}>>> Hoan tat kiem thu!${NC}"
+echo -e "\n${GREEN}======================================================================"
+echo -e "  TEST RUN COMPLETE"
+echo -e "======================================================================${NC}"
