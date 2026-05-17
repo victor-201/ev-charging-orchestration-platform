@@ -1,12 +1,12 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 
-/// Handler điều hướng khi nhận FCM notification khi app đang chạy/background
+/// Handles navigation redirects upon receiving real-time FCM background signals
 class FcmRouteHandler {
   static void setupForegroundHandler(GlobalKey<NavigatorState> navigatorKey) {
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       debugPrint('[FCM] Foreground: ${message.notification?.title}');
-      // TODO: Hiển thị in-app notification banner
+      // TODO: Render customized in-app notification banner overlay
     });
 
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
