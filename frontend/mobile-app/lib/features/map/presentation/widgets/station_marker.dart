@@ -3,7 +3,10 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../domain/entities/station_entity.dart';
 import 'station_marker_svgs.dart';
 
-/// Marker trạm sạc với UI mới sử dụng SVG động
+/// Dynamic SVG Charging Station Map Marker Widget
+///
+/// Renders dynamic stateful marker shapes and colors based on a station's current
+/// operational status, connector capacity, and live charger availabilities.
 class StationMarker extends StatelessWidget {
   final StationEntity station;
   final bool isSelected;
@@ -35,7 +38,7 @@ class StationMarker extends StatelessWidget {
   }
 
   _MarkerStatusData _getStationStatusData(StationEntity station) {
-    // 1. Kiểm tra trạng thái chung của trạm
+    // 1. Resolve global lifecycle and maintenance states.
     if (station.status.toLowerCase() == 'closed') {
       return _MarkerStatusData('closed', 'CLOSE');
     }
@@ -46,22 +49,20 @@ class StationMarker extends StatelessWidget {
       return _MarkerStatusData('inactive', 'OFF');
     }
 
-    // 2. Nếu trạng thái là 'active', kiểm tra chi tiết các trụ sạc
-    final chargers = station.chargers;
-    if (chargers.isEmpty) {
+    // 2. Process aggregate metrics to calculate slots availability.
+    final int total = station.totalChargers;
+    final int availableCount = station.availableChargers;
+
+    if (total == 0) {
       return _MarkerStatusData('inactive', '0/0');
     }
 
-    int inUseCount = chargers.where((c) => ['IN_USE', 'RESERVED', 'FAULTED'].contains(c.status)).length;
-    int availableCount = chargers.where((c) => c.status == 'AVAILABLE').length;
-    int total = chargers.length;
-
-    // Trạng thái Active - Full (không còn trụ trống) -> Màu đỏ
+    // Active - Occupied status (zero vacant slots available) -> Red theme.
     if (availableCount == 0) {
-      return _MarkerStatusData('active_full', '$inUseCount/$total');
+      return _MarkerStatusData('active_full', '0/$total');
     }
 
-    // Trạng thái Active - Có trụ trống -> Màu xanh
+    // Active - Available status (has vacant slots available) -> Green theme.
     return _MarkerStatusData('active_empty', '$availableCount/$total');
   }
 }

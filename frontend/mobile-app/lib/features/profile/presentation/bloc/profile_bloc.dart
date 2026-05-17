@@ -3,7 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/profile_entity.dart';
 import '../../domain/repositories/i_profile_repository.dart';
 
-// ── Events ─────────────────────────────────────────────────────────────
+/// User Profile and Fleet Management Business Logic Component (BLoC)
+///
+/// Coordinates all states and operations related to user profile information, password
+/// updates, active device session terminations, and personal electric vehicle fleet registers.
 abstract class ProfileEvent extends Equatable {
   const ProfileEvent();
   @override List<Object?> get props => [];
@@ -46,7 +49,6 @@ class VehicleSetAutoCharge extends ProfileEvent {
   @override List<Object?> get props => [id, macAddress];
 }
 
-// ── States ─────────────────────────────────────────────────────────────
 abstract class ProfileState extends Equatable {
   const ProfileState();
   @override List<Object?> get props => [];
@@ -71,7 +73,6 @@ class ProfileSuccess extends ProfileState {
   @override List<Object?> get props => [message];
 }
 
-// ── BLoC ───────────────────────────────────────────────────────────────
 class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
   final IProfileRepository _repository;
 

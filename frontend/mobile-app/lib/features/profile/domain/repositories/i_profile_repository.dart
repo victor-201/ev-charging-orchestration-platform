@@ -2,31 +2,60 @@ import 'package:dartz/dartz.dart';
 import '../../../../core/errors/failures.dart';
 import '../entities/profile_entity.dart';
 
+/// User Profile and Fleet Management Repository Interface
+///
+/// Defines the data-layer contract for retrieving personal profiles, modifying account
+/// credentials, managing security sessions, and organizing vehicle registries.
 abstract class IProfileRepository {
-  // [05] GET /auth/me
+  /// Resolves the authenticated user account and current security contexts.
   Future<Either<Failure, UserProfileEntity>> getMe();
-  // [15] GET /users/profile
+
+  /// Retrieves detailed contact and settings metadata for the current user profile.
   Future<Either<Failure, UserProfileEntity>> getProfile();
-  // [16] PATCH /users/profile
+
+  /// Updates personal profile details (e.g., name, phone number, date of birth).
   Future<Either<Failure, UserProfileEntity>> updateProfile({String? fullName, String? phone, DateTime? dateOfBirth});
-  // [06] PATCH /auth/change-password
+
+  /// Changes the user's password credential.
   Future<Either<Failure, void>> changePassword({required String currentPassword, required String newPassword});
-  // [07] GET /auth/sessions
+
+  /// Queries all registered active device sessions for this user.
   Future<Either<Failure, List<SessionDeviceEntity>>> getSessions();
-  // [08] DELETE /auth/sessions/:id
+
+  /// Terminates a specific device session.
   Future<Either<Failure, void>> revokeSession(String id);
-  // [09] DELETE /auth/sessions
+
+  /// Force terminates all active device sessions for the current account.
   Future<Either<Failure, void>> revokeAllSessions();
-  // [19] GET /vehicles
+
+  /// Retrieves all electric vehicles registered under this user account.
   Future<Either<Failure, List<VehicleEntity>>> getVehicles();
-  // [20] POST /vehicles
-  Future<Either<Failure, VehicleEntity>> addVehicle({required String plateNumber, required String model, required String brand, required String connectorType, required double batteryCapacityKwh});
-  // [21] PATCH /vehicles/:id
-  Future<Either<Failure, VehicleEntity>> updateVehicle(String id, {String? plateNumber, String? model, String? brand, String? connectorType, double? batteryCapacityKwh});
-  // [22] DELETE /vehicles/:id
+
+  /// Adds a new electric vehicle configuration.
+  Future<Either<Failure, VehicleEntity>> addVehicle({
+    required String plateNumber,
+    required String model,
+    required String brand,
+    required String connectorType,
+    required double batteryCapacityKwh,
+  });
+
+  /// Updates details for an existing vehicle configuration.
+  Future<Either<Failure, VehicleEntity>> updateVehicle(
+    String id, {
+    String? plateNumber,
+    String? model,
+    String? brand,
+    String? connectorType,
+    double? batteryCapacityKwh,
+  });
+
+  /// Deletes a registered vehicle configuration from the user's profile.
   Future<Either<Failure, void>> deleteVehicle(String id);
-  // [23] POST /vehicles/:id/primary
+
+  /// Configures a targeted vehicle as the default primary option.
   Future<Either<Failure, void>> setPrimaryVehicle(String id);
-  // [25] PATCH /vehicles/:id/autocharge
+
+  /// Registers or modifies the AutoCharge MAC address for a vehicle.
   Future<Either<Failure, void>> setAutoCharge(String id, String macAddress);
 }

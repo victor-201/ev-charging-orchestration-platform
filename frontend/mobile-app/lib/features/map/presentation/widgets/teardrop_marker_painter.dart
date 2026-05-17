@@ -1,7 +1,7 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
-/// Painter vẽ hình giọt nước ngược — Premium & High Visibility
+/// Renders a premium, high-visibility inverted teardrop map marker with custom canvas paths.
 class TeardropMarkerPainter extends CustomPainter {
   final Color color;
   final bool isSelected;
@@ -15,7 +15,6 @@ class TeardropMarkerPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
-    final center = Offset(w / 2, h / 2);
 
     // 1. Shadow Paint
     final shadowPaint = Paint()
@@ -49,25 +48,25 @@ class TeardropMarkerPainter extends CustomPainter {
 
     final path = ui.Path();
     
-    // Tạo hình giọt nước mượt mà hơn (Smooth Teardrop)
-    // Bắt đầu từ đỉnh nhọn ở dưới
+    // Generate a smooth geometric teardrop path.
+    // Start at the bottom sharp apex point.
     path.moveTo(w / 2, h);
     
-    // Đường cong trái lên trên
+    // Draw the left upward bezier curve.
     path.cubicTo(
       w * 0.1, h * 0.8, // Control point 1
       0, h * 0.5,       // Control point 2
       0, h * 0.35,      // End point
     );
     
-    // Cung tròn đỉnh
+    // Draw the top circular arc.
     path.arcToPoint(
       Offset(w, h * 0.35),
       radius: Radius.circular(w / 2),
       clockwise: true,
     );
     
-    // Đường cong phải xuống dưới
+    // Draw the right downward bezier curve.
     path.cubicTo(
       w, h * 0.5,       // Control point 1
       w * 0.9, h * 0.8, // Control point 2
@@ -76,13 +75,13 @@ class TeardropMarkerPainter extends CustomPainter {
     
     path.close();
 
-    // Vẽ theo thứ tự lớp
+    // Draw elements sequentially to respect standard layering hierarchy.
     canvas.drawPath(path.shift(const Offset(0, 3)), shadowPaint); // Shadow
     canvas.drawPath(path, fillPaint);                            // Fill
     canvas.drawPath(path, borderPaint);                          // White Border
     canvas.drawPath(path, outerStrokePaint);                     // Subtle Contrast Stroke
 
-    // Vẽ một vòng tròn nhỏ bên trong (Inner White Circle) để chứa icon
+    // Draw the inner white circle container designed to nest SVG icons.
     final innerCircleRadius = w * 0.32;
     final innerCirclePaint = Paint()
       ..color = Colors.white

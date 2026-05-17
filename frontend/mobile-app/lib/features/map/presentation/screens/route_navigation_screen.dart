@@ -13,8 +13,10 @@ import '../../../../core/design_system/app_typography.dart';
 import '../../../../core/design_system/ev_button.dart';
 import '../widgets/user_location_marker.dart';
 
-/// Màn hình điều hướng tuyến đường — S-06
-/// Gọi OpenRouteService API, vẽ polyline, hiển thị ETA
+/// Navigation Route Routing Map Screen
+///
+/// Queries OpenRouteService OSRM endpoints, renders polyline bounds,
+/// tracks compass headings, and projects active driving durations and distances.
 class RouteNavigationScreen extends StatefulWidget {
   final String stationId;
   final double stationLat;
@@ -97,7 +99,7 @@ class _RouteNavigationScreenState
       return;
     }
 
-    // Sử dụng OSRM Demo Server Global (hỗ trợ toàn thế giới)
+    // Query the global public OSRM driving profile server.
     const osrmBaseUrl = 'https://router.project-osrm.org/route/v1/driving';
 
     try {
@@ -240,7 +242,6 @@ class _RouteNavigationScreenState
             ],
           ),
 
-          // Top card: Start & Destination
           Positioned(
             top: AppSpacing.sm,
             left: AppSpacing.lg,
@@ -261,7 +262,6 @@ class _RouteNavigationScreenState
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Start Point
                   InkWell(
                     onTap: () {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -285,7 +285,6 @@ class _RouteNavigationScreenState
                     ),
                   ),
                   const Divider(height: AppSpacing.xl),
-                  // Destination
                   InkWell(
                     onTap: () {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -313,7 +312,6 @@ class _RouteNavigationScreenState
             ),
           ),
 
-          // Bottom card ETA
           if (!_isLoading && _error == null)
             Positioned(
               bottom: 0,

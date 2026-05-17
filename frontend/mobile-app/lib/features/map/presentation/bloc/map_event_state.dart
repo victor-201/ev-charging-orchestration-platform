@@ -1,6 +1,10 @@
 import 'package:equatable/equatable.dart';
 import '../../domain/entities/station_entity.dart';
 
+/// Geospatial Mapping Events and States Contracts
+///
+/// Models all map events (station queries, map pan movements, filtering triggers)
+/// and matching states representing station lists, route details, and user coordinates.
 abstract class MapEvent extends Equatable {
   const MapEvent();
   @override
@@ -54,7 +58,7 @@ class MapFilterChanged extends MapEvent {
   List<Object?> get props => [connectorType, statusFilter, radiusKm];
 }
 
-/// Trạng thái MapBloc
+/// Base state model for the Map BLoC architecture.
 abstract class MapState extends Equatable {
   const MapState();
   @override

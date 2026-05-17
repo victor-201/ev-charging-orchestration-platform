@@ -3,8 +3,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/repositories/i_station_repository.dart';
 import 'map_event_state.dart';
 
-/// MapBloc — manages charging stations, filters, and GPS location.
-/// Debounce 500ms before calling API when panning or zooming the map.
+/// Geospatial Charging Hub Map Business Logic Component (BLoC)
+///
+/// Orchestrates coordinate navigation states, searches within circular query radiuses,
+/// applies connector type and status filters, and triggers interactive station detail overlays.
+/// Leverages a 500ms debounce timer to prevent API request spamming during rapid map panning.
 class MapBloc extends Bloc<MapEvent, MapState> {
   final IStationRepository _repository;
   Timer? _debounce;
@@ -92,7 +95,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       MapStationTapped event, Emitter<MapState> emit) async {
     final result = await _repository.getStationById(event.stationId);
     result.fold(
-      (failure) {}, // Keep current state if error occurs
+      (failure) {},
       (station) {
         final current = state;
         if (current is MapLoaded) {

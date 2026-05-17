@@ -7,6 +7,10 @@ import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/network/dio_client.dart';
 
+/// Charging Infrastructure Station Data Models
+///
+/// Handles JSON deserialization schemas and remote HTTP requests mapping EV charging stations,
+/// charger connector types, and calculated session estimation tariffs.
 class StationModel extends StationEntity {
   const StationModel({
     required super.id,
@@ -16,6 +20,8 @@ class StationModel extends StationEntity {
     required super.longitude,
     required super.status,
     required super.chargers,
+    super.totalChargers,
+    super.availableChargers,
     super.distanceKm,
   });
 
@@ -37,6 +43,8 @@ class StationModel extends StationEntity {
           0,
       status: json['status']?.toString() ?? 'OFFLINE',
       chargers: chargerList,
+      totalChargers: (json['totalChargers'] as num?)?.toInt() ?? 0,
+      availableChargers: (json['availableChargers'] as num?)?.toInt() ?? 0,
       distanceKm: (json['distanceKm'] as num?)?.toDouble(),
     );
   }
@@ -53,12 +61,18 @@ class ChargerModel extends ChargerEntity {
   });
 
   factory ChargerModel.fromJson(Map<String, dynamic> json) {
+    // Map the first connector variant in the array as the primary UI configuration.
+    final connectors = json['connectors'] as List<dynamic>? ?? [];
+    final firstConnectorType = connectors.isNotEmpty 
+        ? connectors[0]['connectorType']?.toString() ?? 'Other'
+        : 'Other';
+
     return ChargerModel(
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       status: json['status']?.toString() ?? 'OFFLINE',
-      connectorType: json['connectorType']?.toString() ?? 'Other',
-      powerKw: (json['powerKw'] as num?)?.toDouble() ?? 0,
+      connectorType: firstConnectorType,
+      powerKw: (json['maxPowerKw'] as num?)?.toDouble() ?? 0,
       pricePerKwh: (json['pricePerKwh'] as num?)?.toDouble(),
     );
   }
@@ -75,9 +89,9 @@ class PricingModel extends PricingEntity {
   factory PricingModel.fromJson(Map<String, dynamic> json) {
     return PricingModel(
       chargerId: json['chargerId']?.toString() ?? '',
-      pricePerKwh: (json['pricePerKwh'] as num?)?.toDouble() ?? 0,
-      idleFeePerMinute: (json['idleFeePerMinute'] as num?)?.toDouble(),
-      totalEstimateVnd: (json['totalEstimateVnd'] as num?)?.toDouble(),
+      pricePerKwh: (json['pricePerKwhVnd'] as num?)?.toDouble() ?? 0,
+      idleFeePerMinute: (json['idleFeePerMinuteVnd'] as num?)?.toDouble(),
+      totalEstimateVnd: (json['estimatedTotalVnd'] as num?)?.toDouble(),
     );
   }
 }
@@ -158,7 +172,6 @@ class StationRepositoryImpl implements IStationRepository {
           ? (response.data['data'] ?? response.data) as Map<String, dynamic>
           : <String, dynamic>{};
 
-      // Inject chargerId if not returned by backend
       data['chargerId'] ??= chargerId;
 
       return Right(PricingModel.fromJson(data));

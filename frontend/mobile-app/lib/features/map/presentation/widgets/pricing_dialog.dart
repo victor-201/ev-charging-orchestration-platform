@@ -8,7 +8,10 @@ import '../../../../core/utils/vnd_formatter.dart';
 import '../../domain/entities/station_entity.dart';
 import '../../domain/repositories/i_station_repository.dart';
 
-/// Dialog xem báo giá sạc
+/// Dynamic Estimation Pricing Dialog Component
+///
+/// Queries and displays real-time pricing metrics for a targeted charger connector type,
+/// including energy cost per kWh, idle occupancy fees, and projected total costs.
 class PricingDialog extends StatefulWidget {
   final String stationId;
   final ChargerEntity charger;
@@ -33,7 +36,7 @@ class _PricingDialogState extends State<PricingDialog> {
   Future<void> _fetchPricing() async {
     final repo = GetIt.I<IStationRepository>();
     
-    // Giả định sạc trong 1 giờ tới
+    // Assume a standard 1-hour charging duration session context.
     final now = DateTime.now();
     final endTime = now.add(const Duration(hours: 1));
 

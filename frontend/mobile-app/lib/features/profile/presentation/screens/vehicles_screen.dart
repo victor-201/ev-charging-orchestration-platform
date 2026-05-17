@@ -7,7 +7,10 @@ import '../../../../core/design_system/app_theme.dart';
 import '../../../../core/design_system/app_typography.dart';
 import '../../../../core/design_system/ev_button.dart';
 
-/// Màn hình quản lý phương tiện — S-17
+/// Vehicles Registration and Management Screen
+///
+/// Renders the customer's registered electric vehicles (EVs), allows new vehicle onboarding,
+/// configures primary vehicle defaults, and establishes AutoCharge MAC identifiers.
 class VehiclesScreen extends StatefulWidget {
   const VehiclesScreen({super.key});
   @override State<VehiclesScreen> createState() => _VehiclesScreenState();

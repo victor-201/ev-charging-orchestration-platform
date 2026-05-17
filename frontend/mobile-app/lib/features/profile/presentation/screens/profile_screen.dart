@@ -9,7 +9,10 @@ import '../../../../core/design_system/ev_button.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event_state.dart';
 
-/// Màn hình hồ sơ chính — Tab 4
+/// Main Profile Screen
+///
+/// Renders user account information, profile settings controls, vehicle registers,
+/// MFA configuration states, and active sessions management options.
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
   @override State<ProfileScreen> createState() => _ProfileScreenState();
@@ -41,7 +44,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         builder: (context, state) {
           final profile = state is ProfileLoaded ? state.profile : null;
           return CustomScrollView(slivers: [
-            // App bar with avatar
             SliverAppBar(
               expandedHeight: 220,
               pinned: true,
@@ -79,7 +81,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
 
-            // Menu items
             SliverList(delegate: SliverChildListDelegate([
               const SizedBox(height: AppSpacing.lg),
               _SectionLabel(label: 'Tài khoản'),

@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_map/flutter_map.dart';
 
-/// Marker vị trí người dùng với hiệu ứng pulse và mũi tên định hướng
+/// GPS User Location Map Marker Widget
+///
+/// Renders a radial glow pulse effect representing coordinates accuracy alongside
+/// an orientation arrow calculated from active compass headings.
 class UserLocationMarker extends StatelessWidget {
   final double? heading;
 
@@ -13,10 +16,10 @@ class UserLocationMarker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Lấy góc xoay hiện tại của bản đồ từ flutter_map
+    // Query the active map rotation angle from the flutter_map camera.
     final mapRotation = MapCamera.of(context).rotation;
     
-    // Xoay toàn bộ SVG theo heading trừ đi góc xoay của bản đồ để mũi tên luôn chỉ đúng hướng địa lý
+    // Rotate the SVG vector based on device heading minus the active map camera rotation to ensure correct geographic orientation.
     final angle = ((heading ?? 0.0) - mapRotation) * (3.1415926535 / 180);
 
     const svgString = '''

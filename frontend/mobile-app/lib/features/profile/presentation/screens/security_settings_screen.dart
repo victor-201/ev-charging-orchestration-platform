@@ -9,8 +9,10 @@ import '../../../../core/design_system/app_typography.dart';
 import '../../../../core/design_system/ev_button.dart';
 import '../../../../core/utils/date_utils.dart' as ev_date;
 
-/// Màn hình bảo mật — S-18
-/// Đổi mật khẩu, MFA, thiết bị đang đăng nhập
+/// Security Settings Screen
+///
+/// Renders controls allowing users to update their credentials, manage multi-factor
+/// authentication (MFA) tokens, and review or terminate active device sessions.
 class SecuritySettingsScreen extends StatelessWidget {
   const SecuritySettingsScreen({super.key});
 

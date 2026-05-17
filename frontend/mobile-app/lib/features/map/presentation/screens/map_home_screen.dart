@@ -21,13 +21,15 @@ import '../../../../core/design_system/app_typography.dart';
 import '../../domain/entities/station_entity.dart';
 import '../../domain/repositories/i_station_repository.dart';
 
-// Import new widgets
 import '../widgets/station_marker.dart';
 import '../widgets/user_location_marker.dart';
 import '../widgets/station_detail_sheet.dart';
 import '../widgets/search_results_overlay.dart';
 
-/// Màn hình bản đồ — S-04
+/// Main Geospatial Charging Stations Map Screen
+///
+/// Integrates GPS tracking, dynamic clustered marker layers, custom SVG icons,
+/// and live connector type searches alongside modal station specification dialogs.
 class MapHomeScreen extends StatefulWidget {
   const MapHomeScreen({super.key});
 
@@ -233,7 +235,6 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // 1. Bản đồ (Isolate rebuilds to only this section)
           BlocBuilder<MapBloc, MapState>(
             builder: (context, state) {
               if (state is MapLoaded) {
@@ -260,7 +261,7 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
                   onMapEvent: (event) {
                     if (event is MapEventMoveEnd || event is MapEventScrollWheelZoom) {
                       final center = _mapController.camera.center;
-                      // Chỉ reload nếu tâm bản đồ di chuyển hơn 100m để tránh flick khi click/jitter trên mobile
+                      // Prevent rapid layout flickers by updating markers only when map center shifts beyond 100 meters.
                       final distance = _lastReloadCenter == null
                           ? double.infinity
                           : Geolocator.distanceBetween(
@@ -313,12 +314,12 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
                             width: isSelected ? 55 : 45,
                             height: isSelected ? 75 : 60,
                             rotate: true,
-                            // Sử dụng topCenter để mũi nhọn (ở dưới) nằm đúng tọa độ
+                            // Align top-center so the teardrop point targets exact geographic coordinates.
                             alignment: Alignment.topCenter,
                             child: StationMarker(
                               station: station,
                               isSelected: isSelected,
-                              onTap: () {}, // Được xử lý bởi onMarkerTap
+                              onTap: () {},
                             ),
                           );
                         }).toList(),
@@ -335,12 +336,12 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
                         builder: (context, markers) => GestureDetector(
                           behavior: HitTestBehavior.opaque,
                           onTap: () {
-                            // Tính toán vùng bao (bounds) từ danh sách markers trong cụm
+                            // Calculate geographic bounds surrounding the targeted cluster markers.
                             if (markers.isEmpty) return;
                             final points = markers.map((m) => m.point).toList();
                             final bounds = LatLngBounds.fromPoints(points);
                             
-                            // Phóng to vào vùng của cụm trạm
+                            // Fit the camera viewport nicely inside the calculated cluster boundary.
                             _mapController.fitCamera(
                               CameraFit.bounds(
                                 bounds: bounds,
@@ -385,7 +386,6 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
             },
           ),
 
-          // Map Loading Indicator (In main Stack)
           BlocBuilder<MapBloc, MapState>(
             builder: (context, state) {
               if (state is MapLoading) {
@@ -418,10 +418,8 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
             },
           ),
 
-          // 2. Search UI (Directly in Stack for absolute stability)
-          // 2. Search UI (Consolidated into one stable Positioned Column)
           Positioned(
-            top: 40, // Fixed top for maximum stability during testing
+            top: 40,
             left: AppSpacing.lg,
             right: AppSpacing.lg,
             child: Column(
@@ -449,7 +447,6 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
               child: _buildFilterChips(key: const ValueKey('filter_chips')),
             ),
 
-          // Recenter Button
           Positioned(
             bottom: 120,
             right: AppSpacing.lg,

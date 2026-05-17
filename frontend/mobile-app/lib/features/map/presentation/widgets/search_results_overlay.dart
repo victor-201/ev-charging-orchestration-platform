@@ -4,7 +4,10 @@ import '../../../../core/design_system/app_theme.dart';
 import '../../../../core/design_system/app_typography.dart';
 import '../../domain/entities/station_entity.dart';
 
-/// Overlay hiển thị kết quả tìm kiếm gợi ý
+/// Floating Geospatial Search Suggestion Overlay Widget
+///
+/// Renders dynamic auto-suggest results as the user types queries, providing quick-tap
+/// coordinates center, live slot statuses, and custom geocoding search fallbacks.
 class SearchResultsOverlay extends StatelessWidget {
   final List<StationEntity> results;
   final bool isLoading;
@@ -93,7 +96,6 @@ class SearchResultsOverlay extends StatelessWidget {
                   ),
                 ),
               ),
-              // Danh sách trạm
               ...results.map((station) {
                 final statusColor = _getStationStatusColor(station);
                 return InkWell(
@@ -164,41 +166,39 @@ class SearchResultsOverlay extends StatelessWidget {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 7,
-                                height: 7,
-                                decoration: BoxDecoration(
-                                  color: statusColor,
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: statusColor.withValues(alpha: 0.4),
-                                      blurRadius: 4,
-                                    ),
-                                  ],
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 7,
+                                  height: 7,
+                                  decoration: BoxDecoration(
+                                    color: statusColor,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: statusColor.withValues(alpha: 0.4),
+                                        blurRadius: 4,
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                station.chargers.isNotEmpty ? station.chargers.first.status : 'OFFLINE',
-                                style: AppTypography.caption.copyWith(
-                                  color: statusColor,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 10,
+                                const SizedBox(width: 8),
+                                Text(
+                                  station.chargers.isNotEmpty ? station.chargers.first.status : 'OFFLINE',
+                                  style: AppTypography.caption.copyWith(
+                                    color: statusColor,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 10,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
+                              ],
+                            ),
                         ),
                       ],
                     ),
                   ),
                 );
               }),
-
-              // Mục fallback geocode
               InkWell(
                 onTap: onGeocodeFallback,
                 child: Container(
