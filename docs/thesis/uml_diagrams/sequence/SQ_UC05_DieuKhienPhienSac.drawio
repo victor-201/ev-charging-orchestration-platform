@@ -1,0 +1,322 @@
+<mxfile host="Electron">
+  <diagram name="Sequence" id="id-2157534d">
+    <mxGraphModel dx="2540" dy="1648" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2000" pageHeight="3000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="id-13813424" connectable="0" parent="1" style="group" value="" vertex="1">
+          <mxGeometry height="1270" width="150" x="5" y="7" as="geometry" />
+        </mxCell>
+        <mxCell id="id-51b76fc6" parent="id-13813424" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};participant=umlActor;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="1270" width="20" x="65" as="geometry" />
+        </mxCell>
+        <mxCell id="ndqVwhZZ5ITB5oLDAdfj-2" parent="id-13813424" style="text;whiteSpace=wrap;html=1;align=center;" value="&lt;span style=&quot;color: rgb(0, 0, 0); font-family: Helvetica; font-size: 14px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 700; letter-spacing: normal; orphans: 2; text-indent: 0px; text-transform: none; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; white-space: normal; background-color: rgb(255, 255, 255); text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial; float: none; display: inline !important;&quot;&gt;Người dùng (ACT-02)&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="90" x="30" y="29" as="geometry" />
+        </mxCell>
+        <mxCell id="id-e4da42b7" connectable="0" parent="1" style="group" value="" vertex="1">
+          <mxGeometry height="1270" width="150" x="285" y="7" as="geometry" />
+        </mxCell>
+        <mxCell id="id-d2f30858" parent="id-e4da42b7" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};participant=umlActor;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="1270.0000000000002" width="20" x="65" as="geometry" />
+        </mxCell>
+        <mxCell id="ndqVwhZZ5ITB5oLDAdfj-1" parent="id-e4da42b7" style="text;whiteSpace=wrap;html=1;align=center;" value="&lt;span style=&quot;color: rgb(0, 0, 0); font-family: Helvetica; font-size: 14px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 700; letter-spacing: normal; orphans: 2; text-indent: 0px; text-transform: none; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; white-space: normal; background-color: rgb(255, 255, 255); text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial; float: none; display: inline !important;&quot;&gt;Trụ sạc IoT (ACT-07)&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="90" x="30" y="28.999999999999993" as="geometry" />
+        </mxCell>
+        <mxCell id="id-3cecd4f5" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Kiosk / Mobile App" vertex="1">
+          <mxGeometry height="1240" width="100" x="590" y="37" as="geometry" />
+        </mxCell>
+        <mxCell id="id-bbe6eaa1" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="ChargingController" vertex="1">
+          <mxGeometry height="1240" width="140" x="850" y="37" as="geometry" />
+        </mxCell>
+        <mxCell id="id-a1cea9c2" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="ChargingService" vertex="1">
+          <mxGeometry height="1240" width="140" x="1130" y="37" as="geometry" />
+        </mxCell>
+        <mxCell id="id-b57090cc" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="SessionRepository" vertex="1">
+          <mxGeometry height="1240" width="150" x="1406" y="37" as="geometry" />
+        </mxCell>
+        <mxCell id="id-9e725b0e" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="OCPP Gateway" vertex="1">
+          <mxGeometry height="1240" width="100" x="1654" y="37" as="geometry" />
+        </mxCell>
+        <mxCell id="id-620c7aac" parent="id-9e725b0e" style="html=1;points=[[0,0,0,0,5],[0,1,0,0,-5],[1,0,0,0,5],[1,1,0,0,-5]];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="108" width="10" x="45" y="778" as="geometry" />
+        </mxCell>
+        <mxCell id="id-843cf88c" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Billing Service" vertex="1">
+          <mxGeometry height="1240" width="100" x="1804" y="37" as="geometry" />
+        </mxCell>
+        <mxCell id="id-e1666219" parent="1" style="html=1;points=[[0,0,0,0,5],[0,1,0,0,-5],[1,0,0,0,5],[1,1,0,0,-5]];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="100" width="10" x="355" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="id-56bbdd4a" parent="1" style="html=1;points=[[0,0,0,0,5],[0,1,0,0,-5],[1,0,0,0,5],[1,1,0,0,-5]];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="53" width="10" x="359" y="845" as="geometry" />
+        </mxCell>
+        <mxCell id="id-2f4ce093" parent="1" style="html=1;points=[[0,0,0,0,5],[0,1,0,0,-5],[1,0,0,0,5],[1,1,0,0,-5]];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="970" width="10" x="635" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="id-4c0a16a4" parent="1" style="html=1;points=[[0,0,0,0,5],[0,1,0,0,-5],[1,0,0,0,5],[1,1,0,0,-5]];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="388" width="10" x="915" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="id-72da9078" parent="1" style="html=1;points=[[0,0,0,0,5],[0,1,0,0,-5],[1,0,0,0,5],[1,1,0,0,-5]];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="292" width="10" x="919" y="770" as="geometry" />
+        </mxCell>
+        <mxCell id="id-44393e5f" parent="1" style="html=1;points=[[0,0,0,0,5],[0,1,0,0,-5],[1,0,0,0,5],[1,1,0,0,-5]];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="345" width="10" x="1195" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="id-fab1c9a0" parent="1" style="html=1;points=[[0,0,0,0,5],[0,1,0,0,-5],[1,0,0,0,5],[1,1,0,0,-5]];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="238" width="10" x="1199" y="798" as="geometry" />
+        </mxCell>
+        <mxCell id="id-412de58c" parent="1" style="html=1;points=[[0,0,0,0,5],[0,1,0,0,-5],[1,0,0,0,5],[1,1,0,0,-5]];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="124" width="10" x="1699" y="286" as="geometry" />
+        </mxCell>
+        <mxCell id="id-e930b8ae" parent="1" style="html=1;points=[[0,0,0,0,5],[0,1,0,0,-5],[1,0,0,0,5],[1,1,0,0,-5]];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="112" width="10" x="1849" y="1148" as="geometry" />
+        </mxCell>
+        <mxCell id="id-d406dd3f" parent="1" style="shape=line;strokeWidth=2;align=center;labelBackgroundColor=default;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Khởi chạy Phiên sạc qua mã QR Booking" vertex="1">
+          <mxGeometry height="20" width="2070" x="50" y="86" as="geometry" />
+        </mxCell>
+        <mxCell id="id-5e42799e" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Quét mã QR Booking tại Kiosk">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="80" y="120" as="sourcePoint" />
+            <mxPoint x="640" y="120" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-30257bea" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="POST /api/v1/charging/start\n{ bookingId, qrToken, chargerId }">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="640" y="144" as="sourcePoint" />
+            <mxPoint x="920" y="144" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-c50ff767" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="startSessionWithBooking(dto)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="920" y="168" as="sourcePoint" />
+            <mxPoint x="1200" y="168" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-482cb296" edge="1" parent="1" style="html=1;align=left;spacingLeft=2;endArrow=block;rounded=0;edgeStyle=orthogonalEdgeStyle;curved=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="verifyQrToken(qrToken)\n//Xác minh JWT 15 phút, khớp bookingId//">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1230" y="184" />
+            </Array>
+            <mxPoint x="1200" y="169" as="sourcePoint" />
+            <mxPoint x="1205" y="199" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-17e87d7e" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="findBookingAndCheckStatus()">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1200" y="225" as="sourcePoint" />
+            <mxPoint x="1480" y="225" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-b56979e2" edge="1" parent="1" style="html=1;align=left;spacingLeft=2;endArrow=block;rounded=0;edgeStyle=orthogonalEdgeStyle;curved=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="validate(booking.status == CONFIRMED)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1230" y="250" />
+            </Array>
+            <mxPoint x="1200" y="235" as="sourcePoint" />
+            <mxPoint x="1205" y="265" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-fc4fc1a5" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" target="id-9e725b0e" value="POST /ocpp/internal/remote-start\n{ chargerId, idTag }">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1200" y="288" as="sourcePoint" />
+            <mxPoint x="1760" y="288" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-7f1b7c52" edge="1" parent="1" source="id-9e725b0e" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="[WebSocket] RemoteStartTransaction.req">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1760" y="312" as="sourcePoint" />
+            <mxPoint x="360" y="312" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-63aa0ed8" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" target="id-9e725b0e" value="RemoteStartTransaction.conf (ACCEPTED)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="360" y="336" as="sourcePoint" />
+            <mxPoint x="1760" y="336" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-d402b26d" edge="1" parent="1" source="id-412de58c" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Start Command Accepted">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1760" y="360" as="sourcePoint" />
+            <mxPoint x="1200" y="360" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-560adadc" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" target="id-9e725b0e" value="[WebSocket] StartTransaction.req">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="360" y="384" as="sourcePoint" />
+            <mxPoint x="1760" y="384" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-4fc6496d" edge="1" parent="1" source="id-9e725b0e" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="StartTransaction.conf (transactionId)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1760" y="408" as="sourcePoint" />
+            <mxPoint x="360" y="408" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-08ea3fc4" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="insert(ChargingSession)\nupdate(Booking.status = CHECKED_IN)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1200" y="456" as="sourcePoint" />
+            <mxPoint x="1480" y="456" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-57ecd4ef" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="ChargingSession { status: IN_PROGRESS }">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1200" y="504" as="sourcePoint" />
+            <mxPoint x="920" y="504" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-45bfcdb5" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="200 OK (Session Info)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="920" y="528" as="sourcePoint" />
+            <mxPoint x="640" y="528" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-c8c9e859" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Hiển thị Đang sạc...">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="640" y="552" as="sourcePoint" />
+            <mxPoint x="80" y="552" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-3d1ad9d5" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="POST /ocpp/internal/remote-start">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1200" y="600" as="sourcePoint" />
+            <mxPoint x="1700" y="600" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-775ac7de" edge="1" parent="1" source="id-d8f48b45" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Error(Charger Offline)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1710" y="624" as="sourcePoint" />
+            <mxPoint x="1200" y="624" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-efa9b98a" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Throw Exception(&quot;Thiết bị mất kết nối&quot;)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1200" y="648" as="sourcePoint" />
+            <mxPoint x="920" y="648" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-042dec23" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="503 Service Unavailable">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="920" y="672" as="sourcePoint" />
+            <mxPoint x="640" y="672" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-6c98592f" parent="1" style="shape=line;strokeWidth=2;align=center;labelBackgroundColor=default;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Kết thúc Phiên sạc" vertex="1">
+          <mxGeometry height="20" width="2070" x="50" y="706" as="geometry" />
+        </mxCell>
+        <mxCell id="id-409c5f88" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Bấm &quot;Kết thúc sạc&quot; trên App / Kiosk">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="80" y="748" as="sourcePoint" />
+            <mxPoint x="640" y="748" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-4ef0706b" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="POST /api/v1/charging/stop/:sessionId">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="640" y="772" as="sourcePoint" />
+            <mxPoint x="920" y="772" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-1951f1f7" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="stopSession(sessionId, userId)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="920" y="796" as="sourcePoint" />
+            <mxPoint x="1200" y="796" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-305130fc" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="POST /ocpp/internal/remote-stop">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1200" y="820" as="sourcePoint" />
+            <mxPoint x="1703.5000000000005" y="820" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-0e522c33" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="[WebSocket] RemoteStopTransaction.req">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1703.5000000000005" y="844" as="sourcePoint" />
+            <mxPoint x="360" y="844" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-1d86ff7f" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="RemoteStopTransaction.conf (ACCEPTED)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="360" y="870" as="sourcePoint" />
+            <mxPoint x="1703.5" y="870" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-1bc00850" edge="1" parent="1" source="id-620c7aac" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);exitX=0;exitY=1;exitDx=0;exitDy=-5;exitPerimeter=0;" target="id-fab1c9a0" value="Stop Command Accepted">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1760" y="892" as="sourcePoint" />
+            <mxPoint x="1200" y="892" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-95d65508" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="[WebSocket] StopTransaction.req (meterStop)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="360" y="898" as="sourcePoint" />
+            <mxPoint x="1699" y="898" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-ea9bfb86" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="update(Session.status = COMPLETED, endMeter)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1200" y="964" as="sourcePoint" />
+            <mxPoint x="1480" y="964" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-a9cadab2" edge="1" parent="1" style="html=1;align=left;spacingLeft=2;endArrow=block;rounded=0;edgeStyle=orthogonalEdgeStyle;curved=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="calculate(kwhConsumed, duration)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1235" y="1003" />
+            </Array>
+            <mxPoint x="1205" y="988" as="sourcePoint" />
+            <mxPoint x="1210" y="1018" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-31d75db2" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="200 OK">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1200" y="1036" as="sourcePoint" />
+            <mxPoint x="920" y="1036" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-d9ec03d7" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="200 OK">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="920" y="1060" as="sourcePoint" />
+            <mxPoint x="640" y="1060" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-0bd7ed32" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Sạc hoàn tất. Chờ đối soát...">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="640" y="1084" as="sourcePoint" />
+            <mxPoint x="80" y="1084" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-73f6b9f7" parent="1" style="shape=line;strokeWidth=2;align=center;labelBackgroundColor=default;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Tính phí (Billing Event)" vertex="1">
+          <mxGeometry height="20" width="2070" x="50" y="1110" as="geometry" />
+        </mxCell>
+        <mxCell id="id-b723d33d" edge="1" parent="1" style="html=1;align=left;spacingLeft=2;endArrow=block;rounded=0;edgeStyle=orthogonalEdgeStyle;curved=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="calculateFinalFee(kwhConsumed)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1884" y="1183" />
+            </Array>
+            <mxPoint x="1854" y="1168" as="sourcePoint" />
+            <mxPoint x="1859" y="1198" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-0f9f9cc4" edge="1" parent="1" style="html=1;align=left;spacingLeft=2;endArrow=block;rounded=0;edgeStyle=orthogonalEdgeStyle;curved=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="deductWallet(finalFee)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1884" y="1207" />
+            </Array>
+            <mxPoint x="1854" y="1192" as="sourcePoint" />
+            <mxPoint x="1859" y="1222" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-3e29710d" parent="1" style="shape=umlFrame;whiteSpace=wrap;html=1;pointerEvents=0;width=351;height=24;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="OPT Ngoại lệ: Thiết bị mất kết nối mạng" vertex="1">
+          <mxGeometry height="130" width="2090" x="30" y="566" as="geometry" />
+        </mxCell>
+        <mxCell id="N1mGbyrOUAhE4RM7TOSP-2" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" target="id-d8f48b45" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1710" y="624" as="sourcePoint" />
+            <mxPoint x="1200" y="624" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-d8f48b45" parent="1" style="html=1;points=[[0,0,0,0,5],[0,1,0,0,-5],[1,0,0,0,5],[1,1,0,0,-5]];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="30" width="10" x="1699" y="596" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,406 @@
+<mxfile host="Electron">
+  <diagram name="Sequence" id="id-76aabdee">
+    <mxGraphModel dx="1693" dy="1098" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2000" pageHeight="3000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="kSjdVUU1DDJpYiFEDoZU-3" connectable="0" parent="1" style="group" value="" vertex="1">
+          <mxGeometry height="1430" width="150" x="5" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="id-73d8f3b7" parent="kSjdVUU1DDJpYiFEDoZU-3" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};participant=umlActor;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="1430" width="20" x="65" as="geometry" />
+        </mxCell>
+        <mxCell id="fM9NvjCQZvWGrUOq1mz6-2" parent="kSjdVUU1DDJpYiFEDoZU-3" style="text;whiteSpace=wrap;html=1;align=center;" value="&lt;span style=&quot;color: rgb(0, 0, 0); font-family: Helvetica; font-size: 14px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 700; letter-spacing: normal; orphans: 2; text-indent: 0px; text-transform: none; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; white-space: normal; background-color: rgb(255, 255, 255); text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial; float: none; display: inline !important;&quot;&gt;Khách / Người dùng (ACT-01, ACT-02)&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="140" x="5" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="id-296986a5" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Mobile App /&amp;#xa;Web Client" vertex="1">
+          <mxGeometry height="1400" width="100" x="310" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="id-1dab05bc" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Kong API Gateway" vertex="1">
+          <mxGeometry height="1400" width="100" x="590" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="id-5f7f4f8e" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="AuthController" vertex="1">
+          <mxGeometry height="1400" width="100" x="870" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="id-db598edb" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="AuthService" vertex="1">
+          <mxGeometry height="1400" width="100" x="1150" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="id-f680a79c" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="UserRepository" vertex="1">
+          <mxGeometry height="1400" width="110" x="1425" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="id-83bbb3a8" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};size=40;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="PostgreSQL&amp;#xa;(iam_db)" vertex="1">
+          <mxGeometry height="1400" width="100" x="1710" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="id-52159a0d" parent="1" style="html=1;points=[[0,0,0,0,5],[0,1,0,0,-5],[1,0,0,0,5],[1,1,0,0,-5]];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="330" width="10" x="355" y="171" as="geometry" />
+        </mxCell>
+        <mxCell id="id-d400f1f3" parent="1" style="html=1;points=[[0,0,0,0,5],[0,1,0,0,-5],[1,0,0,0,5],[1,1,0,0,-5]];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="893" width="10" x="359" y="547" as="geometry" />
+        </mxCell>
+        <mxCell id="id-2a54a8b0" parent="1" style="html=1;points=[[0,0,0,0,5],[0,1,0,0,-5],[1,0,0,0,5],[1,1,0,0,-5]];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="814" width="10" x="635" y="573" as="geometry" />
+        </mxCell>
+        <mxCell id="id-03fe42de" parent="1" style="html=1;points=[[0,0,0,0,5],[0,1,0,0,-5],[1,0,0,0,5],[1,1,0,0,-5]];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="290" width="10" x="635" y="188" as="geometry" />
+        </mxCell>
+        <mxCell id="id-2f293dcf" parent="1" style="html=1;points=[[0,0,0,0,5],[0,1,0,0,-5],[1,0,0,0,5],[1,1,0,0,-5]];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="243" width="10" x="915" y="212" as="geometry" />
+        </mxCell>
+        <mxCell id="id-120d942c" parent="1" style="html=1;points=[[0,0,0,0,5],[0,1,0,0,-5],[1,0,0,0,5],[1,1,0,0,-5]];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="774" width="10" x="916" y="596" as="geometry" />
+        </mxCell>
+        <mxCell id="id-75f0e52d" parent="1" style="html=1;points=[[0,0,0,0,5],[0,1,0,0,-5],[1,0,0,0,5],[1,1,0,0,-5]];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="200" width="10" x="1195" y="232" as="geometry" />
+        </mxCell>
+        <mxCell id="id-e4be1d89" parent="1" style="html=1;points=[[0,0,0,0,5],[0,1,0,0,-5],[1,0,0,0,5],[1,1,0,0,-5]];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="720" width="10" x="1196" y="622" as="geometry" />
+        </mxCell>
+        <mxCell id="id-2c6f9792" parent="1" style="html=1;points=[[0,0,0,0,5],[0,1,0,0,-5],[1,0,0,0,5],[1,1,0,0,-5]];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="30" width="10" x="1475" y="258" as="geometry" />
+        </mxCell>
+        <mxCell id="id-b48a2edd" parent="1" style="html=1;points=[[0,0,0,0,5],[0,1,0,0,-5],[1,0,0,0,5],[1,1,0,0,-5]];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="73" width="10" x="1475" y="335" as="geometry" />
+        </mxCell>
+        <mxCell id="id-785e8c31" parent="1" style="html=1;points=[[0,0,0,0,5],[0,1,0,0,-5],[1,0,0,0,5],[1,1,0,0,-5]];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="" vertex="1">
+          <mxGeometry height="77" width="10" x="1476" y="642" as="geometry" />
+        </mxCell>
+        <mxCell id="id-f13c52e3" parent="1" style="shape=line;strokeWidth=2;align=center;labelBackgroundColor=default;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Đăng ký Tài khoản" vertex="1">
+          <mxGeometry height="20" width="1790" x="30" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="id-516c28fc" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Nhập thông tin đăng ký (email, password, full_name)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="80" y="172" as="sourcePoint" />
+            <mxPoint x="360" y="172" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-162c3567" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="POST /api/v1/auth/register">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="360" y="189" as="sourcePoint" />
+            <mxPoint x="640" y="189" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-706238d4" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Reroute request">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="640" y="213" as="sourcePoint" />
+            <mxPoint x="920" y="213" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-7f31565e" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="register(dto)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="920" y="237" as="sourcePoint" />
+            <mxPoint x="1200" y="237" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-a8185059" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="findByEmail(email)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1200" y="261" as="sourcePoint" />
+            <mxPoint x="1480" y="261" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-3c90efee" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="null (Chưa tồn tại)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1480" y="285" as="sourcePoint" />
+            <mxPoint x="1200" y="285" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-f7c72f43" edge="1" parent="1" style="html=1;align=left;spacingLeft=2;endArrow=block;rounded=0;edgeStyle=orthogonalEdgeStyle;curved=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="hashPassword = bcrypt.hash(password, salt)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1200" y="303" />
+              <mxPoint x="1220" y="303" />
+              <mxPoint x="1220" y="318" />
+            </Array>
+            <mxPoint x="1200" y="297" as="sourcePoint" />
+            <mxPoint x="1205" y="318" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-80cd4288" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="save(UserEntity)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1200" y="339" as="sourcePoint" />
+            <mxPoint x="1480" y="339" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-1e287af2" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="INSERT INTO users ...">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1480" y="357" as="sourcePoint" />
+            <mxPoint x="1760" y="357" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-b2129745" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="1 row inserted">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1760" y="381" as="sourcePoint" />
+            <mxPoint x="1480" y="381" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-e96ffa98" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="User Profile">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1480" y="405" as="sourcePoint" />
+            <mxPoint x="1200" y="405" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-fb0e095d" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="User Profile">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1200" y="429" as="sourcePoint" />
+            <mxPoint x="920" y="429" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-bbb89c24" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="201 Created (Profile)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="920" y="453" as="sourcePoint" />
+            <mxPoint x="640" y="453" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-76b1a0ee" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="201 Created">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="640" y="477" as="sourcePoint" />
+            <mxPoint x="360" y="477" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-4a19f52c" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Hiển thị thông báo thành công">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="360" y="501" as="sourcePoint" />
+            <mxPoint x="80" y="501" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-766909ba" parent="1" style="shape=line;strokeWidth=2;align=center;labelBackgroundColor=default;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Đăng nhập &amp; Xác thực Đa yếu tố" vertex="1">
+          <mxGeometry height="20" width="1790" x="30" y="514" as="geometry" />
+        </mxCell>
+        <mxCell id="id-593d3714" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Nhập email, password">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="80" y="548" as="sourcePoint" />
+            <mxPoint x="360" y="548" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-468f5a25" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="POST /api/v1/auth/login">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="360" y="572" as="sourcePoint" />
+            <mxPoint x="640" y="572" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-1c9e6756" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Reroute request">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="640" y="596" as="sourcePoint" />
+            <mxPoint x="920" y="596" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-a068c468" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="login(dto)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="920" y="620" as="sourcePoint" />
+            <mxPoint x="1200" y="620" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-812baa7d" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="findByEmail(email)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1200" y="644" as="sourcePoint" />
+            <mxPoint x="1480" y="644" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-2e47be59" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="SELECT * FROM users">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1480" y="668" as="sourcePoint" />
+            <mxPoint x="1760" y="668" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-d35dcf71" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="User record">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1760" y="692" as="sourcePoint" />
+            <mxPoint x="1480" y="692" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-e337258c" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="UserEntity">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1480" y="716" as="sourcePoint" />
+            <mxPoint x="1200" y="716" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-68459e22" edge="1" parent="1" style="html=1;align=left;spacingLeft=2;endArrow=block;rounded=0;edgeStyle=orthogonalEdgeStyle;curved=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" target="id-e4be1d89" value="checkLocked(user.locked_until)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1220" y="740" />
+              <mxPoint x="1220" y="760" />
+            </Array>
+            <mxPoint x="1200" y="740" as="sourcePoint" />
+            <mxPoint x="1205" y="752" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-ddc3c122" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Throw UnauthorizedException(&quot;Account locked&quot;)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1200" y="788" as="sourcePoint" />
+            <mxPoint x="920" y="788" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-532f6ba0" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="401 Unauthorized">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="920" y="812" as="sourcePoint" />
+            <mxPoint x="640" y="812" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-76e806a1" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" target="id-d400f1f3" value="401 Unauthorized">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="640" y="836" as="sourcePoint" />
+            <mxPoint x="360" y="836" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-5ff177b5" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Báo lỗi: Tài khoản bị khóa tạm thời">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="360" y="860" as="sourcePoint" />
+            <mxPoint x="80" y="860" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-a165eefa" edge="1" parent="1" style="html=1;align=left;spacingLeft=2;endArrow=block;rounded=0;edgeStyle=orthogonalEdgeStyle;curved=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="bcrypt.compare(password, hash)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1200" y="910" />
+              <mxPoint x="1220" y="910" />
+              <mxPoint x="1220" y="926" />
+              <mxPoint x="1205" y="926" />
+            </Array>
+            <mxPoint x="1200" y="904" as="sourcePoint" />
+            <mxPoint x="1200" y="926" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-aaf0627a" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="incrementFailedLogins()">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1200" y="956" as="sourcePoint" />
+            <mxPoint x="1480" y="956" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-500e220a" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Throw UnauthorizedException(&quot;Invalid credentials&quot;)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1200" y="980" as="sourcePoint" />
+            <mxPoint x="920" y="980" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-a4380044" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="resetFailedLogins()">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1200" y="1012" as="sourcePoint" />
+            <mxPoint x="1480" y="1012" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-c950ecde" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="MFA_REQUIRED">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1200" y="1076" as="sourcePoint" />
+            <mxPoint x="920" y="1076" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-a63405d4" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="403 Forbidden (Require TOTP)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="920" y="1100" as="sourcePoint" />
+            <mxPoint x="640" y="1100" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-20caa3b0" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Yêu cầu mã xác thực TOTP">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="640" y="1124" as="sourcePoint" />
+            <mxPoint x="360" y="1124" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-79211d70" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Hiển thị form nhập mã TOTP">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="360" y="1148" as="sourcePoint" />
+            <mxPoint x="80" y="1148" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-6ac49837" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Nhập mã TOTP (từ Google Authenticator)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="80" y="1172" as="sourcePoint" />
+            <mxPoint x="360" y="1172" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-bd713b11" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="POST /api/v1/auth/mfa/verify">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="360" y="1196" as="sourcePoint" />
+            <mxPoint x="640" y="1196" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-8efcfc2c" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="verifyMfa(userId, token)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="640" y="1220" as="sourcePoint" />
+            <mxPoint x="920" y="1220" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-c34c0f6e" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="verifyTotp(secret, token)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="920" y="1244" as="sourcePoint" />
+            <mxPoint x="1200" y="1244" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-a2bc94d2" edge="1" parent="1" style="html=1;align=left;spacingLeft=2;endArrow=block;rounded=0;edgeStyle=orthogonalEdgeStyle;curved=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Validate TOTP Algorithm">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1200" y="1267" />
+              <mxPoint x="1220" y="1267" />
+              <mxPoint x="1220" y="1283" />
+              <mxPoint x="1205" y="1283" />
+            </Array>
+            <mxPoint x="1200" y="1261" as="sourcePoint" />
+            <mxPoint x="1200" y="1283" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-ecbdc22b" edge="1" parent="1" style="html=1;align=left;spacingLeft=2;endArrow=block;rounded=0;edgeStyle=orthogonalEdgeStyle;curved=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="generateTokens() -&gt; {accessToken(15m), refreshToken(7d)}">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1200" y="1299" />
+              <mxPoint x="1220" y="1299" />
+              <mxPoint x="1220" y="1314" />
+              <mxPoint x="1205" y="1314" />
+            </Array>
+            <mxPoint x="1200" y="1293" as="sourcePoint" />
+            <mxPoint x="1200" y="1314" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-a3249856" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="saveAuthSession(refreshTokenHash)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1200" y="1336" as="sourcePoint" />
+            <mxPoint x="1480" y="1336" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-0d43fe16" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Token Response">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1200" y="1342" as="sourcePoint" />
+            <mxPoint x="920" y="1342" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-612c4cab" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="200 OK {accessToken, refreshToken}">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="920" y="1364" as="sourcePoint" />
+            <mxPoint x="640" y="1364" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-afe8cb7e" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="200 OK">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="640" y="1388" as="sourcePoint" />
+            <mxPoint x="360" y="1388" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-e836b6eb" edge="1" parent="1" style="html=1;align=left;spacingLeft=2;endArrow=block;rounded=0;edgeStyle=orthogonalEdgeStyle;curved=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Lưu JWT vào Secure Storage">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="364" y="1402" />
+              <mxPoint x="384" y="1402" />
+              <mxPoint x="384" y="1414" />
+              <mxPoint x="369" y="1414" />
+            </Array>
+            <mxPoint x="364" y="1396" as="sourcePoint" />
+            <mxPoint x="364" y="1414" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-12554809" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Đăng nhập thành công, vào màn hình chính">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="360" y="1436" as="sourcePoint" />
+            <mxPoint x="80" y="1436" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="id-c7db52d7" parent="1" style="shape=umlFrame;whiteSpace=wrap;html=1;pointerEvents=0;width=280;height=18;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="OPT Nếu bật MFA (MFA_enabled = true)" vertex="1">
+          <mxGeometry height="250" width="1800" x="20" y="1042" as="geometry" />
+        </mxCell>
+        <mxCell id="id-3bc37aaa" parent="1" style="shape=umlFrame;whiteSpace=wrap;html=1;pointerEvents=0;width=130;height=18;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="ALT Sai mật khẩu" vertex="1">
+          <mxGeometry height="538" width="1800" x="20" y="922" as="geometry" />
+        </mxCell>
+        <mxCell id="id-e1c67dd8" parent="1" style="shape=umlFrame;whiteSpace=wrap;html=1;pointerEvents=0;width=240;height=16;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="ALT Tạm khóa do Brute-force" vertex="1">
+          <mxGeometry height="706" width="1800" x="20" y="754" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
