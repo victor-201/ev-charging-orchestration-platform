@@ -1,0 +1,101 @@
+<mxfile host="Electron">
+  <diagram name="Page-1" id="aa39eb7f-d1bc-4519-9224-7e3e1c3c86d7">
+    <mxGraphModel dx="1195" dy="775" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="g1" parent="1" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontColor=#2C3E50;" value="Ví Điện Tử (Wallet)" vertex="1">
+          <mxGeometry height="400" width="360" x="40" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="w_start" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#2C3E50;strokeColor=#2C3E50;" value="" vertex="1">
+          <mxGeometry height="20" width="20" x="210" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="w_active" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;strokeWidth=2;fillColor=#ffffff;strokeColor=#2C3E50;fontColor=#2C3E50;" value="ACTIVE" vertex="1">
+          <mxGeometry height="40" width="160" x="140" y="180" as="geometry" />
+        </mxCell>
+        <mxCell id="w_locked" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;strokeWidth=2;fillColor=#ffffff;strokeColor=#2C3E50;fontColor=#2C3E50;" value="LOCKED" vertex="1">
+          <mxGeometry height="40" width="160" x="140" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="ew1" edge="1" parent="1" source="w_start" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2C3E50;fontColor=#2C3E50;labelBackgroundColor=none;" target="w_active" value="&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212));&quot;&gt;Tạo ví lần đầu&lt;/span&gt;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ew2" edge="1" parent="1" source="w_active" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2C3E50;fontColor=#2C3E50;labelBackgroundColor=none;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="w_locked" value="&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212));&quot;&gt;Phát sinh công nợ (Arrears) chưa thanh toán&lt;/span&gt;">
+          <mxGeometry relative="1" x="-0.3333" y="-40" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ew3" edge="1" parent="1" source="w_locked" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2C3E50;fontColor=#2C3E50;labelBackgroundColor=none;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="w_active" value="&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212));&quot;&gt;Đã thanh toán đầy đủ công nợ&lt;/span&gt;">
+          <mxGeometry relative="1" x="-0.2222" y="-10" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="nw" parent="1" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#2C3E50;" value="Ví bị KHÓA sẽ không thể&lt;br&gt;thực hiện việc đặt lịch mới." vertex="1">
+          <mxGeometry height="60" width="200" x="40" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="edw" edge="1" parent="1" source="nw" style="edgeStyle=none;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2C3E50;dashed=1;endArrow=none;endFill=0;" target="g1" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g2" parent="1" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontColor=#2C3E50;" value="Giao Dịch Thanh Toán (Transaction)" vertex="1">
+          <mxGeometry height="400" width="420" x="440" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="t_start" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#2C3E50;strokeColor=#2C3E50;" value="" vertex="1">
+          <mxGeometry height="20" width="20" x="630" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="t_pending" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;strokeWidth=2;fillColor=#ffffff;strokeColor=#2C3E50;fontColor=#2C3E50;" value="PENDING" vertex="1">
+          <mxGeometry height="40" width="160" x="560" y="180" as="geometry" />
+        </mxCell>
+        <mxCell id="t_completed" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;strokeWidth=2;fillColor=#ffffff;strokeColor=#2C3E50;fontColor=#2C3E50;" value="COMPLETED" vertex="1">
+          <mxGeometry height="40" width="160" x="460" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="t_failed" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;strokeWidth=2;fillColor=#ffffff;strokeColor=#2C3E50;fontColor=#2C3E50;" value="FAILED" vertex="1">
+          <mxGeometry height="40" width="160" x="680" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="t_end" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=none;strokeColor=#2C3E50;strokeWidth=2;" value="" vertex="1">
+          <mxGeometry height="30" width="30" x="625" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="t_end_inner" parent="t_end" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#2C3E50;strokeColor=none;" value="" vertex="1">
+          <mxGeometry height="18" relative="1" width="18" x="0.2" y="0.2" as="geometry" />
+        </mxCell>
+        <mxCell id="et1" edge="1" parent="1" source="t_start" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2C3E50;fontColor=#2C3E50;labelBackgroundColor=none;" target="t_pending" value="&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212));&quot;&gt;Khởi tạo giao dịch (Nạp tiền / Trừ tiền)&lt;/span&gt;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="et2" edge="1" parent="1" source="t_pending" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2C3E50;fontColor=#2C3E50;labelBackgroundColor=none;align=center;" target="t_completed" value="&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212));&quot;&gt;Xác nhận thanh toán thành công&lt;/span&gt;">
+          <mxGeometry relative="1" x="0.1664" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="540" y="200" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="et3" edge="1" parent="1" source="t_pending" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2C3E50;fontColor=#2C3E50;labelBackgroundColor=none;align=center;" target="t_failed" value="&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212));&quot;&gt;Giao dịch bị từ chối / Sai mã băm&lt;/span&gt;">
+          <mxGeometry relative="1" x="0.2859" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="760" y="200" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="et4" edge="1" parent="1" source="t_completed" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2C3E50;fontColor=#2C3E50;labelBackgroundColor=none;align=center;" target="t_end" value="&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212));&quot;&gt;Cập nhật Sổ cái (Ledger)&lt;/span&gt;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="540" y="415" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="et5" edge="1" parent="1" source="t_failed" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2C3E50;fontColor=#2C3E50;labelBackgroundColor=none;align=center;" target="t_end" value="&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212));&quot;&gt;Ghi nhận lỗi&lt;/span&gt;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="760" y="415" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="nt" parent="1" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#2C3E50;" value="Giao dịch đang ở PENDING sẽ&lt;br&gt;chờ phản hồi bất đồng bộ từ&lt;br&gt;cổng thanh toán bên thứ ba." vertex="1">
+          <mxGeometry height="80" width="240" x="620" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="edt" edge="1" parent="1" source="nt" style="edgeStyle=none;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2C3E50;dashed=1;endArrow=none;endFill=0;" target="g2" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

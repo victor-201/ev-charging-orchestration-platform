@@ -1,0 +1,68 @@
+<mxfile host="Electron">
+  <diagram name="Page-1" id="120cd709-ea86-406c-a4ac-71afb65a464c">
+    <mxGraphModel dx="1016" dy="659" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="n1" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#2C3E50;strokeColor=#2C3E50;" value="" vertex="1">
+          <mxGeometry height="20" width="20" x="410" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="n2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;strokeWidth=2;fillColor=#ffffff;strokeColor=#2C3E50;fontColor=#2C3E50;" value="IN_PROGRESS" vertex="1">
+          <mxGeometry height="40" width="160" x="340" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="n3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;strokeWidth=2;fillColor=#ffffff;strokeColor=#2C3E50;fontColor=#2C3E50;" value="COMPLETED" vertex="1">
+          <mxGeometry height="40" width="160" x="340" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="n4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;strokeWidth=2;fillColor=#ffffff;strokeColor=#2C3E50;fontColor=#2C3E50;" value="FORCE_STOPPED" vertex="1">
+          <mxGeometry height="40" width="160" x="70" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="n5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;strokeWidth=2;fillColor=#ffffff;strokeColor=#2C3E50;fontColor=#2C3E50;" value="FAILED" vertex="1">
+          <mxGeometry height="40" width="160" x="620" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="n6" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=none;strokeColor=#2C3E50;strokeWidth=2;" value="" vertex="1">
+          <mxGeometry height="30" width="30" x="405" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="n6_inner" parent="n6" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#2C3E50;strokeColor=none;" value="" vertex="1">
+          <mxGeometry height="18" relative="1" width="18" x="0.2" y="0.2" as="geometry" />
+        </mxCell>
+        <mxCell id="n_note" parent="1" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#2C3E50;" value="Trong quá trình sạc, hệ thống&lt;br&gt;liên tục nhận các tín hiệu viễn trắc&lt;br&gt;nhưng trạng thái phiên vẫn giữ nguyên." vertex="1">
+          <mxGeometry height="80" width="240" x="530" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e_note" edge="1" parent="1" source="n_note" style="edgeStyle=none;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2C3E50;dashed=1;endArrow=none;endFill=0;exitX=0;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;" target="n2" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="530" y="126.52173913043475" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="n1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2C3E50;fontColor=#2C3E50;labelBackgroundColor=none;" target="n2" value="&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212));&quot;&gt;Thiết bị IoT báo cáo đã bắt đầu sạc&lt;/span&gt;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="n2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2C3E50;fontColor=#2C3E50;labelBackgroundColor=none;" target="n3" value="&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212));&quot;&gt;Người dùng yêu cầu ngắt sạc thành công&lt;/span&gt;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="n2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2C3E50;fontColor=#2C3E50;labelBackgroundColor=none;" target="n4" value="&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212));&quot;&gt;Quản trị viên can thiệp ngắt khẩn cấp&lt;/span&gt;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="n2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2C3E50;fontColor=#2C3E50;labelBackgroundColor=none;align=center;" target="n5" value="&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212));&quot;&gt;Thiết bị báo cáo lỗi đoản mạch/quá tải&lt;/span&gt;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="n3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2C3E50;fontColor=#2C3E50;labelBackgroundColor=none;" target="n6" value="&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212));&quot;&gt;Tiến hành tính toán chi phí&lt;/span&gt;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="n4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2C3E50;fontColor=#2C3E50;labelBackgroundColor=none;align=left;" target="n6" value="&lt;div style=&quot;&quot;&gt;&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212)); color: light-dark(rgb(44, 62, 80), rgb(173, 188, 204));&quot;&gt;Tính toán chi phí &amp;amp; Ghi nhận sự cố&lt;/span&gt;&lt;/div&gt;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="150" y="475" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="n5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2C3E50;fontColor=#2C3E50;labelBackgroundColor=none;align=right;" target="n6" value="&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212));&quot;&gt;Gửi thông báo lỗi cho người dùng&lt;/span&gt;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="700" y="475" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
