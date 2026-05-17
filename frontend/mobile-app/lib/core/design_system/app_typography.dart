@@ -1,46 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Typography hệ thống — Be Vietnam Pro (Google Fonts) §3.2
+/// Global typography styles utilizing Google Fonts (Be Vietnam Pro)
 /// Font stack: Be Vietnam Pro → Roboto → sans-serif
 abstract class AppTypography {
   static TextTheme get textTheme => TextTheme(
-        // displayLg — 32sp / Bold — Hiển thị chi phí phiên sạc VNĐ
+        // displayLg — VND currency charging session meters
         displayLarge: _beVietnamPro(
           fontSize: 32,
           fontWeight: FontWeight.w700,
         ),
-        // displayMd — 24sp / Bold — Số dư ví
+        // displayMd — Wallet ledger balances
         displayMedium: _beVietnamPro(
           fontSize: 24,
           fontWeight: FontWeight.w700,
         ),
-        // headingLg — 20sp / SemiBold — Tiêu đề AppBar, header màn hình
+        // headingLg — AppBar and screen layout headers
         headlineLarge: _beVietnamPro(
           fontSize: 20,
           fontWeight: FontWeight.w600,
         ),
-        // headingMd — 17sp / SemiBold — Tiêu đề card, header section
+        // headingMd — Card titles and dashboard section headers
         headlineMedium: _beVietnamPro(
           fontSize: 17,
           fontWeight: FontWeight.w600,
         ),
-        // bodyLg — 16sp / Regular — Nội dung, trường nhập
+        // bodyLg — Main descriptive contents and input forms
         bodyLarge: _beVietnamPro(
           fontSize: 16,
           fontWeight: FontWeight.w400,
         ),
-        // bodyMd — 14sp / Regular — Văn bản phụ, phụ đề
+        // bodyMd — Auxiliary descriptions and subheadings
         bodyMedium: _beVietnamPro(
           fontSize: 14,
           fontWeight: FontWeight.w400,
         ),
-        // bodySmall — 12sp / Regular — Dấu thời gian, metadata
+        // bodySmall — Timestamps, transactional metadata, and indices
         bodySmall: _beVietnamPro(
           fontSize: 12,
           fontWeight: FontWeight.w400,
         ),
-        // labelLarge — 11sp / Medium — Chip trạng thái (CAPS)
+        // labelLarge — Capitalized status badge chips
         labelLarge: _beVietnamPro(
           fontSize: 11,
           fontWeight: FontWeight.w500,
@@ -62,7 +62,7 @@ abstract class AppTypography {
     );
   }
 
-  // ── Token tiện ích ─────────────────────────────────────────
+  // ── Auxiliary Typography Token Extensions ──────────────────
   static TextStyle get displayLg => _beVietnamPro(
         fontSize: 32,
         fontWeight: FontWeight.w700,

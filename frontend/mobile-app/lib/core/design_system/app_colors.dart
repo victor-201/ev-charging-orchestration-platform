@@ -1,37 +1,37 @@
 import 'package:flutter/material.dart';
 
-/// Bảng màu ứng dụng — lấy từ §3.2 Design System (Material 3)
+/// Material 3 Design System core UI color tokens
 abstract class AppColors {
-  // ── Màu chính ─────────────────────────────────────────────
-  /// Xanh lá — trạm AVAILABLE, nút CTA, booking CONFIRMED
+  // ── Primary Brand Palette ─────────────────────────────────
+  /// Emerald Green — representing available nodes and confirmations
   static const Color primary = Color(0xFF00C853);
   static const Color onPrimary = Color(0xFFFFFFFF);
   static const Color primaryContainer = Color(0xFFB9F6CA);
   static const Color onPrimaryContainer = Color(0xFF00391A);
 
-  // ── Màu phụ ───────────────────────────────────────────────
-  /// Xanh dương — đang sạc, dữ liệu WS, polyline
+  // ── Secondary Telemetry Palette ───────────────────────────
+  /// Electric Blue — representing dynamic WebSocket connections
   static const Color secondary = Color(0xFF0288D1);
   static const Color onSecondary = Color(0xFFFFFFFF);
   static const Color secondaryContainer = Color(0xFFB3E5FC);
 
-  // ── Màu lỗi ───────────────────────────────────────────────
-  /// Đỏ — trạm FAULTED, banner nợ tồn đọng, NO_SHOW
+  // ── High-Risk Alerts Palette ──────────────────────────────
+  /// Crimson Red — representing faulted nodes and infractions
   static const Color error = Color(0xFFB00020);
   static const Color onError = Color(0xFFFFFFFF);
   static const Color errorContainer = Color(0xFFFFDAD6);
 
-  // ── Màu thành công ────────────────────────────────────────
-  /// Xanh lá đậm — xác thực email, thanh toán thành công
+  // ── Success Signals Palette ───────────────────────────────
+  /// Success Green — representing transactions and credential setups
   static const Color success = Color(0xFF2E7D32);
   static const Color successContainer = Color(0xFFE8F5E9);
 
-  // ── Màu cảnh báo ──────────────────────────────────────────
-  /// Cam — phí phạt dừng chờ, trạng thái bận
+  // ── Active Warnings Palette ────────────────────────────────
+  /// Orange warning indicator
   static const Color warning = Color(0xFFF57C00);
   static const Color warningContainer = Color(0xFFFFE0B2);
 
-  /// Vàng hổ phách — trạm RESERVED, booking PENDING_PAYMENT
+  /// Amber warning indicator
   static const Color amber = Color(0xFFFFC107);
   static const Color amberContainer = Color(0xFFFFF8E1);
 
@@ -45,14 +45,14 @@ abstract class AppColors {
   static const Color backgroundDark = Color(0xFF1A1A1A);
   static const Color outlineDark = Color(0xFF2C2C2C);
 
-  // ── Trạng thái trạm sạc (ChargerStatus enum) ─────────────
+  // ── Charging Station Status Color Mapping ───────────
   static const Color chargerAvailable = Color(0xFF00C853);
   static const Color chargerInUse = Color(0xFF0288D1);
   static const Color chargerReserved = Color(0xFFFFC107);
   static const Color chargerOffline = Color(0xFF9E9E9E);
   static const Color chargerFaulted = Color(0xFFB00020);
 
-  // ── Trạng thái đặt lịch (BookingStatus enum) ─────────────
+  // ── Charger Slot Reservation Color Mapping ───────────
   static const Color bookingPendingPayment = Color(0xFFFFC107);
   static const Color bookingConfirmed = Color(0xFF00C853);
   static const Color bookingCompleted = Color(0xFF0288D1);
@@ -60,14 +60,14 @@ abstract class AppColors {
   static const Color bookingExpired = Color(0xFF9E9E9E);
   static const Color bookingNoShow = Color(0xFFB00020);
 
-  // ── Các màu tiện ích ─────────────────────────────────────
+  // ── Auxiliary Styling Color Tokens ─────────────────────────
   static const Color grey400 = Color(0xFF9E9E9E);
   static const Color grey600 = Color(0xFF757575);
   static const Color grey800 = Color(0xFF424242);
   static const Color white = Color(0xFFFFFFFF);
   static const Color black = Color(0xFF000000);
 
-  // ── Helper lấy màu theo ChargerStatus ────────────────────
+  // ── Operational Charger State Color Helpers ───────────────
   static Color forChargerStatus(String status) {
     switch (status.toUpperCase()) {
       case 'AVAILABLE':
@@ -85,7 +85,7 @@ abstract class AppColors {
     }
   }
 
-  // ── Helper lấy màu theo BookingStatus ────────────────────
+  // ── Charger Reservation State Color Helpers ───────────────
   static Color forBookingStatus(String status) {
     switch (status.toUpperCase()) {
       case 'PENDING_PAYMENT':

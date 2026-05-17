@@ -4,7 +4,7 @@ import '../design_system/app_colors.dart';
 import '../design_system/app_theme.dart';
 import '../design_system/app_typography.dart';
 
-/// Skeleton loader chuẩn cho tất cả trạng thái loading
+/// Reusable shimmer loader for all async content loading
 class ShimmerLoader extends StatelessWidget {
   final double width;
   final double height;
@@ -36,7 +36,7 @@ class ShimmerLoader extends StatelessWidget {
   }
 }
 
-/// Skeleton loader cho card đặt lịch
+/// Shimmer layout placeholder for reservation cards
 class BookingCardShimmer extends StatelessWidget {
   const BookingCardShimmer({super.key});
 
@@ -61,7 +61,7 @@ class BookingCardShimmer extends StatelessWidget {
   }
 }
 
-/// Skeleton loader cho danh sách trạm sạc
+/// Shimmer layout placeholder for geocoded lists
 class StationListShimmer extends StatelessWidget {
   final int count;
   const StationListShimmer({super.key, this.count = 3});
@@ -86,7 +86,7 @@ class StationListShimmer extends StatelessWidget {
   }
 }
 
-/// Banner thông báo thoáng qua (4 giây tự đóng)
+/// Self-dismissing interactive status banner (4s duration)
 class NotificationBanner extends StatelessWidget {
   final String title;
   final String body;
@@ -161,7 +161,7 @@ class NotificationBanner extends StatelessWidget {
   }
 }
 
-/// Banner nợ tồn đọng — đỏ, cố định (ArrearsAlertBanner)
+/// Persistent high-visibility arrears warning banner
 class ArrearsAlertBanner extends StatelessWidget {
   final String amount;
   final VoidCallback? onTap;
@@ -212,7 +212,7 @@ class ArrearsAlertBanner extends StatelessWidget {
   }
 }
 
-/// Banner phí dừng chờ — vàng hổ phách, đếm ngược
+/// Dynamic idle tariff charge warning countdown banner
 class IdleFeeCountdownBanner extends StatelessWidget {
   final Duration remaining;
   final int projectedFeVnd;

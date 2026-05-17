@@ -3,10 +3,10 @@ import '../design_system/app_colors.dart';
 import '../design_system/app_theme.dart';
 import '../design_system/app_typography.dart';
 
-/// Các biến thể nút — primary, secondary, danger, outlined
+/// Visual configuration variants: primary, secondary, danger, outlined
 enum EVButtonVariant { primary, secondary, danger, outlined }
 
-/// Nút chuẩn EVoltSync — dùng thống nhất toàn ứng dụng
+/// Reusable high-fidelity button component for all UI screens
 class EVButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;

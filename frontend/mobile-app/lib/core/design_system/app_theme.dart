@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'app_colors.dart';
 import 'app_typography.dart';
 
-/// Khoảng cách — lưới 4px từ §3.2
+/// Standard spacing metrics based on 4px grid rules
 abstract class AppSpacing {
   static const double xs = 4;
   static const double sm = 8;
@@ -14,7 +14,7 @@ abstract class AppSpacing {
   static const double hero = 64;
 }
 
-/// Bán kính bo góc
+/// Geometric corner radius token metrics
 abstract class AppRadius {
   static const double sm = 8;
   static const double md = 12;
@@ -23,7 +23,7 @@ abstract class AppRadius {
   static const double full = 999;
 }
 
-/// Theme Material 3 — sáng và tối — từ §3.2
+/// Material 3 light and dark theme configurations
 class AppTheme {
   static ThemeData get light => ThemeData(
         useMaterial3: true,

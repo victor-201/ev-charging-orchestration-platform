@@ -3,7 +3,7 @@ import '../design_system/app_colors.dart';
 import '../design_system/app_theme.dart';
 import '../design_system/app_typography.dart';
 
-/// Card nâng cao với hiệu ứng gợn sóng (ripple)
+/// Animated surface container with ripple touch feedback
 class EVCard extends StatelessWidget {
   final Widget child;
   final VoidCallback? onTap;
@@ -50,7 +50,7 @@ class EVCard extends StatelessWidget {
   }
 }
 
-/// Badge trạng thái trạm sạc — 5 trạng thái (ChargerStatus enum)
+/// Status indicator badge mapping operational charger state colors
 class ChargerStatusChip extends StatelessWidget {
   final String status;
 
@@ -111,7 +111,7 @@ class ChargerStatusChip extends StatelessWidget {
   }
 }
 
-/// Badge trạng thái đặt lịch — 6 trạng thái (BookingStatus enum)
+/// Status indicator badge mapping reservation state colors
 class BookingStatusBadge extends StatelessWidget {
   final String status;
 

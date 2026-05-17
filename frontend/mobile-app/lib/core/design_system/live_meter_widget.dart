@@ -4,8 +4,8 @@ import '../design_system/app_colors.dart';
 import '../design_system/app_theme.dart';
 import '../design_system/app_typography.dart';
 
-/// Widget đồng hồ SoC (State of Charge) tròn — §3.2 LiveMeterWidget
-/// Thời gian cập nhật: 800ms easeInOut
+/// Circular dynamic battery state-of-charge widget
+/// Update animation interval: 800ms easeInOut
 class LiveMeterWidget extends StatefulWidget {
   final double socPercent;
   final String costVnd;
@@ -131,7 +131,7 @@ class _SocGaugePainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2 - 12;
 
-    // Vẽ vòng nền
+    // Draw static track ring
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
       -math.pi * 0.8,
@@ -144,7 +144,7 @@ class _SocGaugePainter extends CustomPainter {
         ..strokeCap = StrokeCap.round,
     );
 
-    // Vẽ vòng tiến trình
+    // Draw active battery level progress ring
     final progress = (socPercent / 100).clamp(0.0, 1.0);
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
