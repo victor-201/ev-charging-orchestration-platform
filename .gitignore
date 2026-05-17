@@ -145,6 +145,8 @@ frontend/web-admin/node_modules/
 frontend/web-admin/dist/
 frontend/web-admin/build/
 frontend/web-admin/coverage/
+frontend/web-admin/.next/
+frontend/web-admin/next-env.d.ts
 
 frontend/kiosk/node_modules/
 frontend/kiosk/dist/

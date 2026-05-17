@@ -35,33 +35,28 @@ This platform leverages a microservices architecture to ensure high availability
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Docker Desktop (or Docker Engine + Docker Compose Plugin)
-- PowerShell (Windows) or `pwsh` (macOS/Linux)
+- Docker Engine / Docker Desktop
+- **WSL2 (Ubuntu)** for Backend Deployment (Bash scripts)
+- **PowerShell** for Frontend Development (mobile-app)
 
 ### Deployment Commands
 
-The platform provides an integrated suite of automation scripts located in `deployment/scripts/`.
+The platform provides an integrated suite of automation scripts. For detailed usage (flags like `--ngrok`, `--rebuild`), refer to the [Scripts Guide](docs/system/00_scripts_guide.md).
 
-1. **Start the Platform:**
-   ```powershell
-   .\deployment\scripts\start.ps1
-   ```
-   *This command provisions the Docker network, mounts volumes, spins up the Postgres databases (with auto-seeding), initializes RabbitMQ, and starts all microservices.*
+#### 1. Backend (Docker Microservices)
+Run these from your **WSL Terminal**:
+```bash
+./deployment/scripts/backend/start.sh         # Start infrastructure & services
+./deployment/scripts/backend/health-check.sh  # Verify system health
+./deployment/scripts/backend/stop.sh          # Shutdown platform
+```
 
-2. **Check System Health:**
-   ```powershell
-   .\deployment\scripts\health-check.ps1
-   ```
-
-3. **Run Smoke Tests:**
-   ```powershell
-   .\deployment\scripts\smoke-test.ps1
-   ```
-
-4. **Stop the Platform:**
-   ```powershell
-   .\deployment\scripts\stop.ps1
-   ```
+#### 2. Frontend (Flutter Mobile App)
+Run these from **PowerShell**:
+```powershell
+.\deployment\scripts\frontend\setup.ps1       # One-time environment setup
+.\deployment\scripts\frontend\run.ps1         # Run app (Auto-detects Ngrok)
+```
 
 ## 🌐 Access Points
 
