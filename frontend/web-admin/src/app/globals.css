@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --brand-dark: #121212;
+    --brand-cyan: #10bfc9;
+    --brand-lime: #9aed57;
+  }
+  
+  body {
+    @apply bg-[#121212] text-white antialiased;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  }
+
+  .ev-input {
+    @apply w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-white/30 focus:outline-none focus:border-cyan focus:ring-1 focus:ring-cyan transition-all duration-200;
+  }
+
+  .btn-primary {
+    @apply bg-brand-gradient text-white font-semibold rounded-xl hover:shadow-glow transition-all duration-300;
+  }
+
+  .btn-secondary {
+    @apply bg-white/5 border border-white/10 text-white font-medium rounded-xl hover:bg-white/10 transition-all duration-200;
+  }
+
+  .btn-danger {
+    @apply bg-danger/10 border border-danger/20 text-danger font-medium rounded-xl hover:bg-danger/20 hover:border-danger/30 transition-all duration-200;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold uppercase tracking-wider border;
+  }
+  .badge-success { @apply bg-success/10 text-success border-success/20; }
+  .badge-danger { @apply bg-danger/10 text-danger border-danger/20; }
+  .badge-warning { @apply bg-warning/10 text-warning border-warning/20; }
+  .badge-info { @apply bg-info/10 text-info border-info/20; }
+  .badge-muted { @apply bg-white/5 text-text-muted border-white/10; }
+
+  .ev-table {
+    @apply w-full text-left text-sm whitespace-nowrap;
+  }
+  .ev-table th {
+    @apply px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider border-b border-white/5 bg-white/[0.02];
+  }
+  .ev-table td {
+    @apply px-4 py-3.5 border-b border-white/5;
+  }
+  .ev-table tr:last-child td {
+    @apply border-b-0;
+  }
+  .ev-table tbody tr {
+    @apply hover:bg-white/[0.02] transition-colors;
+  }
+}
+
+.bg-grid {
+  background-size: 40px 40px;
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+}
+
+.shadow-glow {
+  box-shadow: 0 0 20px rgba(16, 191, 201, 0.5);
+}
+.shadow-glow-sm {
+  box-shadow: 0 0 10px rgba(16, 191, 201, 0.3);
+}
+
+.glow-dot {
+  @apply w-2 h-2 rounded-full;
+  box-shadow: 0 0 8px currentColor;
+}
