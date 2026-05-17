@@ -73,10 +73,16 @@ export class StationRepository implements IStationRepository {
     const limit  = filter.limit  ?? 20;
     const offset = filter.offset ?? 0;
 
-    qb.orderBy('s.created_at', 'DESC').take(limit).skip(offset);
+    qb.leftJoinAndSelect('s.chargingPoints', 'cp');
+
+    qb.orderBy('s.createdAt', 'DESC').take(limit).skip(offset);
 
     const [rows, total] = await qb.getManyAndCount();
-    const items = rows.map((r) => this.toDomain(r, []));
+    const items = rows.map((r) => {
+      const chargers = (r.chargingPoints ?? []).map((cp) => this.chargerToDomain(cp));
+      return this.toDomain(r, chargers);
+    });
+    
     return { items, total, limit, offset };
   }
 

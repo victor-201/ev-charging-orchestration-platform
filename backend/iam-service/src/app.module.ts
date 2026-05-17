@@ -49,7 +49,8 @@ import { OutboxPublisher } from './infrastructure/messaging/outbox/outbox.publis
           PasswordResetTokenOrmEntity, OutboxOrmEntity,
         ],
         migrations: [__dirname + '/infrastructure/persistence/typeorm/migrations/*.js'],
-        migrationsRun: process.env.TYPEORM_MIGRATIONS_RUN === 'true' || false,
+        migrationsRun: process.env.TYPEORM_MIGRATIONS_RUN === 'true' || true,
+        migrationsTransactionMode: 'each',
         migrationsTableName: 'typeorm_migrations',
         synchronize: false,
         logging: cfg.get('NODE_ENV') !== 'production',
@@ -79,7 +80,3 @@ import { OutboxPublisher } from './infrastructure/messaging/outbox/outbox.publis
   providers: [OutboxPublisher],
 })
 export class AppModule {}
-
-
-
-

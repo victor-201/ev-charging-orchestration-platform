@@ -22,6 +22,7 @@ export default new DataSource({
     PasswordResetTokenOrmEntity, OutboxOrmEntity,
   ],
   migrations: [__dirname + '/migrations/*.ts'],
+  migrationsTransactionMode: 'each',
   synchronize: false,
   logging: true,
 });
