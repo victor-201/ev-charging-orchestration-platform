@@ -1,8 +1,11 @@
+import 'package:equatable/equatable.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/i_auth_repository.dart';
 import '../../../../core/errors/failures.dart';
-import 'auth_event_state.dart';
+
+part 'auth_event.dart';
+part 'auth_state.dart';
 
 /// AuthBloc — manages JWT lifecycle, MFA, and outstanding debt flags.
 /// HydratedBloc — persists state across application restarts.

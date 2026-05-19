@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/design_system/app_colors.dart';
-import '../../../../core/design_system/app_typography.dart';
+import '../../../../core/design_system/theme/app_colors.dart';
+import '../../../../core/design_system/theme/app_typography.dart';
 
 /// Startup Splash Screen mapping initial token lookups
 class SplashScreen extends StatefulWidget {

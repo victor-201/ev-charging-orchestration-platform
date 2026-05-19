@@ -6,7 +6,7 @@ import '../../../../core/constants/api_paths.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/network/dio_client.dart';
-import '../../../../data/local/secure_storage_service.dart';
+import '../../../../core/data/local/secure_storage_service.dart';
 
 /// Remote data schema representing authenticated users
 class UserModel extends UserEntity {

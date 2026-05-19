@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/design_system/app_colors.dart';
-import '../../../../core/design_system/app_typography.dart';
-import '../../../../core/design_system/app_theme.dart';
+import '../../../../core/design_system/theme/app_colors.dart';
+import '../../../../core/design_system/theme/app_typography.dart';
+import '../../../../core/design_system/theme/app_theme.dart';
 
 /// Application Welcome Portal Screen
 class WelcomeScreen extends StatelessWidget {
