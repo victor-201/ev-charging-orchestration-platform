@@ -63,16 +63,22 @@ class ChargerModel extends ChargerEntity {
   factory ChargerModel.fromJson(Map<String, dynamic> json) {
     // Map the first connector variant in the array as the primary UI configuration.
     final connectors = json['connectors'] as List<dynamic>? ?? [];
-    final firstConnectorType = connectors.isNotEmpty 
+    final firstConnectorType = connectors.isNotEmpty
         ? connectors[0]['connectorType']?.toString() ?? 'Other'
         : 'Other';
+
+    final connectorPowerKw = connectors.isNotEmpty
+        ? (connectors[0]['maxPowerKw'] as num?)?.toDouble() ?? 0.0
+        : 0.0;
+        
+    final chargerPowerKw = (json['maxPowerKw'] as num?)?.toDouble() ?? 0.0;
 
     return ChargerModel(
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       status: json['status']?.toString() ?? 'OFFLINE',
       connectorType: firstConnectorType,
-      powerKw: (json['maxPowerKw'] as num?)?.toDouble() ?? 0,
+      powerKw: chargerPowerKw > 0 ? chargerPowerKw : connectorPowerKw,
       pricePerKwh: (json['pricePerKwh'] as num?)?.toDouble(),
     );
   }
@@ -102,6 +108,27 @@ class StationRepositoryImpl implements IStationRepository {
   StationRepositoryImpl({required DioClient client}) : _client = client;
 
   @override
+  Future<Either<Failure, List<StationEntity>>> getAllStations() async {
+    try {
+      final response = await _client.get(
+        ApiPaths.stations,
+        queryParameters: {'limit': 1000},
+      );
+      List<dynamic> list = [];
+      if (response.data is List) {
+        list = response.data as List<dynamic>;
+      } else if (response.data is Map) {
+        list = (response.data['items'] ?? response.data['data'] ?? []) as List<dynamic>;
+      }
+      return Right(
+        list.map((e) => StationModel.fromJson(e as Map<String, dynamic>)).toList(),
+      );
+    } on DioException catch (e) {
+      return Left(ErrorMapper.fromDioException(e));
+    }
+  }
+
+  @override
   Future<Either<Failure, List<StationEntity>>> getStations({
     required double lat,
     required double lng,
@@ -116,6 +143,7 @@ class StationRepositoryImpl implements IStationRepository {
           'lat': lat,
           'lng': lng,
           'radiusKm': radiusKm,
+          'limit': 1000,
           if (connectorType != null) 'connectorType': connectorType,
           if (status != null) 'status': status,
         },
@@ -184,12 +212,17 @@ class StationRepositoryImpl implements IStationRepository {
   Future<Either<Failure, List<StationEntity>>> searchStations(
     String keyword, {
     int limit = 8,
+    String? connectorType,
   }) async {
     if (keyword.trim().isEmpty) return const Right([]);
     try {
       final response = await _client.get(
         ApiPaths.stations,
-        queryParameters: {'search': keyword.trim(), 'limit': limit},
+        queryParameters: {
+          'search': keyword.trim(),
+          'limit': limit,
+          if (connectorType != null) 'connectorType': connectorType,
+        },
       );
       List<dynamic> list = [];
       if (response.data is List) {

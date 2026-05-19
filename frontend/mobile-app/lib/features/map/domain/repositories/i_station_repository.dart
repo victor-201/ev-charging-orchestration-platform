@@ -4,11 +4,19 @@ import '../entities/station_entity.dart';
 
 /// Charging Station Operations Repository Interface
 ///
-/// Defines the data-layer contract for fetching stations in a geospatial radius,
-/// resolving detailed station profiles, querying dynamic connector pricing,
-/// and searching stations by keyword match.
+/// Defines the data-layer contract for fetching stations.
+/// The primary map-display flow uses [getAllStations] once on init and
+/// never calls the network again for pan / zoom — filtering is done locally.
 abstract class IStationRepository {
+  /// Fetches ALL charging stations without geographic filter.
+  ///
+  /// Used on initial map load to populate the full in-memory station cache.
+  /// Passes limit=1000 internally; server enforces @Max(1000).
+  Future<Either<Failure, List<StationEntity>>> getAllStations();
+
   /// Fetches charging stations within a specific coordinate bounding circle.
+  ///
+  /// Kept for optional geo-filtered use-cases (e.g. nearby endpoint).
   Future<Either<Failure, List<StationEntity>>> getStations({
     required double lat,
     required double lng,
@@ -30,10 +38,11 @@ abstract class IStationRepository {
   });
 
   /// Searches for charging stations matching a keyword query (name or address).
-  ///
-  /// Leverages case-insensitive SQL matching, capped at a custom results [limit].
+  /// Optionally filter by [connectorType] — pushed to the server so [limit] is applied
+  /// only to stations that already have the requested connector type.
   Future<Either<Failure, List<StationEntity>>> searchStations(
     String keyword, {
     int limit = 8,
+    String? connectorType,
   });
 }

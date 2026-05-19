@@ -30,7 +30,7 @@ class StationEntity extends Equatable {
   });
 
   @override
-  List<Object?> get props => [id, name, latitude, longitude, status, totalChargers, availableChargers];
+  List<Object?> get props => [id, name, latitude, longitude, status, totalChargers, availableChargers, chargers];
 }
 
 /// Individual charger point representation mapping operational states (AVAILABLE, IN_USE, etc.).
