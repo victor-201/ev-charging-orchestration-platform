@@ -35,6 +35,8 @@ export interface IBookingRepository {
   findByDepositTransactionId(transactionId: string): Promise<Booking | null>;
   /** Paginated list of user bookings */
   findByUser(userId: string, limit?: number, offset?: number): Promise<{ items: Booking[]; total: number }>;
+  /** Find upcoming active bookings for a list of chargers */
+  findUpcomingByChargers(chargerIds: string[]): Promise<Booking[]>;
 }
 
 export const BOOKING_REPOSITORY = Symbol('BOOKING_REPOSITORY');

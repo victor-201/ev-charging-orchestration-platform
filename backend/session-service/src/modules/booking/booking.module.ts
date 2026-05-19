@@ -22,6 +22,7 @@ import {
   CancelBookingUseCase,
   AutoCompleteBookingUseCase,
 } from '../../application/use-cases/booking-lifecycle.use-case';
+import { SystemCancelBookingUseCase } from '../../application/use-cases/system-cancel-booking.use-case';
 import {
   AutoExpireBookingsJob,
   NoShowDetectionJob,
@@ -48,6 +49,7 @@ import {
   SessionStartedConsumer,
   ChargerStatusConsumer,
 } from '../../infrastructure/messaging/consumers/booking.consumers';
+import { StationStatusChangedConsumer } from '../../infrastructure/messaging/consumers/station-status-sync.consumer';
 
 @Module({
   imports: [
@@ -94,6 +96,7 @@ import {
     GetAvailabilityUseCase,
     AutoConfirmBookingUseCase,   // triggered by payment.completed
     CancelBookingUseCase,
+    SystemCancelBookingUseCase,
     AutoCompleteBookingUseCase,  // triggered by session.started
     // HTTP clients
     PricingHttpClient,           // call station-service for charging price
@@ -109,6 +112,7 @@ import {
     BillingDeductedConsumer, BillingDeductionFailedConsumer,    // successful payment -> auto confirm
     SessionStartedConsumer,      // session started -> auto complete
     ChargerStatusConsumer,       // charger available -> serve queue
+    StationStatusChangedConsumer,
     // Arrears Sync Consumers (Lock Bad Debt)
     BookingArrearsCreatedConsumer,  // wallet.arrears.created -> block user
     BookingArrearsClearedConsumer,  // wallet.arrears.cleared -> unblock user
@@ -121,6 +125,7 @@ import {
     CreateBookingUseCase,
     AutoConfirmBookingUseCase,
     AutoCompleteBookingUseCase,
+    SystemCancelBookingUseCase,
     CHARGER_REPOSITORY,
     BOOKING_REPOSITORY,
   ],

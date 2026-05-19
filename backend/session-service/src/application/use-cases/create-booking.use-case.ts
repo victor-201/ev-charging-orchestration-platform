@@ -66,6 +66,10 @@ export class CreateBookingUseCase {
       throw new BadRequestException(`Charger ${cmd.chargerId} does not exist`);
     }
 
+    if (charger.status === 'offline') {
+      throw new BadRequestException(`Charger ${cmd.chargerId} is offline`);
+    }
+
     const hasConnector = charger.connectors.some(
       (c) => c.connectorType === cmd.connectorType,
     );

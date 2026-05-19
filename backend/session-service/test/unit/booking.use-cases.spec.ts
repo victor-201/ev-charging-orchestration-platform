@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import { Booking } from '../../src/domain/aggregates/booking.aggregate';
 import { BookingTimeRange } from '../../src/domain/value-objects/booking-time-range.vo';
 import { BookingStatus } from '../../src/domain/value-objects/booking-status.vo';
+import { BadRequestException } from '@nestjs/common';
 import {
   InvalidBookingStateException,
   BookingConflictException,
@@ -284,6 +285,21 @@ describe('CreateBookingUseCase', () => {
     const lockOrder    = mockChargerRepo.lockForUpdate.mock.invocationCallOrder[0];
     const overlapOrder = mockBookingRepo.hasOverlap.mock.invocationCallOrder[0];
     expect(lockOrder).toBeLessThan(overlapOrder);
+  });
+
+  it('throws BadRequestException when charger is offline', async () => {
+    mockChargerRepo.findById.mockResolvedValueOnce({
+      id: 'charger-uuid-1',
+      stationId: 'station-uuid-1',
+      connectorType: 'CCS2',
+      connectors: [{ connectorType: 'CCS2', maxPowerKw: 50 }],
+      maxPowerKw: 50,
+      status: 'offline',
+    });
+
+    await expect(useCase.execute(cmd)).rejects.toThrow(
+      new BadRequestException('Charger charger-uuid-1 is offline'),
+    );
   });
 });
 

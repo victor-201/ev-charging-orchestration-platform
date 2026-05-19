@@ -159,6 +159,17 @@ export class BookingRepository implements IBookingRepository {
     return entity ? this.toDomain(entity) : null;
   }
 
+  async findUpcomingByChargers(chargerIds: string[]): Promise<Booking[]> {
+    if (chargerIds.length === 0) return [];
+    const entities = await this.repo
+      .createQueryBuilder('b')
+      .where('b.charger_id IN (:...chargerIds)', { chargerIds })
+      .andWhere("b.status IN ('pending_payment', 'confirmed')")
+      .andWhere('b.start_time >= :now', { now: new Date() })
+      .getMany();
+    return entities.map(this.toDomain.bind(this));
+  }
+
   // Mappers
 
   private toOrm(b: Booking): BookingOrmEntity {
