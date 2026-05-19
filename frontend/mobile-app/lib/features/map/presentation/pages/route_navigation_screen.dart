@@ -7,10 +7,10 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../../../core/design_system/app_colors.dart';
-import '../../../../core/design_system/app_theme.dart';
-import '../../../../core/design_system/app_typography.dart';
-import '../../../../core/design_system/ev_button.dart';
+import '../../../../core/design_system/theme/app_colors.dart';
+import '../../../../core/design_system/theme/app_theme.dart';
+import '../../../../core/design_system/theme/app_typography.dart';
+import '../../../../core/design_system/widgets/ev_button.dart';
 import '../widgets/user_location_marker.dart';
 
 /// Navigation Route Routing Map Screen
@@ -218,14 +218,11 @@ class _RouteNavigationScreenState
                                       <stop stop-color="#10B981"/>
                                       <stop offset="1" stop-color="#059669"/>
                                     </linearGradient>
-                                    <filter id="dest_shadow" x="0" y="0" width="100" height="115" filterUnits="userSpaceOnUse">
-                                      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-opacity="0.25"/>
-                                    </filter>
                                   </defs>
                                   <!-- Pin Shadow -->
                                   <ellipse cx="50" cy="110" rx="15" ry="5" fill="black" fill-opacity="0.1"/>
                                   <!-- Pin Body (Teardrop-ish Modern) -->
-                                  <path d="M50 115C50 115 90 75 90 45C90 22.9086 72.0914 5 50 5C27.9086 5 10 22.9086 10 45C10 75 50 115 50 115Z" fill="url(#dest_grad)" filter="url(#dest_shadow)"/>
+                                  <path d="M50 115C50 115 90 75 90 45C90 22.9086 72.0914 5 50 5C27.9086 5 10 22.9086 10 45C10 75 50 115 50 115Z" fill="url(#dest_grad)"/>
                                   <!-- Inner White Circle -->
                                   <circle cx="50" cy="45" r="28" fill="white" fill-opacity="0.2"/>
                                   <!-- Charger Icon -->

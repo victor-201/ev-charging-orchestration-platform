@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
-import '../../../../core/design_system/app_colors.dart';
-import '../../../../core/design_system/app_theme.dart';
-import '../../../../core/design_system/app_typography.dart';
-import '../../../../core/design_system/ev_button.dart';
+import '../../../../core/design_system/theme/app_colors.dart';
+import '../../../../core/design_system/theme/app_theme.dart';
+import '../../../../core/design_system/theme/app_typography.dart';
+import '../../../../core/design_system/widgets/ev_button.dart';
 import '../../domain/entities/station_entity.dart';
 import '../bloc/map_bloc.dart';
-import '../bloc/map_event_state.dart';
 import 'pricing_dialog.dart';
 
 /// Charging Station Detailed Overlay Bottom Sheet
@@ -40,6 +39,7 @@ class StationDetailSheet extends StatelessWidget {
           initialChildSize: 0.5,
           minChildSize: 0.3,
           maxChildSize: 0.85,
+          expand: false,
           builder: (context, scrollController) {
             return Container(
               decoration: BoxDecoration(
@@ -114,7 +114,7 @@ class StationDetailSheet extends StatelessWidget {
                               'Số trụ sạc: ${currentStation.chargers.length}',
                               style: AppTypography.headingMd,
                             ),
-                            if (currentStation.chargers.isEmpty)
+                            if (currentStation.chargers.isEmpty && (state is! MapLoaded || state.selectedStation?.id != station.id))
                               const SizedBox(
                                 width: 16,
                                 height: 16,
@@ -124,7 +124,7 @@ class StationDetailSheet extends StatelessWidget {
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         
-                        if (currentStation.chargers.isEmpty)
+                        if (currentStation.chargers.isEmpty && (state is! MapLoaded || state.selectedStation?.id != station.id))
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
                             child: Center(
@@ -134,22 +134,27 @@ class StationDetailSheet extends StatelessWidget {
                               ),
                             ),
                           )
+                        else if (currentStation.chargers.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
+                            child: Center(
+                              child: Text(
+                                'Trạm chưa có trụ sạc nào',
+                                style: AppTypography.bodyMd.copyWith(color: AppColors.grey600),
+                              ),
+                            ),
+                          )
                         else
-                          GridView.builder(
+                          ListView.separated(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  childAspectRatio: 1.1,
-                                  crossAxisSpacing: AppSpacing.sm,
-                                  mainAxisSpacing: AppSpacing.sm,
-                                ),
                             itemCount: currentStation.chargers.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
                             itemBuilder: (context, index) {
                               final charger = currentStation.chargers[index];
                               final color =
                                   AppColors.forChargerStatus(charger.status);
+                              final isAvailable = charger.status.toUpperCase() == 'AVAILABLE';
                               
                               String statusText;
                               switch (charger.status.toUpperCase()) {
@@ -162,127 +167,193 @@ class StationDetailSheet extends StatelessWidget {
                               }
 
                               return Container(
-                                padding:
-                                    const EdgeInsets.all(AppSpacing.sm),
                                 decoration: BoxDecoration(
-                                  color: color.withValues(alpha: 0.08),
-                                  borderRadius:
-                                      BorderRadius.circular(AppRadius.sm),
-                                  border: Border.all(
-                                      color: color.withValues(alpha: 0.3)),
-                                ),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            charger.name,
-                                            style: AppTypography.caption.copyWith(
-                                              fontWeight: FontWeight.w700,
-                                              color: AppColors.grey800,
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: color,
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Text(
-                                            statusText,
-                                            style: AppTypography.caption.copyWith(
-                                              color: Colors.white,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      charger.connectorType,
-                                      style: AppTypography.caption.copyWith(
-                                        color: color,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${charger.powerKw.toStringAsFixed(0)} kW',
-                                      style: AppTypography.bodyMd.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const Spacer(),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        InkWell(
-                                          onTap: () {
-                                            showDialog(
-                                              context: context,
-                                              builder: (_) => PricingDialog(
-                                                stationId: currentStation.id,
-                                                charger: charger,
-                                              ),
-                                            );
-                                          },
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(vertical: 4.0),
-                                            child: Text(
-                                              'Xem giá',
-                                              style: AppTypography.caption.copyWith(
-                                                color: AppColors.primary,
-                                                fontWeight: FontWeight.w600,
-                                                decoration: TextDecoration.underline,
-                                                decorationColor: AppColors.primary,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        InkWell(
-                                          onTap: () {
-                                            if (charger.status.toUpperCase() != 'AVAILABLE') {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                const SnackBar(content: Text('Trụ sạc này hiện không khả dụng để đặt lịch.')),
-                                              );
-                                              return;
-                                            }
-                                            Navigator.pop(context);
-                                            context.push('/bookings/new', extra: {
-                                              'stationId': currentStation.id,
-                                              'chargerId': charger.id,
-                                              'connectorType': charger.connectorType,
-                                            });
-                                          },
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                            decoration: BoxDecoration(
-                                              color: charger.status.toUpperCase() == 'AVAILABLE' 
-                                                ? AppColors.primary 
-                                                : AppColors.grey400,
-                                              borderRadius: BorderRadius.circular(AppRadius.sm),
-                                            ),
-                                            child: Text(
-                                              'Đặt lịch',
-                                              style: AppTypography.caption.copyWith(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+                                  color: Theme.of(context).cardColor,
+                                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: color.withValues(alpha: 0.08),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
                                     ),
                                   ],
+                                  border: Border.all(
+                                    color: color.withValues(alpha: 0.2),
+                                    width: 1.2,
+                                  ),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                                  child: Stack(
+                                    children: [
+                                      Positioned.fill(
+                                        child: DecoratedBox(
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              colors: [
+                                                color.withValues(alpha: 0.05),
+                                                color.withValues(alpha: 0.0),
+                                              ],
+                                              begin: Alignment.centerLeft,
+                                              end: Alignment.centerRight,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.all(AppSpacing.md),
+                                        child: Row(
+                                          children: [
+                                            // Left: Power & Connector Type Icon Area
+                                            Container(
+                                              width: 64,
+                                              height: 64,
+                                              decoration: BoxDecoration(
+                                                color: color.withValues(alpha: 0.1),
+                                                borderRadius: BorderRadius.circular(AppRadius.md),
+                                              ),
+                                              child: Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(Icons.bolt_rounded, color: color, size: 24),
+                                                  Text(
+                                                    '${charger.powerKw.toStringAsFixed(0)} kW',
+                                                    style: AppTypography.labelMd.copyWith(
+                                                      fontWeight: FontWeight.w800,
+                                                      color: color,
+                                                      height: 1.1,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: AppSpacing.md),
+                                            
+                                            // Middle: Name, Type, and Status
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    charger.name,
+                                                    style: AppTypography.bodyLg.copyWith(
+                                                      fontWeight: FontWeight.w800,
+                                                      color: Theme.of(context).colorScheme.onSurface,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    charger.connectorType,
+                                                    style: AppTypography.caption.copyWith(
+                                                      color: AppColors.grey600,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Row(
+                                                    children: [
+                                                      Container(
+                                                        width: 8,
+                                                        height: 8,
+                                                        decoration: BoxDecoration(
+                                                          color: color,
+                                                          shape: BoxShape.circle,
+                                                          boxShadow: [
+                                                            BoxShadow(
+                                                              color: color.withValues(alpha: 0.4),
+                                                              blurRadius: 4,
+                                                            )
+                                                          ],
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 6),
+                                                      Text(
+                                                        statusText,
+                                                        style: AppTypography.caption.copyWith(
+                                                          color: color,
+                                                          fontWeight: FontWeight.w700,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+
+                                            // Right: Action Buttons
+                                            Column(
+                                              crossAxisAlignment: CrossAxisAlignment.end,
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                InkWell(
+                                                  onTap: () {
+                                                    showDialog(
+                                                      context: context,
+                                                      builder: (_) => PricingDialog(
+                                                        stationId: currentStation.id,
+                                                        charger: charger,
+                                                      ),
+                                                    );
+                                                  },
+                                                  child: Padding(
+                                                    padding: const EdgeInsets.only(bottom: 8.0, left: 8.0),
+                                                    child: Icon(
+                                                      Icons.info_outline_rounded,
+                                                      color: AppColors.grey600,
+                                                      size: 22,
+                                                    ),
+                                                  ),
+                                                ),
+                                                InkWell(
+                                                  onTap: () {
+                                                    if (!isAvailable) {
+                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                        const SnackBar(content: Text('Trụ sạc này hiện không khả dụng để đặt lịch.')),
+                                                      );
+                                                      return;
+                                                    }
+                                                    Navigator.pop(context);
+                                                    context.push('/bookings/new', extra: {
+                                                      'stationId': currentStation.id,
+                                                      'chargerId': charger.id,
+                                                      'connectorType': charger.connectorType,
+                                                    });
+                                                  },
+                                                  borderRadius: BorderRadius.circular(AppRadius.md),
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                                    decoration: BoxDecoration(
+                                                      gradient: isAvailable ? const LinearGradient(
+                                                        colors: [AppColors.primary, Color(0xFF00B248)],
+                                                      ) : null,
+                                                      color: isAvailable ? null : AppColors.grey400,
+                                                      borderRadius: BorderRadius.circular(AppRadius.md),
+                                                      boxShadow: isAvailable ? [
+                                                        BoxShadow(
+                                                          color: AppColors.primary.withValues(alpha: 0.3),
+                                                          blurRadius: 6,
+                                                          offset: const Offset(0, 3),
+                                                        )
+                                                      ] : null,
+                                                    ),
+                                                    child: Text(
+                                                      'ĐẶT',
+                                                      style: AppTypography.labelMd.copyWith(
+                                                        color: isAvailable ? Colors.white : AppColors.white,
+                                                        fontWeight: FontWeight.w800,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               );
                             },
