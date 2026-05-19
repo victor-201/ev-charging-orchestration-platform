@@ -7,76 +7,8 @@ import '../../domain/repositories/i_wallet_repository.dart';
 ///
 /// Coordinates all states and operations related to user wallets, including balance checks,
 /// top-up gateway redirections, transaction log paginations, and arrears payments.
-abstract class WalletEvent extends Equatable {
-  const WalletEvent();
-  @override
-  List<Object?> get props => [];
-}
-
-class WalletLoad extends WalletEvent {
-  const WalletLoad();
-}
-
-class WalletTopUpInitiate extends WalletEvent {
-  final double amount;
-  const WalletTopUpInitiate({required this.amount});
-  @override
-  List<Object?> get props => [amount];
-}
-
-class WalletLoadTransactions extends WalletEvent {
-  final int page;
-  const WalletLoadTransactions({this.page = 1});
-  @override
-  List<Object?> get props => [page];
-}
-
-class WalletPayArrears extends WalletEvent {
-  const WalletPayArrears();
-}
-
-abstract class WalletState extends Equatable {
-  const WalletState();
-  @override
-  List<Object?> get props => [];
-}
-
-class WalletInitial extends WalletState {
-  const WalletInitial();
-}
-
-class WalletLoading extends WalletState {
-  const WalletLoading();
-}
-
-class WalletLoaded extends WalletState {
-  final WalletEntity wallet;
-  final List<TransactionEntity> transactions;
-  final bool hasMorePages;
-  const WalletLoaded({
-    required this.wallet,
-    required this.transactions,
-    this.hasMorePages = false,
-  });
-  @override
-  List<Object?> get props => [wallet, transactions];
-}
-
-class WalletTopUpInitiated extends WalletState {
-  final String vnpayUrl;
-  final String transactionId;
-  const WalletTopUpInitiated(
-      {required this.vnpayUrl, required this.transactionId});
-  @override
-  List<Object?> get props => [vnpayUrl, transactionId];
-}
-
-class WalletError extends WalletState {
-  final String message;
-  const WalletError({required this.message});
-  @override
-  List<Object?> get props => [message];
-}
+part 'wallet_event.dart';
+part 'wallet_state.dart';
 
 class WalletBloc extends Bloc<WalletEvent, WalletState> {
   final IWalletRepository _repository;
