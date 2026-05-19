@@ -30,6 +30,7 @@ done
 
 echo -e "${CYAN}[STOP] Stopping ngrok...${NC}"
 pkill ngrok &>/dev/null || true
+taskkill.exe /F /IM ngrok.exe &>/dev/null || true
 
 if [[ "$CLEAN" == "true" ]]; then
     echo -e "${RED}[STOP] CLEAN mode: removing containers, volumes, and images...${NC}"

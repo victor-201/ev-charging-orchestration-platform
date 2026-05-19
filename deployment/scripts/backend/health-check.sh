@@ -118,8 +118,14 @@ PASSED=$((PASSED + ep_passed))
 FAILED=$((FAILED + ep_failed))
 
 echo -e "\n${YELLOW}[4/4] Ngrok Tunnel...${NC}"
-if curl -s --connect-timeout 2 --max-time 3 "http://localhost:4040/api/tunnels" 2>/dev/null | grep -q "public_url"; then
-    echo -e "  [${GREEN}OK${NC}]   Ngrok tunnel active  (localhost:4040)"
+if tasklist.exe /FI "IMAGENAME eq ngrok.exe" 2>/dev/null | grep -q "ngrok.exe"; then
+    log_file="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../../ngrok.log"
+    pub_url=$(grep -o "url=https://[a-zA-Z0-9.-]*" "$log_file" 2>/dev/null | cut -d= -f2 | tail -n 1)
+    if [[ -n "$pub_url" ]]; then
+        echo -e "  [${GREEN}OK${NC}]   Ngrok tunnel active  ($pub_url)"
+    else
+        echo -e "  [${GREEN}OK${NC}]   Ngrok tunnel active"
+    fi
     ((PASSED++)) || true
 else
     # Ngrok is optional; skip without incrementing FAILED.
