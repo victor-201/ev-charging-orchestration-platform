@@ -2,7 +2,7 @@ param(
   [string]$Device = 'auto'
 )
 
-$ProjectRoot = Resolve-Path "$PSScriptRoot\..\..\.."
+$ProjectRoot = Resolve-Path "$PSScriptRoot\..\..\..\.."
 $AppDir = Join-Path $ProjectRoot "frontend\mobile-app"
 
 Write-Host "======================================================"
