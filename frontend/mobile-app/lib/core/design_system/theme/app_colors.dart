@@ -1,87 +1,75 @@
 import 'package:flutter/material.dart';
 
-/// Material 3 Design System core UI color tokens
+/// Evoltboard Liquid Glass Design System UI color tokens
 abstract class AppColors {
-  // ── Primary Brand Palette ─────────────────────────────────
-  /// Emerald Green — representing available nodes and confirmations
-  static const Color primary = Color(0xFF00C853);
+  // ── Brand Accents & Gradients ─────────────────────────────────
+  static const Color primaryCyan = Color(0xFF10BFC9);
+  static const Color primaryLime = Color(0xFF9AED57);
+  static const Color accentBlue = Color(0xFF4F7CFF);
+  static const Color accentPurple = Color(0xFF8B5CF6);
+
+  static const LinearGradient primaryGradient = LinearGradient(
+    colors: [primaryCyan, primaryLime],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const Color primary = primaryCyan; // Fallback primary color
   static const Color onPrimary = Color(0xFFFFFFFF);
-  static const Color primaryContainer = Color(0xFFB9F6CA);
-  static const Color onPrimaryContainer = Color(0xFF00391A);
 
-  // ── Secondary Telemetry Palette ───────────────────────────
-  /// Electric Blue — representing dynamic WebSocket connections
-  static const Color secondary = Color(0xFF0288D1);
-  static const Color onSecondary = Color(0xFFFFFFFF);
-  static const Color secondaryContainer = Color(0xFFB3E5FC);
-
-  // ── High-Risk Alerts Palette ──────────────────────────────
-  /// Crimson Red — representing faulted nodes and infractions
-  static const Color error = Color(0xFFB00020);
+  // ── Status Indicators ─────────────────────────────────────────
+  static const Color success = Color(0xFF22C55E);
+  static const Color warning = Color(0xFFF59E0B);
+  static const Color danger = Color(0xFFEF4444);
+  static const Color info = Color(0xFF3B82F6);
+  static const Color error = danger;
   static const Color onError = Color(0xFFFFFFFF);
-  static const Color errorContainer = Color(0xFFFFDAD6);
 
-  // ── Success Signals Palette ───────────────────────────────
-  /// Success Green — representing transactions and credential setups
-  static const Color success = Color(0xFF2E7D32);
-  static const Color successContainer = Color(0xFFE8F5E9);
+  // ── Surface & Background (Dark Mode) ──────────────────────────
+  static const Color backgroundDark = Color(0xFF121212);
+  static const Color surfaceDark = Color(0xFF181818);
+  static const Color cardDark = Color(0xFF1F1F1F);
+  
+  static const Color textPrimaryDark = Color(0xFFFFFFFF);
+  static const Color textSecondaryDark = Color(0xFFB8B8B8);
+  static const Color textMutedDark = Color(0xFF7D7D7D);
 
-  // ── Active Warnings Palette ────────────────────────────────
-  /// Orange warning indicator
-  static const Color warning = Color(0xFFF57C00);
-  static const Color warningContainer = Color(0xFFFFE0B2);
+  static Color get glassBgDark => const Color(0xFFFFFFFF).withValues(alpha: 0.05);
+  static Color get glassBorderDark => const Color(0xFFFFFFFF).withValues(alpha: 0.08);
+  static Color get glassHighlightDark => const Color(0xFFFFFFFF).withValues(alpha: 0.14);
 
-  /// Amber warning indicator
-  static const Color amber = Color(0xFFFFC107);
-  static const Color amberContainer = Color(0xFFFFF8E1);
+  // ── Surface & Background (Light Mode) ─────────────────────────
+  static const Color backgroundLight = Color(0xFFFFFFFF);
+  static const Color surfaceLight = Color(0xFFF5F7F8);
+  static const Color cardLight = Color(0xFFEEF2F3);
 
-  // ── Surface & Background (Light) ─────────────────────────
-  static const Color surfaceLight = Color(0xFFFAFAFA);
-  static const Color backgroundLight = Color(0xFFF5F5F5);
-  static const Color outlineLight = Color(0xFFE0E0E0);
+  static const Color textPrimaryLight = Color(0xFF111111);
+  static const Color textSecondaryLight = Color(0xFF4A4A4A);
+  static const Color textMutedLight = Color(0xFF7A7A7A);
 
-  // ── Surface & Background (Dark) ──────────────────────────
-  static const Color surfaceDark = Color(0xFF121212);
-  static const Color backgroundDark = Color(0xFF1A1A1A);
-  static const Color outlineDark = Color(0xFF2C2C2C);
-
-  // ── Charging Station Status Color Mapping ───────────
-  static const Color chargerAvailable = Color(0xFF00C853);
-  static const Color chargerInUse = Color(0xFF0288D1);
-  static const Color chargerReserved = Color(0xFFFFC107);
-  static const Color chargerOffline = Color(0xFF9E9E9E);
-  static const Color chargerFaulted = Color(0xFFB00020);
-
-  // ── Charger Slot Reservation Color Mapping ───────────
-  static const Color bookingPendingPayment = Color(0xFFFFC107);
-  static const Color bookingConfirmed = Color(0xFF00C853);
-  static const Color bookingCompleted = Color(0xFF0288D1);
-  static const Color bookingCancelled = Color(0xFF9E9E9E);
-  static const Color bookingExpired = Color(0xFF9E9E9E);
-  static const Color bookingNoShow = Color(0xFFB00020);
+  static Color get glassBgLight => const Color(0xFFFFFFFF).withValues(alpha: 0.72);
+  static Color get glassBorderLight => const Color(0xFFFFFFFF).withValues(alpha: 0.65);
+  static Color get glassHighlightLight => const Color(0xFFFFFFFF).withValues(alpha: 0.90);
 
   // ── Auxiliary Styling Color Tokens ─────────────────────────
-  static const Color grey400 = Color(0xFF9E9E9E);
-  static const Color grey600 = Color(0xFF757575);
-  static const Color grey800 = Color(0xFF424242);
   static const Color white = Color(0xFFFFFFFF);
   static const Color black = Color(0xFF000000);
 
-  // ── Operational Charger State Color Helpers ───────────────
+  // ── Charging Station Status Color Mapping ───────────
   static Color forChargerStatus(String status) {
     switch (status.toUpperCase()) {
       case 'AVAILABLE':
-        return chargerAvailable;
+        return primaryLime;
       case 'IN_USE':
-        return chargerInUse;
+        return primaryCyan;
       case 'RESERVED':
-        return chargerReserved;
+        return warning;
       case 'OFFLINE':
-        return chargerOffline;
+        return textMutedDark;
       case 'FAULTED':
-        return chargerFaulted;
+        return danger;
       default:
-        return chargerOffline;
+        return textMutedDark;
     }
   }
 
@@ -89,19 +77,40 @@ abstract class AppColors {
   static Color forBookingStatus(String status) {
     switch (status.toUpperCase()) {
       case 'PENDING_PAYMENT':
-        return bookingPendingPayment;
+        return warning;
       case 'CONFIRMED':
-        return bookingConfirmed;
+        return primaryLime;
       case 'COMPLETED':
-        return bookingCompleted;
+        return primaryCyan;
       case 'CANCELLED':
-        return bookingCancelled;
+        return textMutedDark;
       case 'EXPIRED':
-        return bookingExpired;
+        return textMutedDark;
       case 'NO_SHOW':
-        return bookingNoShow;
+        return danger;
       default:
-        return bookingCancelled;
+        return textMutedDark;
     }
   }
+
+  // ── Backward Compatibility Tokens ─────────────────────────
+  static const Color grey400 = textMutedLight;
+  static const Color grey600 = textSecondaryLight;
+  static const Color grey800 = textPrimaryLight;
+  static const Color secondary = primaryLime;
+  static const Color amber = warning;
+  static const Color chargerAvailable = primaryLime;
+  static const Color chargerInUse = primaryCyan;
+  static const Color chargerReserved = warning;
+  static const Color chargerOffline = textMutedLight;
+  static const Color chargerFaulted = danger;
+  static const Color outlineLight = Color(0xFFE0E0E0);
+  static const Color outlineDark = Color(0xFF2C2C2C);
+  static const Color primaryContainer = Color(0xFFB9F6CA);
+  static const Color onPrimaryContainer = Color(0xFF00391A);
+  static const Color secondaryContainer = Color(0xFFB3E5FC);
+  static const Color errorContainer = Color(0xFFFFDAD6);
+  static const Color successContainer = Color(0xFFE8F5E9);
+  static const Color warningContainer = Color(0xFFFFE0B2);
+  static const Color amberContainer = Color(0xFFFFF8E1);
 }
