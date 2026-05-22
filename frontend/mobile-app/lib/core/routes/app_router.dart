@@ -1,7 +1,8 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/pages/splash_screen.dart';
 import '../../features/auth/presentation/pages/welcome_screen.dart';
@@ -28,6 +29,7 @@ import '../../features/profile/presentation/pages/profile_screen.dart';
 import '../../features/profile/presentation/pages/vehicles_screen.dart';
 import '../../features/profile/presentation/pages/security_settings_screen.dart';
 import '../../features/notification/presentation/pages/notifications_screen.dart';
+import '../design_system/theme/app_colors.dart';
 
 /// Central app routing topology with persistent bottom navigation tabs
 class AppRouter {
@@ -42,14 +44,16 @@ class AppRouter {
       final authState = authBloc.state;
       final isAuth      = authState is AuthAuthenticated;
       final isAuthRoute = state.matchedLocation.startsWith('/auth');
-      final isPublic    = state.matchedLocation == '/splash' || state.matchedLocation == '/welcome' || state.matchedLocation.startsWith('/map');
+      final isPublic = state.matchedLocation == '/splash'
+          || state.matchedLocation == '/welcome'
+          || state.matchedLocation.startsWith('/map');
       if (isAuth && isAuthRoute) return '/map';
       if (!isAuth && !isAuthRoute && !isPublic) return '/auth/login?redirect=${state.uri}';
       return null;
     },
     routes: [
       // ── Public ─────────────────────────────────────────────────────
-      GoRoute(path: '/splash',   name: 'splash',   builder: (_, __) => const SplashScreen()),
+      GoRoute(path: '/splash', name: 'splash', builder: (_, __) => const SplashScreen()),
       GoRoute(
         path: '/welcome',
         name: 'welcome',
@@ -139,14 +143,25 @@ class AppRouter {
               path: '/bookings', name: 'booking-history',
               builder: (_, __) => const BookingHistoryScreen(),
               routes: [
-                GoRoute(
+                 GoRoute(
                   path: 'new', name: 'booking-new',
                   builder: (_, state) {
-                    final extra = state.extra as Map<String, String>? ?? {};
+                    final extra = state.extra as Map<String, dynamic>? ?? {};
+                    final query = state.uri.queryParameters;
+                    
+                    String getParam(String key, String defaultValue) {
+                      final val = extra[key]?.toString() ?? query[key]?.toString() ?? defaultValue;
+                      if (val == 'null' || val == 'undefined' || val.trim().isEmpty) {
+                        return defaultValue;
+                      }
+                      return val;
+                    }
+
                     return BookingNewScreen(
-                      chargerId:     extra['chargerId']     ?? '',
-                      stationId:     extra['stationId']     ?? '',
-                      connectorType: extra['connectorType'] ?? 'CCS',
+                      chargerId:          getParam('chargerId', ''),
+                      stationId:          getParam('stationId', ''),
+                      connectorType:      getParam('connectorType', 'CCS'),
+                      physicalChargerId:  getParam('physicalChargerId', ''),
                     );
                   },
                 ),
@@ -230,34 +245,250 @@ class AppRouter {
   );
 }
 
-/// Shell Scaffold — BottomNavigationBar 5-tab
+/// Shell Scaffold — Glass BottomNavigationBar 5-tab
 class _AppScaffold extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
   const _AppScaffold({required this.navigationShell});
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final idx = navigationShell.currentIndex;
+
     return BlocListener<AuthBloc, AuthState>(
-      listener: (context, state) {
-        // Redirections are handled securely by GoRouter's redirect logic.
-      },
+      listener: (context, state) {},
       child: Scaffold(
+        extendBody: true,
+        backgroundColor: Colors.transparent,
         body: navigationShell,
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: navigationShell.currentIndex,
-          onTap: (i) => navigationShell.goBranch(i, initialLocation: i == navigationShell.currentIndex),
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.map_outlined),                   activeIcon: Icon(Icons.map),                   label: 'Bản đồ'),
-            BottomNavigationBarItem(icon: Icon(Icons.event_outlined),                 activeIcon: Icon(Icons.event),                 label: 'Đặt lịch'),
-            BottomNavigationBarItem(icon: Icon(Icons.bolt_outlined),                  activeIcon: Icon(Icons.bolt),                  label: 'Sạc điện'),
-            BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet_outlined), activeIcon: Icon(Icons.account_balance_wallet), label: 'Ví'),
-            BottomNavigationBarItem(icon: Icon(Icons.person_outlined),                activeIcon: Icon(Icons.person),                label: 'Hồ sơ'),
-          ],
+        bottomNavigationBar: _GlassNavBar(
+          currentIndex: idx,
+          isDark: isDark,
+          onTap: (i) => navigationShell.goBranch(
+            i,
+            initialLocation: i == navigationShell.currentIndex,
+          ),
         ),
       ),
     );
   }
 }
+
+/// Liquid Glass Bottom Navigation Bar
+/// Matches demo Surface 01 Bar: translucent bg + blur + white border
+/// Separates the glass background capsule and the items row into a Stack to allow
+/// the active tab to float up as a bubble without being clipped at the top boundary.
+class _GlassNavBar extends StatelessWidget {
+  final int currentIndex;
+  final bool isDark;
+  final ValueChanged<int> onTap;
+
+  const _GlassNavBar({
+    required this.currentIndex,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  static const _items = [
+    (Icons.map_outlined,                   Icons.map,                   'Bản đồ'),
+    (Icons.event_outlined,                 Icons.event,                 'Đặt lịch'),
+    (Icons.bolt_outlined,                  Icons.bolt,                  'Sạc điện'),
+    (Icons.account_balance_wallet_outlined,Icons.account_balance_wallet,'Ví'),
+    (Icons.person_outlined,                Icons.person,                'Hồ sơ'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).padding.bottom;
+    const barHeight = 72.0;
+    final bottomPadding = bottom > 0 ? bottom + 6 : 16.0;
+    // Provide 24px extra height at the top to perfectly accommodate the floating bubble overflow.
+    final totalHeight = barHeight + bottomPadding + 24.0;
+
+    return Container(
+      height: totalHeight,
+      color: Colors.transparent,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.bottomCenter,
+        children: [
+          // Layer 1: The Glass Bar Capsule (Background only)
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: bottomPadding,
+            height: barHeight,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(36),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? AppColors.barBgDark // ultra-premium deep navy obsidian glass from Design System
+                        : AppColors.barBgLight, // crystal white light glass from Design System
+                    borderRadius: BorderRadius.circular(36),
+                    border: Border.all(
+                      color: isDark
+                          ? AppColors.barBorderDark
+                          : AppColors.barBorderLight,
+                      width: 1.2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+                        blurRadius: 24,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Layer 2: The Interactive Items Row (which overflows freely at the top)
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: bottomPadding,
+            height: barHeight,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: List.generate(_items.length, (i) {
+                final (outlinedIcon, filledIcon, label) = _items[i];
+                final isActive = i == currentIndex;
+                return Expanded(
+                  child: _NavItem(
+                    icon: isActive ? filledIcon : outlinedIcon,
+                    label: label,
+                    isActive: isActive,
+                    isDark: isDark,
+                    onTap: () => onTap(i),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isActive;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.isActive,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final activeColor = Colors.white;
+    final inactiveColor = isDark
+        ? AppColors.textMuted
+        : AppColors.textFaded;
+
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onTap();
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Stack(
+        alignment: Alignment.topCenter,
+        clipBehavior: Clip.none,
+        children: [
+          // 1. The Floating Bubble Icon (Rises up beautifully with translation and elasticity)
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 320),
+            curve: Curves.easeOutCubic, // Safe and fluid easeOut curve
+            transform: Matrix4.translationValues(0, isActive ? -26 : 10, 0),
+            width: isActive ? 52 : 38,
+            height: isActive ? 52 : 38,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: isActive
+                  ? AppColors.blueCyanGradient // Brand Ocean/Blue Gradient from Design System
+                  : null,
+              boxShadow: isActive
+                  ? [
+                      BoxShadow(
+                        color: AppColors.blueCyanGradient.colors.first.withValues(alpha: 0.45),
+                        blurRadius: 16,
+                        offset: const Offset(0, 8),
+                      ),
+                      BoxShadow(
+                        color: AppColors.blueCyanGradient.colors.last.withValues(alpha: 0.3),
+                        blurRadius: 24,
+                        offset: const Offset(0, 12),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Center(
+              child: AnimatedScale(
+                scale: isActive ? 1.2 : 1.0,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOutBack,
+                child: Icon(
+                  icon,
+                  size: 22,
+                  color: isActive ? activeColor : inactiveColor,
+                ),
+              ),
+            ),
+          ),
+
+          // 2. The Anchor Dot at the bottom of the active tab slot
+          Positioned(
+            bottom: 8,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              width: isActive ? 6 : 0,
+              height: isActive ? 6 : 0,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: isActive
+                    ? AppColors.blueCyanGradient
+                    : null,
+              ),
+            ),
+          ),
+
+          // 3. The Tab Label (fades out when active for a premium, minimalist UI)
+          Positioned(
+            bottom: 8,
+            child: AnimatedOpacity(
+              opacity: isActive ? 0.0 : 1.0,
+              duration: const Duration(milliseconds: 200),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 9,
+                  fontFamily: 'Outfit',
+                  fontWeight: FontWeight.w500,
+                  color: inactiveColor,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 
 /// Custom ChangeNotifier notifier acting as a route redirection guard
 class GoRouterRefreshStream extends ChangeNotifier {
