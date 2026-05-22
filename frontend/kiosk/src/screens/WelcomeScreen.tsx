@@ -7,14 +7,16 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { Zap, ShieldCheck, Wifi, ArrowRight } from "lucide-react";
+import { Zap, ShieldCheck, Wifi, ArrowRight, Sun, Moon } from "lucide-react";
 import { CHARGER_ID, STATION_ID } from "../api";
 
 interface WelcomeScreenProps {
   onStart: () => Promise<void>;
+  theme: "light" | "dark";
+  onToggleTheme: () => void;
 }
 
-const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onStart }) => {
+const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onStart, theme, onToggleTheme }) => {
   return (
     <motion.div
       key="welcome"
@@ -22,24 +24,40 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onStart }) => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.98 }}
       transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
-      className="flex-1 flex flex-col h-full"
+      className="flex-1 flex flex-col h-full p-10"
     >
       {/* ── Ambient Glow BG ── */}
-      <div className="ambient-glow bg-[var(--primary)] opacity-[0.07] w-[50%] h-[50%] top-[-5%] left-[-5%]" />
-      <div className="ambient-glow bg-[var(--secondary)] opacity-[0.05] w-[40%] h-[40%] bottom-[-5%] right-[-5%]" />
-      <div className="grid-overlay opacity-50" />
+      <div
+        className="ambient-glow w-[50%] h-[50%] top-[-5%] left-[-5%]"
+        style={{ background: 'var(--primary)', opacity: 0.08 }}
+      />
+      <div
+        className="ambient-glow w-[40%] h-[40%] bottom-[-5%] right-[-5%]"
+        style={{ background: 'var(--secondary)', opacity: 0.06 }}
+      />
+      <div className="grid-overlay opacity-40" />
 
       {/* ── Header Bar ── */}
       <header className="relative z-10 flex justify-between items-center mb-16">
         {/* Brand */}
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 glass rounded-[20px] flex items-center justify-center">
-            <Zap size={28} className="text-[var(--primary)]" />
+          <div
+            className="w-14 h-14 rounded-[20px] flex items-center justify-center relative overflow-hidden"
+            style={{
+              background: 'var(--card-bg)',
+              backdropFilter: 'blur(60px)',
+              WebkitBackdropFilter: 'blur(60px)',
+              border: '1.5px solid var(--card-border)',
+              boxShadow: '0 0 20px var(--cyan-glow)',
+            }}
+          >
+            <div className="absolute inset-0" style={{ background: 'var(--sq-shine)' }} />
+            <img src="/EVoltTouch.png" alt="EVoltTouch Logo" className="w-10 h-10 object-contain relative z-10" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">
+            <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>
               EVOLT
-              <span className="font-light text-[var(--text-secondary)]">
+              <span className="font-light" style={{ color: 'var(--text-secondary)' }}>
                 TOUCH
               </span>
             </h1>
@@ -50,17 +68,35 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onStart }) => {
         {/* Status Chips */}
         <div className="flex gap-3">
           <div className="glass-pill px-5 py-2.5 flex items-center gap-2">
-            <Wifi size={14} className="text-[var(--success)]" />
-            <span className="text-xs font-semibold text-[var(--text-secondary)]">
+            <Wifi size={14} style={{ color: 'var(--success)' }} />
+            <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
               GRID ONLINE
             </span>
           </div>
           <div className="glass-pill px-5 py-2.5 flex items-center gap-2">
-            <ShieldCheck size={14} className="text-[var(--primary)]" />
-            <span className="text-xs font-semibold text-[var(--text-secondary)]">
+            <ShieldCheck size={14} style={{ color: 'var(--primary)' }} />
+            <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
               ISO 15118
             </span>
           </div>
+          <button 
+            onClick={onToggleTheme}
+            className="glass-pill w-10 h-10 flex items-center justify-center transition-all duration-300 active:scale-95 hover:scale-105 cursor-pointer"
+            style={{
+              background: 'var(--pill-bg)',
+              borderColor: 'var(--pill-border)',
+              color: 'var(--pill-text)',
+              boxShadow: 'var(--pill-shadow)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+            }}
+          >
+            {theme === "dark" ? (
+              <Sun size={15} style={{ color: 'var(--warning)' }} />
+            ) : (
+              <Moon size={15} style={{ color: 'var(--accent)' }} />
+            )}
+          </button>
         </div>
       </header>
 
@@ -121,35 +157,62 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onStart }) => {
         <div className="relative flex-shrink-0">
           {/* Outer ring pulse */}
           <motion.div
-            animate={{ scale: [1, 1.08, 1], opacity: [0.15, 0.3, 0.15] }}
+            animate={{ scale: [1, 1.08, 1], opacity: [0.15, 0.35, 0.15] }}
             transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute inset-0 rounded-full border border-[var(--primary)]/30"
+            className="absolute inset-0 rounded-full"
+            style={{ border: '1.5px solid rgba(16, 191, 201, 0.3)' }}
           />
-          {/* Main orb */}
-          <div className="w-[440px] h-[440px] glass rounded-full flex items-center justify-center relative overflow-hidden">
+          {/* Second outer ring */}
+          <motion.div
+            animate={{ scale: [1, 1.14, 1], opacity: [0.08, 0.2, 0.08] }}
+            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+            className="absolute inset-0 rounded-full"
+            style={{ border: '1px solid rgba(154, 237, 87, 0.2)' }}
+          />
+          {/* Main orb — glass-elevated */}
+          <div
+            className="w-[440px] h-[440px] rounded-full flex items-center justify-center relative overflow-hidden"
+            style={{
+              background: 'var(--card-bg)',
+              backdropFilter: 'blur(60px)',
+              WebkitBackdropFilter: 'blur(60px)',
+              border: '1.5px solid var(--card-border)',
+              boxShadow: 'var(--card-shadow), 0 0 60px var(--cyan-glow)',
+            }}
+          >
+            {/* Shine overlay */}
+            <div className="absolute inset-0 rounded-full" style={{ background: 'var(--sq-shine)', zIndex: 1 }} />
+            {/* Corner markers adapted for circle */}
+            <div className="corner-marker cm-tl" />
+            <div className="corner-marker cm-tr" />
             {/* Inner decorative rings */}
-            <div className="absolute w-[75%] h-[75%] rounded-full border border-white/[0.04]" />
-            <div className="absolute w-[50%] h-[50%] rounded-full border border-white/[0.04]" />
+            <div className="absolute w-[75%] h-[75%] rounded-full" style={{ border: '1px solid var(--card-border)' }} />
+            <div className="absolute w-[50%] h-[50%] rounded-full" style={{ border: '1px solid var(--card-border)', opacity: 0.15 }} />
 
             {/* Center icon cluster */}
             <div className="relative z-10 flex flex-col items-center gap-3">
               <motion.div
-                animate={{ scale: [1, 1.05, 1] }}
-                transition={{ duration: 2, repeat: Infinity }}
+                animate={{ scale: [1, 1.06, 1] }}
+                transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
               >
-                <Zap size={80} className="text-[var(--primary)] opacity-20" />
+                <Zap size={80} style={{ color: 'var(--primary)', opacity: 0.25 }} />
               </motion.div>
-              <p className="caption text-center">350 kW DC Fast Charge</p>
+              <p className="caption text-center" style={{ color: 'var(--text-muted)' }}>350 kW DC Fast Charge</p>
             </div>
 
             {/* Gradient overlay */}
-            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[var(--primary)]/5 to-[var(--secondary)]/5" />
+            <div
+              className="absolute inset-0 rounded-full"
+              style={{
+                background: 'radial-gradient(circle at 40% 35%, rgba(16,191,201,0.08) 0%, rgba(154,237,87,0.04) 60%, transparent 80%)',
+              }}
+            />
           </div>
         </div>
       </div>
 
       {/* ── Footer Stats ── */}
-      <footer className="relative z-10 mt-auto border-t border-white/[0.05] pt-8 flex justify-between items-end">
+      <footer className="relative z-10 mt-auto border-t border-[var(--card-border)] pt-8 flex justify-between items-end">
         <div className="flex gap-12">
           <FooterStat label="Trạm ID" value={STATION_ID} />
           <FooterStat label="Thiết bị" value={CHARGER_ID} />

@@ -107,7 +107,7 @@ const ChargingDashboard: React.FC<ChargingDashboardProps> = ({
             <span className="status-dot active" />
             <span className="text-xs font-bold tracking-widest uppercase">Đang sạc</span>
           </div>
-          <div className="h-5 w-px bg-white/10" />
+          <div className="h-5 w-px bg-[var(--card-border)]" />
           <span className="text-xs font-mono text-[var(--text-muted)] tracking-wider">
             SESSION #{sessionIdShort}
           </span>
@@ -161,7 +161,7 @@ const ChargingDashboard: React.FC<ChargingDashboardProps> = ({
                   </feMerge>
                 </filter>
               </defs>
-              <circle cx="250" cy="250" r={RING_RADIUS} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="14" />
+              <circle cx="250" cy="250" r={RING_RADIUS} fill="none" stroke="var(--card-border)" strokeWidth="14" />
               <motion.circle
                 cx="250"
                 cy="250"
@@ -246,7 +246,7 @@ const ChargingDashboard: React.FC<ChargingDashboardProps> = ({
               </AnimatePresence>
             </div>
 
-            <div className="border-t border-white/[0.06] pt-5 space-y-3">
+            <div className="border-t border-[var(--card-border)] pt-5 space-y-3">
               <BillingRow label="Giá điện" value={pricing ? `${pricing.pricePerKwh.toLocaleString()} ₫/kWh` : "—"} />
               <BillingRow label="Phí nhàn rỗi (Đơn giá)" value={pricing ? `${pricing.idleFeePerMinute.toLocaleString()} ₫/phút` : "—"} />
               <BillingRow

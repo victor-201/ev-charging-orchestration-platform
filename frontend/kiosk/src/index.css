@@ -25,51 +25,187 @@
   --secondary: #9aed57;
   --accent:    #4f7cff;
 
-  /* Dark Backgrounds */
-  --bg-primary:   #121212;
-  --bg-secondary: #181818;
-  --bg-tertiary:  #1f1f1f;
+  /* ── Liquid Glass Foundations (Light Mode — Kiosk default) ── */
+  --bg-color:       #e2e8f0;
+  --bg-gradient-1:  rgba(255, 255, 255, 0.7);
+  --bg-gradient-2:  #f1f5f9;
+  --bg-gradient-3:  #cbd5e1;
+  --bg-primary:     #e2e8f0;
+  --bg-secondary:   #f1f5f9;
+  --bg-tertiary:    #cbd5e1;
 
-  /* Glass Surfaces */
-  --glass-bg:        rgba(255, 255, 255, 0.04);
-  --glass-bg-hover:  rgba(255, 255, 255, 0.07);
-  --glass-border:    rgba(255, 255, 255, 0.08);
-  --glass-highlight: rgba(255, 255, 255, 0.12);
-  --glass-blur:      blur(28px);
+  /* ── Main Glass Card (frosted thick glass) ── */
+  --card-bg:     rgba(255, 255, 255, 0.4);
+  --card-border: rgba(255, 255, 255, 0.8);
+  --card-shadow: 0 30px 60px rgba(0, 0, 0, 0.1),
+                 inset 0 2px 2px rgba(255, 255, 255, 1),
+                 inset 0 0 40px rgba(255, 255, 255, 0.4);
+  --sq-shine:    linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0) 40%);
 
-  /* Text Hierarchy */
-  --text-primary:   #ffffff;
-  --text-secondary: #b8b8b8;
-  --text-muted:     #7d7d7d;
+  /* ── Glass Surfaces ── */
+  --glass-bg:        rgba(255, 255, 255, 0.4);
+  --glass-bg-hover:  rgba(255, 255, 255, 0.6);
+  --glass-border:    rgba(255, 255, 255, 0.8);
+  --glass-highlight: rgba(255, 255, 255, 1);
+  --glass-blur:      blur(60px);
 
-  /* Status Colors */
+  /* ── Text ── */
+  --text-main:      #000000;
+  --text-primary:   #000000;
+  --text-secondary: #475569;
+  --text-muted:     #94a3b8;
+  --text-faded:     #94a3b8;
+
+  /* ── Pill Components ── */
+  --pill-bg:     rgba(255, 255, 255, 0.3);
+  --pill-border: rgba(255, 255, 255, 0.7);
+  --pill-text:   #1e293b;
+  --pill-shadow: 0 4px 15px rgba(0, 0, 0, 0.02), inset 0 1px 2px rgba(255, 255, 255, 1);
+
+  /* ── Dark Pills ── */
+  --dark-pill-bg:     rgba(30, 41, 59, 0.6);
+  --dark-pill-border: rgba(255, 255, 255, 0.2);
+  --dark-pill-text:   #ffffff;
+
+  /* ── Marker / Corner ── */
+  --marker-border: rgba(255, 255, 255, 0.7);
+
+  /* ── Glass Square Surfaces ── */
+  --sq-border: rgba(255, 255, 255, 0.6);
+  --sq-shadow: inset 0 4px 10px rgba(255, 255, 255, 0.9),
+               inset 0 -4px 10px rgba(0, 0, 0, 0.1),
+               0 0 0 1px rgba(255, 255, 255, 0.2);
+  --sq-3-bg:     rgba(255, 255, 255, 0.15);
+  --sq-3-border: rgba(255, 255, 255, 0.9);
+
+  /* ── 3D Tokens ── */
+  --token-shadow:       inset 0 4px 6px rgba(255, 255, 255, 0.6), inset 0 -4px 6px rgba(0, 0, 0, 0.2);
+  --token-border:       rgba(255, 255, 255, 0.2);
+  --token-dashed:       rgba(255, 255, 255, 0.5);
+  --white-token-bg:     rgba(255, 255, 255, 0.85);
+  --white-token-text:   #1e293b;
+  --white-token-border: white;
+
+  /* ── Glass Elevated Variables ── */
+  --glass-elevated-bg:     rgba(255, 255, 255, 0.65);
+  --glass-elevated-border: rgba(255, 255, 255, 0.9);
+  --glass-elevated-shadow: 0 30px 60px rgba(0, 0, 0, 0.12),
+                           inset 0 2px 2px rgba(255, 255, 255, 1),
+                           inset 0 0 40px rgba(255, 255, 255, 0.5);
+
+  /* ── Grid Overlay ── */
+  --grid-color: rgba(15, 23, 42, 0.015);
+
+  /* ── Status Colors ── */
   --success: #22c55e;
   --warning: #f59e0b;
   --danger:  #ef4444;
   --info:    #3b82f6;
 
-  /* Glow Colors */
-  --cyan-glow:  rgba(16, 191, 201, 0.35);
-  --lime-glow:  rgba(154, 237, 87, 0.30);
-  --green-glow: rgba(34, 197, 94, 0.30);
-  --red-glow:   rgba(239, 68, 68, 0.25);
+  /* ── Glow ── */
+  --cyan-glow:  rgba(16, 191, 201, 0.20);
+  --lime-glow:  rgba(154, 237, 87, 0.15);
+  --green-glow: rgba(34, 197, 94, 0.15);
+  --red-glow:   rgba(239, 68, 68, 0.15);
 
-  /* Shadows */
-  --shadow-deep:   rgba(0, 0, 0, 0.55);
-  --shadow-subtle: rgba(0, 0, 0, 0.35);
+  /* ── Shadows ── */
+  --shadow-deep:   rgba(0, 0, 0, 0.15);
+  --shadow-subtle: rgba(0, 0, 0, 0.08);
 
-  /* Motion */
+  /* ── Motion ── */
   --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --dur-fast:    180ms;
   --dur-normal:  240ms;
   --dur-slow:    320ms;
 
-  /* Border Radius */
-  --radius-card:   28px;
+  /* ── Border Radius ── */
+  --radius-card:   36px;
   --radius-button: 20px;
   --radius-pill:   999px;
   --radius-sm:     12px;
+}
+
+[data-theme="dark"] {
+  /* ── Backgrounds ── */
+  --bg-color:       #0f172a;
+  --bg-gradient-1:  rgba(16, 191, 201, 0.15);
+  --bg-gradient-2:  #1e293b;
+  --bg-gradient-3:  #020617;
+  --bg-primary:     #0f172a;
+  --bg-secondary:   #1e293b;
+  --bg-tertiary:    #162032;
+
+  /* ── Main Glass Card (frosted thick glass) ── */
+  --card-bg:     rgba(15, 23, 42, 0.6);
+  --card-border: rgba(255, 255, 255, 0.1);
+  --card-shadow: 0 30px 60px rgba(0, 0, 0, 0.5),
+                 inset 0 2px 2px rgba(255, 255, 255, 0.1),
+                 inset 0 0 40px rgba(255, 255, 255, 0.05);
+  --sq-shine:    linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 40%);
+
+  /* ── Glass Surfaces (legacy) ── */
+  --glass-bg:        rgba(15, 23, 42, 0.5);
+  --glass-bg-hover:  rgba(30, 41, 59, 0.6);
+  --glass-border:    rgba(255, 255, 255, 0.1);
+  --glass-highlight: rgba(255, 255, 255, 0.08);
+
+  /* ── Text ── */
+  --text-main:      #f8fafc;
+  --text-primary:   #ffffff;
+  --text-secondary: #b8b8b8;
+  --text-muted:     #64748b;
+  --text-faded:     #64748b;
+
+  /* ── Pill Components ── */
+  --pill-bg:     rgba(30, 41, 59, 0.5);
+  --pill-border: rgba(255, 255, 255, 0.1);
+  --pill-text:   #f1f5f9;
+  --pill-shadow: 0 4px 15px rgba(0, 0, 0, 0.2), inset 0 1px 2px rgba(255, 255, 255, 0.1);
+
+  /* ── Dark Pills ── */
+  --dark-pill-bg:     rgba(255, 255, 255, 0.1);
+  --dark-pill-border: rgba(255, 255, 255, 0.1);
+  --dark-pill-text:   #f8fafc;
+
+  /* ── Marker / Corner ── */
+  --marker-border: rgba(255, 255, 255, 0.2);
+
+  /* ── Glass Square Surfaces ── */
+  --sq-border: rgba(255, 255, 255, 0.15);
+  --sq-shadow: inset 0 4px 10px rgba(255, 255, 255, 0.15),
+               inset 0 -4px 10px rgba(0, 0, 0, 0.5),
+               0 0 0 1px rgba(255, 255, 255, 0.05);
+  --sq-3-bg:     rgba(255, 255, 255, 0.05);
+  --sq-3-border: rgba(255, 255, 255, 0.2);
+
+  /* ── 3D Tokens ── */
+  --token-shadow:       inset 0 4px 6px rgba(255, 255, 255, 0.2), inset 0 -4px 6px rgba(0, 0, 0, 0.5);
+  --token-border:       rgba(255, 255, 255, 0.1);
+  --token-dashed:       rgba(255, 255, 255, 0.2);
+  --white-token-bg:     rgba(30, 41, 59, 0.85);
+  --white-token-text:   #f8fafc;
+  --white-token-border: rgba(255, 255, 255, 0.1);
+
+  /* ── Glass Elevated Variables ── */
+  --glass-elevated-bg:     rgba(15, 23, 42, 0.7);
+  --glass-elevated-border: rgba(255, 255, 255, 0.15);
+  --glass-elevated-shadow: 0 30px 60px rgba(0, 0, 0, 0.6),
+                           inset 0 2px 2px rgba(255, 255, 255, 0.12),
+                           inset 0 0 40px rgba(255, 255, 255, 0.04);
+
+  /* ── Grid Overlay ── */
+  --grid-color: rgba(255, 255, 255, 0.012);
+
+  /* ── Glow ── */
+  --cyan-glow:  rgba(16, 191, 201, 0.40);
+  --lime-glow:  rgba(154, 237, 87, 0.35);
+  --green-glow: rgba(34, 197, 94, 0.30);
+  --red-glow:   rgba(239, 68, 68, 0.25);
+
+  /* ── Shadows ── */
+  --shadow-deep:   rgba(0, 0, 0, 0.55);
+  --shadow-subtle: rgba(0, 0, 0, 0.35);
 }
 
 /* ─────────────────────────────────────────────
@@ -90,8 +226,12 @@ html, body, #root {
 }
 
 body {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
+  background-color: var(--bg-color);
+  background-image:
+    radial-gradient(circle at 15% 20%, var(--bg-gradient-1) 0%, transparent 40%),
+    radial-gradient(circle at 85% 85%, var(--bg-gradient-1) 0%, transparent 40%),
+    linear-gradient(135deg, var(--bg-gradient-2) 0%, var(--bg-gradient-3) 100%);
+  color: var(--text-main);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   user-select: none;
   cursor: default;
@@ -102,35 +242,35 @@ body {
    From theme_design.md §GLASS CSS
 ───────────────────────────────────────────── */
 .glass {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
+  background: var(--card-bg);
+  backdrop-filter: blur(60px);
+  -webkit-backdrop-filter: blur(60px);
+  border: 1.5px solid var(--card-border);
   border-radius: var(--radius-card);
-  box-shadow:
-    0 8px 32px var(--shadow-subtle),
-    inset 0 1px 0 var(--glass-highlight);
+  box-shadow: var(--card-shadow);
+  position: relative;
+  overflow: hidden;
 }
 
 .glass-elevated {
-  background: rgba(255, 255, 255, 0.06);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--glass-elevated-bg);
+  backdrop-filter: blur(60px);
+  -webkit-backdrop-filter: blur(60px);
+  border: 1.5px solid var(--glass-elevated-border);
   border-radius: var(--radius-card);
-  box-shadow:
-    0 16px 48px var(--shadow-deep),
-    inset 0 1px 0 var(--glass-highlight),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+  box-shadow: var(--glass-elevated-shadow);
+  position: relative;
+  overflow: hidden;
 }
 
 .glass-pill {
-  background: var(--glass-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--glass-border);
+  background: var(--pill-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--pill-border);
   border-radius: var(--radius-pill);
-  box-shadow: inset 0 1px 0 var(--glass-highlight);
+  box-shadow: var(--pill-shadow);
+  color: var(--pill-text);
 }
 
 /* ─────────────────────────────────────────────
@@ -281,8 +421,8 @@ body {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+    linear-gradient(var(--grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
   background-size: 60px 60px;
   pointer-events: none;
 }

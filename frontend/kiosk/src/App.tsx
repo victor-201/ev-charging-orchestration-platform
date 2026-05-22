@@ -13,7 +13,7 @@
  *   - Screens: WelcomeScreen, ChargingDashboard, ProcessingScreen, BilledScreen, ErrorScreen
  */
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
 
 // Hooks
@@ -31,6 +31,25 @@ import InterimNoticeScreen from "./screens/InterimNoticeScreen";
 import MaintenanceScreen from "./screens/MaintenanceScreen";
 
 const App: React.FC = () => {
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    const saved = localStorage.getItem("kiosk-theme") as "light" | "dark" | null;
+    return saved || "light";
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === "dark") {
+      root.setAttribute("data-theme", "dark");
+    } else {
+      root.removeAttribute("data-theme");
+    }
+    localStorage.setItem("kiosk-theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => (prev === "light" ? "dark" : "light"));
+  };
+
   const {
     status,
     telemetry,
@@ -58,7 +77,7 @@ const App: React.FC = () => {
   const safeSession = useMemo(
     () =>
       activeSession ?? {
-        id: "00000000-0000-0000-0000-000000000000",
+        id: "00000000-0000-4000-8000-000000000000",
         userId: "",
         chargerId: import.meta.env.VITE_CHARGER_ID || "CHG-001-A",
         bookingId: null,
@@ -73,7 +92,7 @@ const App: React.FC = () => {
   const safeSummary = useMemo(
     () =>
       sessionSummary ?? {
-        id: "00000000-0000-0000-0000-000000000000",
+        id: "00000000-0000-4000-8000-000000000000",
         status: "billed",
         startTime: new Date().toISOString(),
         endTime: new Date().toISOString(),
@@ -85,11 +104,18 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-[var(--bg-primary)] text-white p-10 flex flex-col font-sans">
+    <div className="relative h-screen w-screen overflow-hidden flex flex-col font-sans p-6"
+      style={{ background: 'transparent', color: 'var(--text-main)' }}
+    >
       {/* ─── Screen Router (AnimatePresence for transitions) ─── */}
       <AnimatePresence mode="wait">
         {status === "INIT" && (
-          <WelcomeScreen key="init" onStart={startSession} />
+          <WelcomeScreen 
+            key="init" 
+            onStart={startSession} 
+            theme={theme}
+            onToggleTheme={toggleTheme}
+          />
         )}
 
         {status === "RESERVED" && (
@@ -147,7 +173,7 @@ const App: React.FC = () => {
 
       {/* ─── Global Footer ─── */}
       <footer className="absolute bottom-4 left-0 right-0 flex justify-center pointer-events-none">
-        <span className="text-[9px] font-bold uppercase tracking-[0.6em] text-white/10">
+        <span className="text-[9px] font-bold uppercase tracking-[0.6em] text-[var(--text-faded)] opacity-30">
           EVOLT Platform Enterprise Kiosk v7.0
         </span>
       </footer>

@@ -74,7 +74,7 @@ const BilledScreen: React.FC<BilledScreenProps> = ({ summary, vnpayUrl, onReset 
             </div>
 
             {/* Session Details */}
-            <div className="border-y border-white/[0.06] py-6 space-y-3">
+            <div className="border-y border-[var(--card-border)] py-6 space-y-3">
               <SummaryRow
                 icon={<Zap size={16} className="text-[var(--primary)]" />}
                 label="Điện năng đã sạc"
@@ -120,7 +120,7 @@ const BilledScreen: React.FC<BilledScreenProps> = ({ summary, vnpayUrl, onReset 
         </div>
 
         {/* ── RIGHT: QR Payment ── */}
-        <div className="glass bg-white/[0.02] border-none p-8 flex flex-col items-center justify-center gap-6">
+        <div className="glass bg-transparent border-none p-8 flex flex-col items-center justify-center gap-6">
           <div className="text-center space-y-1">
             <p className="caption-branded">Hóa đơn điện tử</p>
             <h3 className="text-xl font-bold">Quét để thanh toán</h3>

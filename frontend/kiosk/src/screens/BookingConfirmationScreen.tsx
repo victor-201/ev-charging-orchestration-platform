@@ -48,7 +48,7 @@ const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps> = ({
 
         <button 
           onClick={onCancel}
-          className="glass-pill px-6 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors"
+          className="glass-pill px-6 py-3 flex items-center gap-3 hover:bg-[var(--card-border)] transition-colors"
         >
           <ArrowLeft size={18} />
           <span className="text-sm font-bold">QUAY LẠI</span>
@@ -81,7 +81,7 @@ const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps> = ({
               </div>
             </div>
             
-            <div className="flex items-center gap-4 border-t border-white/5 pt-6">
+            <div className="flex items-center gap-4 border-t border-[var(--card-border)] pt-6">
               <div className="w-10 h-10 rounded-full bg-[var(--primary)]/10 flex items-center justify-center">
                 <Zap size={20} className="text-[var(--primary)]" />
               </div>

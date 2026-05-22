@@ -33,7 +33,7 @@ const MaintenanceScreen: React.FC = () => {
               rotate: [0, 5, -5, 0]
             }}
             transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            className="w-32 h-32 glass rounded-[40px] flex items-center justify-center relative z-10 mx-auto border-white/10"
+            className="w-32 h-32 glass rounded-[40px] flex items-center justify-center relative z-10 mx-auto border-[var(--card-border)]"
           >
             <Hammer size={48} className="text-slate-400" />
           </motion.div>
@@ -41,7 +41,7 @@ const MaintenanceScreen: React.FC = () => {
           <motion.div 
             animate={{ opacity: [0.2, 0.5, 0.2] }}
             transition={{ duration: 2, repeat: Infinity }}
-            className="absolute -top-4 -right-4 w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center border border-white/10"
+            className="absolute -top-4 -right-4 w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center border border-[var(--card-border)]"
           >
             <ZapOff size={20} className="text-slate-500" />
           </motion.div>
@@ -59,14 +59,14 @@ const MaintenanceScreen: React.FC = () => {
 
         {/* Info Grid */}
         <div className="grid grid-cols-2 gap-6 pt-4">
-          <div className="glass p-6 rounded-3xl border-white/5 flex flex-col items-center gap-3">
+          <div className="glass p-6 rounded-3xl border-[var(--card-border)] flex flex-col items-center gap-3">
             <Info size={24} className="text-slate-400" />
             <div>
               <p className="caption">Dự kiến hoàn thành</p>
               <p className="text-lg font-bold">~ 14:00 Hôm nay</p>
             </div>
           </div>
-          <div className="glass p-6 rounded-3xl border-white/5 flex flex-col items-center gap-3">
+          <div className="glass p-6 rounded-3xl border-[var(--card-border)] flex flex-col items-center gap-3">
             <Phone size={24} className="text-[var(--primary)]" />
             <div>
               <p className="caption">Hỗ trợ kỹ thuật</p>
