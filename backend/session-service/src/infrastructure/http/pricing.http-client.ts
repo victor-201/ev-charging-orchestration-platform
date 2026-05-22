@@ -20,10 +20,11 @@ export interface PricingQuote {
 /**
  * PricingHttpClient
  *
- * HTTP client used to fetch prices from station-service.
- * Booking-service calls this to dynamically calculate depositAmount before creating a booking.
+ * Interfaces with station-service to fetch live pricing and coordinate data.
+ * Booking-service uses this to dynamically calculate deposit requirements at booking time.
  *
- * Base URL từ env: STATION_SERVICE_URL (default: http://station-service:3003)
+ * Layer: Infrastructure / Adapter
+ * Base URL resolved from env variable: STATION_SERVICE_URL (defaults to http://station-service:3003)
  */
 @Injectable()
 export class PricingHttpClient {
@@ -65,12 +66,37 @@ export class PricingHttpClient {
       this.logger.error(
         `Pricing HTTP error (charger=${opts.chargerId}): ${err.message}. Using fallback.`,
       );
-      // Fallback: if station-service is unavailable, use default prices
+      // Fallback to static pricing rules if the remote station service is unreachable.
       return this.fallbackPricing(opts);
     }
   }
 
-  /** Fallback when station-service is unavailable */
+  async getStationCoordinates(stationId: string): Promise<{ latitude: number; longitude: number }> {
+    const url = `${this.baseUrl}/api/v1/stations/${stationId}`;
+    try {
+      const resp = await firstValueFrom(
+        this.http.get(url, { timeout: 3000 }),
+      );
+      const data = resp.data;
+      if (data && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+        return { latitude: Number(data.latitude), longitude: Number(data.longitude) };
+      }
+      throw new Error('Invalid coordinates in station response');
+    } catch (err: any) {
+      this.logger.error(
+        `Failed to fetch station coordinates (stationId=${stationId}): ${err.message}. Using fallback.`,
+      );
+      // Default to Hanoi center coordinates if remote fetch fails to allow suggestion execution.
+      return { latitude: 21.0285, longitude: 105.8542 };
+    }
+  }
+
+  /**
+   * Calculates fallback pricing using standard regional rates.
+   *
+   * Applied only during network or server outages to ensure system availability
+   * is not blocked by station-service downtime.
+   */
   private fallbackPricing(opts: {
     chargerId:     string;
     stationId:     string;
@@ -84,7 +110,8 @@ export class PricingHttpClient {
     const isOffPeak  = hour >= 22 || hour < 6;
     const pricePerKwhVnd = isPeak ? 4_500 : isOffPeak ? 2_500 : 3_500;
     const durationHours  = (opts.endTime.getTime() - opts.startTime.getTime()) / 3_600_000;
-    const estimatedKwh   = durationHours * 22 * 0.85; // 22kW AC fallback
+    // Assume standard 22kW charging speed at 85% efficiency for AC chargers.
+    const estimatedKwh   = durationHours * 22 * 0.85;
     const estimatedTotal = Math.ceil(estimatedKwh * pricePerKwhVnd);
     const deposit        = Math.max(Math.ceil(estimatedTotal * 1.2), MIN_DEPOSIT);
 

@@ -12,6 +12,8 @@ export class BookingResponseDto {
   qrToken: string | null;
   /** Deposit amount (VND) */
   depositAmount: number | null;
+  /** Booked connector type */
+  connectorType: string | null;
   createdAt: Date;
 }
 

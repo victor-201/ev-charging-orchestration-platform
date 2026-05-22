@@ -18,7 +18,7 @@ export interface ChargerInfo {
 
 export interface IChargerRepository {
   findById(id: string): Promise<ChargerInfo | null>;
-  findAvailableByStation(stationId: string, connectorType?: string): Promise<ChargerInfo[]>;
+  findAvailableByStation(stationId?: string, connectorType?: string): Promise<ChargerInfo[]>;
   isAvailable(chargerId: string): Promise<boolean>;
   /** Lock row FOR UPDATE inside a transaction */
   lockForUpdate(chargerId: string, manager: EntityManager): Promise<void>;

@@ -20,12 +20,14 @@ export class ChargerRepository implements IChargerRepository {
   }
 
   async findAvailableByStation(
-    stationId: string,
+    stationId?: string,
     connectorType?: string,
   ): Promise<ChargerInfo[]> {
     const qb = this.repo.createQueryBuilder('c')
-      .where('c.station_id = :stationId', { stationId })
-      .andWhere('c.is_active = true');
+      .where('c.is_active = true');
+    if (stationId) {
+      qb.andWhere('c.station_id = :stationId', { stationId });
+    }
     if (connectorType) {
       qb.andWhere('c.connector_type = :connectorType', { connectorType });
     }

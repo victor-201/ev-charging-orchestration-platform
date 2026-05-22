@@ -9,7 +9,9 @@ import {
   ChargerReadModelOrmEntity, PricingSnapshotOrmEntity,
   OutboxOrmEntity, ProcessedEventOrmEntity,
   QueueOrmEntity, UserDebtReadModelOrmEntity,
+  SchedulingSlotOrmEntity,
 } from '../../infrastructure/persistence/typeorm/entities/booking.orm-entities';
+import { SuggestChargerUseCase } from '../../application/use-cases/suggest-charger.use-case';
 import { BookingRepository } from '../../infrastructure/persistence/typeorm/repositories/booking.repository';
 import { ChargerRepository } from '../../infrastructure/persistence/typeorm/repositories/charger.repository';
 import { QueueRepository } from '../../infrastructure/persistence/typeorm/repositories/queue.repository';
@@ -75,6 +77,7 @@ import { StationStatusChangedConsumer } from '../../infrastructure/messaging/con
       ChargerReadModelOrmEntity, PricingSnapshotOrmEntity,
       OutboxOrmEntity, ProcessedEventOrmEntity, QueueOrmEntity,
       UserDebtReadModelOrmEntity,  // ArrearsGuard read-model
+      SchedulingSlotOrmEntity,
     ]),
   ],
   controllers: [BookingController],
@@ -94,6 +97,7 @@ import { StationStatusChangedConsumer } from '../../infrastructure/messaging/con
     // Use cases - Booking lifecycle (automated)
     CreateBookingUseCase,
     GetAvailabilityUseCase,
+    SuggestChargerUseCase,
     AutoConfirmBookingUseCase,   // triggered by payment.completed
     CancelBookingUseCase,
     SystemCancelBookingUseCase,

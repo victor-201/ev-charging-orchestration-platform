@@ -4,10 +4,11 @@ import { Repository, EntityManager, In } from 'typeorm';
 import { Booking } from '../../../../domain/aggregates/booking.aggregate';
 import { BookingTimeRange } from '../../../../domain/value-objects/booking-time-range.vo';
 import { BookingStatus } from '../../../../domain/value-objects/booking-status.vo';
-import { IBookingRepository } from '../../../../domain/repositories/booking.repository.interface';
+import { IBookingRepository, SchedulingSlotInput } from '../../../../domain/repositories/booking.repository.interface';
 import {
   BookingOrmEntity,
   BookingStatusHistoryOrmEntity,
+  SchedulingSlotOrmEntity,
 } from '../entities/booking.orm-entities';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -188,6 +189,8 @@ export class BookingRepository implements IBookingRepository {
     e.depositAmount        = b.depositAmount ?? null;
     e.depositTransactionId = b.depositTransactionId ?? null;
     e.penaltyAmount        = b.penaltyAmount ?? null;
+    e.connectorType        = b.connectorType ?? null;
+    e.pricePerKwhSnapshot  = b.pricePerKwhSnapshot ?? null;
     e.createdAt            = b.createdAt;
     e.updatedAt            = b.updatedAt;
     return e;
@@ -205,8 +208,27 @@ export class BookingRepository implements IBookingRepository {
       depositAmount:        (e as any).depositAmount ?? null,
       depositTransactionId: (e as any).depositTransactionId ?? null,
       penaltyAmount:        (e as any).penaltyAmount ?? null,
+      connectorType:        e.connectorType ?? null,
+      pricePerKwhSnapshot:  e.pricePerKwhSnapshot ? Number(e.pricePerKwhSnapshot) : null,
       createdAt:            e.createdAt,
       updatedAt:            e.updatedAt,
     });
+  }
+
+  async saveSchedulingSlots(slots: SchedulingSlotInput[]): Promise<void> {
+    const entities = slots.map(s => {
+      const e = new SchedulingSlotOrmEntity();
+      e.chargerId = s.chargerId;
+      e.userId = s.userId;
+      e.vehicleId = s.vehicleId;
+      e.suggestedStart = s.suggestedStart;
+      e.suggestedEnd = s.suggestedEnd;
+      e.confidenceScore = s.confidenceScore;
+      e.algorithm = s.algorithm;
+      e.acceptedAt = null;
+      e.bookingId = null;
+      return e;
+    });
+    await this.repo.manager.save(SchedulingSlotOrmEntity, entities);
   }
 }

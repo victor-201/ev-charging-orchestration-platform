@@ -14,8 +14,9 @@ import {
   JoinQueueUseCase,
   LeaveQueueUseCase,
 } from '../../application/use-cases/queue.use-case';
-import { CreateBookingDto, CancelBookingDto, JoinQueueDto, AvailabilityQueryDto } from '../../application/dtos/booking.dto';
-import { BookingResponseDto, AvailabilitySlotDto, QueuePositionResponseDto } from '../../application/dtos/response.dto';
+import { CreateBookingDto, CancelBookingDto, JoinQueueDto, AvailabilityQueryDto, SuggestChargerDto } from '../../application/dtos/booking.dto';
+import { BookingResponseDto, AvailabilitySlotDto, QueuePositionResponseDto, SuggestChargerResponseDto } from '../../application/dtos/response.dto';
+import { SuggestChargerUseCase } from '../../application/use-cases/suggest-charger.use-case';
 import { Booking } from '../../domain/aggregates/booking.aggregate';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard }   from '../../shared/guards/roles.guard';
@@ -54,9 +55,28 @@ export class BookingController {
     private readonly joinQueue:            JoinQueueUseCase,
     private readonly leaveQueue:           LeaveQueueUseCase,
     private readonly getQueuePosition:     GetQueuePositionUseCase,
+    private readonly suggestCharger:       SuggestChargerUseCase,
     @Inject(BOOKING_REPOSITORY)
     private readonly bookingRepo:          IBookingRepository,
   ) {}
+
+  /**
+   * Recommends optimal charging stations and time slots.
+   *
+   * Bypasses outstanding debt checks to allow users to plan routes and view charging options
+   * even if a payment dispute or outstanding balance is active.
+   *
+   * @param dto - Search criteria (location coordinates, connector type, and budget)
+   * @param user - Authenticated user session
+   */
+  @Get('suggest')
+  @SkipArrearsCheck()
+  async suggest(
+    @Query() dto: SuggestChargerDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<SuggestChargerResponseDto[]> {
+    return this.suggestCharger.execute(dto, user.id);
+  }
 
   // GET /api/v1/bookings/availability
   /**
@@ -225,6 +245,7 @@ export class BookingController {
       durationMinutes: b.timeRange.durationMinutes(),
       qrToken:         b.qrToken,
       depositAmount:   b.depositAmount,
+      connectorType:   b.connectorType,
       createdAt:       b.createdAt,
     };
   }

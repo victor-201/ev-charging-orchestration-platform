@@ -1,6 +1,6 @@
 import {
-  IsDateString, IsUUID, IsString, IsOptional,
-  IsNumber, Min, IsIn,
+  IsDateString, IsString, IsOptional,
+  IsNumber, Min, IsIn, IsUUID,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -9,10 +9,10 @@ export const CONNECTOR_TYPES = ['CCS', 'CCS2', 'CHAdeMO', 'Type2', 'GB/T', 'Othe
 export type ConnectorType = typeof CONNECTOR_TYPES[number];
 
 export class CreateBookingDto {
-  @IsUUID()
+  @IsUUID('all')
   chargerId: string;
 
-  @IsUUID()
+  @IsUUID('all')
   stationId: string;
 
   /**
@@ -40,7 +40,7 @@ export class CancelBookingDto {
 }
 
 export class JoinQueueDto {
-  @IsUUID()
+  @IsUUID('all')
   chargerId: string;
 
   @IsString()
@@ -55,7 +55,7 @@ export class JoinQueueDto {
 }
 
 export class AvailabilityQueryDto {
-  @IsUUID()
+  @IsUUID('all')
   chargerId: string;
 
   /**
@@ -71,9 +71,13 @@ export class SuggestChargerDto {
   connectorType: string;
 
   @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
   latitude?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
   longitude?: number;
 
   @IsOptional()
@@ -81,4 +85,10 @@ export class SuggestChargerDto {
 
   @IsOptional()
   endTime?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  budgetVnd?: number;
 }

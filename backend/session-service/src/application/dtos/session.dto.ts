@@ -1,9 +1,9 @@
-import { IsString, IsOptional, IsNumber, IsUUID, IsEnum, Min } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsEnum, Min, IsUUID } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class StartSessionDto {
   /** Charger ID selected by user on kiosk screen. */
-  @IsUUID()
+  @IsUUID('all')
   chargerId: string;
 
   /**
@@ -12,7 +12,7 @@ export class StartSessionDto {
    * If none -> walk-in.
    */
   @IsOptional()
-  @IsUUID()
+  @IsUUID('all')
   bookingId?: string;
 
   /**

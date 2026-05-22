@@ -35,8 +35,29 @@ export interface IBookingRepository {
   findByDepositTransactionId(transactionId: string): Promise<Booking | null>;
   /** Paginated list of user bookings */
   findByUser(userId: string, limit?: number, offset?: number): Promise<{ items: Booking[]; total: number }>;
-  /** Find upcoming active bookings for a list of chargers */
+  /**
+   * Retrieves active upcoming bookings for the specified chargers.
+   *
+   * @param chargerIds - Array of charger identifiers to retrieve bookings for
+   */
   findUpcomingByChargers(chargerIds: string[]): Promise<Booking[]>;
+
+  /**
+   * Persists generated charger scheduling suggestions for analytics or reservations.
+   *
+   * @param slots - Array of suggested slot inputs to save
+   */
+  saveSchedulingSlots(slots: SchedulingSlotInput[]): Promise<void>;
+}
+
+export interface SchedulingSlotInput {
+  chargerId: string;
+  userId: string;
+  vehicleId: string | null;
+  suggestedStart: Date;
+  suggestedEnd: Date;
+  confidenceScore: number | null;
+  algorithm: string | null;
 }
 
 export const BOOKING_REPOSITORY = Symbol('BOOKING_REPOSITORY');

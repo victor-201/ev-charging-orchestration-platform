@@ -55,10 +55,13 @@ export class CreateBookingUseCase {
   ) {}
 
   async execute(cmd: CreateBookingCommand): Promise<Booking> {
-    const timeRange = new BookingTimeRange(
-      new Date(cmd.startTime),
-      new Date(cmd.endTime),
-    );
+    const startTime = new Date(cmd.startTime);
+    const endTime = new Date(cmd.endTime);
+    if (startTime.getTime() < Date.now() - 60_000) {
+      throw new BadRequestException('Cannot create a booking in the past');
+    }
+
+    const timeRange = new BookingTimeRange(startTime, endTime);
 
     // STEP 1: Validate connector type matches charger
     const charger = await this.chargerRepo.findById(cmd.chargerId);

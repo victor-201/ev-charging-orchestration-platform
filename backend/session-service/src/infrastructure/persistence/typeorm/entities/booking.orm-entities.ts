@@ -64,6 +64,12 @@ export class BookingOrmEntity {
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
+  @Column({ name: 'connector_type', type: 'varchar', length: 20, nullable: true })
+  connectorType: string | null;
+
+  @Column({ name: 'price_per_kwh_snapshot', type: 'numeric', precision: 10, scale: 2, nullable: true })
+  pricePerKwhSnapshot: number | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

@@ -16,9 +16,6 @@ export class BookingTimeRange {
     if (!(startTime instanceof Date) || !(endTime instanceof Date)) {
       throw new DomainException('startTime and endTime must be Date objects');
     }
-    if (startTime.getTime() < Date.now() - 60_000) {
-      throw new DomainException('Cannot create a booking in the past');
-    }
     if (startTime >= endTime) {
       throw new DomainException('end_time must be after start_time');
     }

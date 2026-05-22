@@ -16,6 +16,7 @@ import {
   AutoConfirmBookingUseCase,
   AutoCompleteBookingUseCase,
 } from '../../src/application/use-cases/booking-lifecycle.use-case';
+import { SuggestChargerUseCase } from '../../src/application/use-cases/suggest-charger.use-case';
 import {
   BOOKING_REPOSITORY,
 } from '../../src/domain/repositories/booking.repository.interface';
@@ -107,10 +108,7 @@ describe('BookingTimeRange', () => {
     expect(() => new BookingTimeRange(FUTURE_END, FUTURE_START)).toThrow();
   });
 
-  it('should throw if start is in the past', () => {
-    const past = new Date(Date.now() - 120_000);
-    expect(() => new BookingTimeRange(past, FUTURE_END)).toThrow();
-  });
+
 
   it('should detect overlaps correctly', () => {
     const tr1     = new BookingTimeRange(FUTURE_START, FUTURE_END);
@@ -480,5 +478,73 @@ describe('PriorityQueueService', () => {
     service.loadFromDb(entries);
     expect(service.size('c2')).toBe(3);
     expect(service.peek('c2')?.userId).toBe('u4');
+  });
+});
+
+// SuggestChargerUseCase Tests
+describe('SuggestChargerUseCase', () => {
+  let useCase: SuggestChargerUseCase;
+  const mockSaveSlots = jest.fn();
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    mockSaveSlots.mockReset();
+
+    // Mock pricing client coordinates lookup
+    (mockPricingClient as any).getStationCoordinates = jest.fn().mockResolvedValue({
+      latitude: 21.0285,
+      longitude: 105.8542,
+    });
+
+    const customBookingRepo = {
+      ...mockBookingRepo,
+      findUpcomingByChargers: jest.fn().mockResolvedValue([]),
+      saveSchedulingSlots: mockSaveSlots.mockResolvedValue(undefined),
+    };
+
+    const customChargerRepo = {
+      ...mockChargerRepo,
+      findAvailableByStation: jest.fn().mockResolvedValue([
+        {
+          id: 'charger-1',
+          stationId: 'station-1',
+          connectorType: 'CCS2',
+          connectors: [{ connectorType: 'CCS2', maxPowerKw: 50 }],
+          maxPowerKw: 50,
+          status: 'available',
+        },
+      ]),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        SuggestChargerUseCase,
+        { provide: CHARGER_REPOSITORY, useValue: customChargerRepo },
+        { provide: BOOKING_REPOSITORY, useValue: customBookingRepo },
+        { provide: PricingHttpClient,  useValue: mockPricingClient },
+      ],
+    }).compile();
+
+    useCase = module.get(SuggestChargerUseCase);
+  });
+
+  it('suggests optimal charger, solves knapsack DP, and persists slots', async () => {
+    const res = await useCase.execute(
+      {
+        connectorType: 'CCS2',
+        latitude: 21.0285,
+        longitude: 105.8542,
+        startTime: new Date(Date.now() + 1000 * 60 * 10).toISOString(), // 10m future
+        endTime: new Date(Date.now() + 1000 * 60 * 70).toISOString(),   // 70m future (2 slots)
+        budgetVnd: 150000,
+      },
+      'user-1',
+    );
+
+    expect(res).toBeDefined();
+    expect(res.length).toBeGreaterThan(0);
+    expect(res[0].chargerId).toBe('charger-1');
+    expect(res[0].rank).toBe(1);
+    expect(mockSaveSlots).toHaveBeenCalled();
   });
 });
