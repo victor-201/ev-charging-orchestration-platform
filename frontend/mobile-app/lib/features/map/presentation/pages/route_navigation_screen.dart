@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_compass/flutter_compass.dart';
@@ -8,10 +9,14 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
-import '../../../../core/design_system/theme/app_theme.dart';
+import '../../../../core/design_system/widgets/liquid_glass_scaffold.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
 import '../widgets/user_location_marker.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../bloc/map_bloc.dart';
+import '../../domain/entities/station_entity.dart';
+import '../widgets/station_marker.dart';
 
 /// Navigation Route Routing Map Screen
 ///
@@ -90,6 +95,14 @@ class _RouteNavigationScreenState
     super.dispose();
   }
 
+  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+    const p = 0.017453292519943295; // Math.PI / 180
+    final a = 0.5 - cos((lat2 - lat1) * p) / 2 +
+        cos(lat1 * p) * cos(lat2 * p) *
+            (1 - cos((lon2 - lon1) * p)) / 2;
+    return 12742 * asin(sqrt(a)); // Earth diameter is ~12742 km
+  }
+
   Future<void> _fetchRoute() async {
     if (_currentStartLat == 0.0 && _currentStartLng == 0.0) {
       setState(() {
@@ -99,13 +112,13 @@ class _RouteNavigationScreenState
       return;
     }
 
-    // Query the global public OSRM driving profile server.
-    const osrmBaseUrl = 'https://router.project-osrm.org/route/v1/driving';
+    // Query global OSRM car routing engine covering Vietnam.
+    const osrmBaseUrl = 'https://routing.openstreetmap.de/routed-car/route/v1/driving';
 
     try {
       final dio = Dio(BaseOptions(
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 15),
+        connectTimeout: const Duration(seconds: 8),
+        receiveTimeout: const Duration(seconds: 10),
       ));
 
       final response = await dio.get(
@@ -136,13 +149,25 @@ class _RouteNavigationScreenState
         _error = null;
       });
     } catch (e) {
-      String errMsg = 'Không thể tải tuyến đường. Kiểm tra kết nối mạng.';
-      if (e is DioException) {
-        errMsg = 'Lỗi API (${e.response?.statusCode}): ${e.response?.data ?? e.message}';
-      }
+      // Fallback: draw straight-line route if API service is rate-limited or fails
+      final distance = _calculateDistance(
+        _currentStartLat, _currentStartLng,
+        _currentDestLat, _currentDestLng,
+      );
+      
+      // Estimated road distance is ~1.3x straight line, speed is ~40km/h (~1.5 mins per km)
+      final estDistanceKm = distance * 1.3;
+      final estDurationMin = (estDistanceKm * 1.5).round();
+
       setState(() {
-        _error = errMsg;
+        _polylinePoints = [
+          LatLng(_currentStartLat, _currentStartLng),
+          LatLng(_currentDestLat, _currentDestLng),
+        ];
+        _distanceKm = estDistanceKm;
+        _durationMin = estDurationMin;
         _isLoading = false;
+        _error = null; // Absorb error for smooth user experience fallback
       });
     }
   }
@@ -163,16 +188,32 @@ class _RouteNavigationScreenState
   Widget build(BuildContext context) {
     final userLatLng = LatLng(_currentStartLat, _currentStartLng);
     final stationLatLng = LatLng(_currentDestLat, _currentDestLng);
+    
+    final mapState = context.watch<MapBloc>().state;
+    StationEntity? station;
+    if (mapState is MapLoaded) {
+      try {
+        station = mapState.stations.firstWhere((s) => s.id == widget.stationId);
+      } catch (_) {
+        station = null;
+      }
+    }
 
-    return Scaffold(
+    final topPadding = MediaQuery.of(context).padding.top + kToolbarHeight;
+
+    return LiquidGlassScaffold(
       appBar: AppBar(
         title: const Text('Chỉ đường'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios),
           onPressed: () => context.pop(),
         ),
       ),
-      body: Stack(
+      child: Padding(
+        padding: EdgeInsets.only(top: topPadding),
+        child: Stack(
         children: [
           FlutterMap(
             options: MapOptions(
@@ -180,18 +221,40 @@ class _RouteNavigationScreenState
               initialZoom: 13,
             ),
             children: [
-              TileLayer(
-                urlTemplate:
-                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.evcharging.app',
+              ColorFiltered(
+                colorFilter: Theme.of(context).brightness == Brightness.dark
+                    // Dark mode: dim to 92.5% brightness
+                    ? const ColorFilter.matrix(<double>[
+                        0.925, 0,     0,     0, 0,
+                        0,     0.925, 0,     0, 0,
+                        0,     0,     0.925, 0, 0,
+                        0,     0,     0,     1, 0,
+                      ])
+                    : const ColorFilter.matrix(<double>[
+                        1, 0, 0, 0, 0,
+                        0, 1, 0, 0, 0,
+                        0, 0, 1, 0, 0,
+                        0, 0, 0, 1, 0,
+                      ]),
+                child: TileLayer(
+                  urlTemplate: 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.evcharging.app',
+                ),
               ),
               if (_polylinePoints.isNotEmpty)
                 PolylineLayer(
                   polylines: [
+                    // Outer neon aura glow
                     Polyline(
                       points: _polylinePoints,
-                      color: AppColors.secondary,
-                      strokeWidth: 4,
+                      color: AppColors.primaryCyan.withValues(alpha: 0.28),
+                      strokeWidth: 11.0,
+                    ),
+                    // Inner electric core path
+                    Polyline(
+                      points: _polylinePoints,
+                      color: AppColors.primaryCyan,
+                      strokeWidth: 5.0,
                     ),
                   ],
                 ),
@@ -204,36 +267,18 @@ class _RouteNavigationScreenState
                     rotate: true,
                     child: UserLocationMarker(heading: _userHeading),
                   ),
-                  Marker(
-                    point: stationLatLng,
-                    width: 45,
-                    height: 60,
-                    rotate: true,
-                    alignment: Alignment.topCenter,
-                    child: SvgPicture.string(
-                      '''
-                                <svg width="100" height="115" viewBox="0 0 100 115" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                  <defs>
-                                    <linearGradient id="dest_grad" x1="50" y1="0" x2="50" y2="100" gradientUnits="userSpaceOnUse">
-                                      <stop stop-color="#10B981"/>
-                                      <stop offset="1" stop-color="#059669"/>
-                                    </linearGradient>
-                                  </defs>
-                                  <!-- Pin Shadow -->
-                                  <ellipse cx="50" cy="110" rx="15" ry="5" fill="black" fill-opacity="0.1"/>
-                                  <!-- Pin Body (Teardrop-ish Modern) -->
-                                  <path d="M50 115C50 115 90 75 90 45C90 22.9086 72.0914 5 50 5C27.9086 5 10 22.9086 10 45C10 75 50 115 50 115Z" fill="url(#dest_grad)"/>
-                                  <!-- Inner White Circle -->
-                                  <circle cx="50" cy="45" r="28" fill="white" fill-opacity="0.2"/>
-                                  <!-- Charger Icon -->
-                                  <rect x="42" y="30" width="12" height="20" rx="2" fill="white"/>
-                                  <path d="M54 38H57C58.1046 38 59 38.8954 59 40V46C59 47.1046 58.1046 48 57 48H54" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
-                                  <!-- Destination Label/Highlight -->
-                                  <circle cx="50" cy="45" r="32" stroke="white" stroke-width="1.5" stroke-opacity="0.5"/>
-                                </svg>
-                      ''',
+                  if (station != null)
+                    Marker(
+                      point: stationLatLng,
+                      width: 46.0,
+                      height: 46.0 * (245.0 / 180.0),
+                      rotate: true,
+                      alignment: const Alignment(0.0, -0.2653),
+                      child: StationMarker(
+                        station: station,
+                        isSelected: true, // Always show as highlighted destination
+                      ),
                     ),
-                  ),
                 ],
               ),
             ],
@@ -391,8 +436,9 @@ class _RouteNavigationScreenState
             ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildInfoItem({
     required IconData icon,

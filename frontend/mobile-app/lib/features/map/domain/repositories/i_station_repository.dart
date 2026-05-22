@@ -37,6 +37,9 @@ abstract class IStationRepository {
     required DateTime endTime,
   });
 
+  /// Resolves station details containing the given charger.
+  Future<Either<Failure, StationEntity>> getStationByChargerId(String chargerId);
+
   /// Searches for charging stations matching a keyword query (name or address).
   /// Optionally filter by [connectorType] — pushed to the server so [limit] is applied
   /// only to stations that already have the requested connector type.

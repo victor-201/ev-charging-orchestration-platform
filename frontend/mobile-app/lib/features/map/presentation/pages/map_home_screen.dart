@@ -4,25 +4,16 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:get_it/get_it.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 
 import '../bloc/map_bloc.dart';
-import '../bloc/map_bloc.dart';
-import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
-import '../../../../core/design_system/theme/app_theme.dart';
-import '../../../../core/design_system/theme/app_typography.dart';
 import '../../domain/entities/station_entity.dart';
 import '../../domain/usecases/search_stations_usecase.dart';
 
-import '../widgets/station_marker.dart';
 import '../widgets/user_location_marker.dart';
 import '../widgets/station_detail_sheet.dart';
 import '../widgets/search_results_overlay.dart';
@@ -384,14 +375,30 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
                   },
                 ),
                 children: [
-                  TileLayer(
-                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.evcharging.app',
+                  ColorFiltered(
+                    colorFilter: Theme.of(context).brightness == Brightness.dark
+                        // Dark mode: dim to 92.5% brightness
+                        ? const ColorFilter.matrix(<double>[
+                            0.925, 0,     0,     0, 0,
+                            0,     0.925, 0,     0, 0,
+                            0,     0,     0.925, 0, 0,
+                            0,     0,     0,     1, 0,
+                          ])
+                        : const ColorFilter.matrix(<double>[
+                            1, 0, 0, 0, 0,
+                            0, 1, 0, 0, 0,
+                            0, 0, 1, 0, 0,
+                            0, 0, 0, 1, 0,
+                          ]),
+                    child: TileLayer(
+                      urlTemplate: 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.evcharging.app',
+                    ),
                   ),
                   if (_userLocation != null)
                     MarkerLayer(
                       markers: [
-                        Marker(
+                         Marker(
                           point: _userLocation!,
                           width: 60,
                           height: 60,
@@ -546,11 +553,25 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
           Positioned(
             bottom: 120,
             right: AppSpacing.lg,
-            child: FloatingActionButton.small(
+            child: GestureDetector(
               key: const ValueKey('recenter_btn'),
-              onPressed: _recenterMap,
-              backgroundColor: Theme.of(context).cardColor,
-              child: const Icon(Icons.my_location, color: AppColors.primary),
+              onTap: _recenterMap,
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primaryCyan.withValues(alpha: 0.4),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.my_location, color: Colors.white, size: 22),
+              ),
             ),
           ),
         ],

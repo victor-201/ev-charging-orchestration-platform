@@ -58,11 +58,15 @@ class ChargerModel extends ChargerEntity {
     required super.connectorType,
     required super.powerKw,
     super.pricePerKwh,
+    super.connectorId,
   });
 
   factory ChargerModel.fromJson(Map<String, dynamic> json) {
     // Map the first connector variant in the array as the primary UI configuration.
     final connectors = json['connectors'] as List<dynamic>? ?? [];
+    final firstConnectorId = connectors.isNotEmpty
+        ? connectors[0]['id']?.toString()
+        : null;
     final firstConnectorType = connectors.isNotEmpty
         ? connectors[0]['connectorType']?.toString() ?? 'Other'
         : 'Other';
@@ -79,7 +83,8 @@ class ChargerModel extends ChargerEntity {
       status: json['status']?.toString() ?? 'OFFLINE',
       connectorType: firstConnectorType,
       powerKw: chargerPowerKw > 0 ? chargerPowerKw : connectorPowerKw,
-      pricePerKwh: (json['pricePerKwh'] as num?)?.toDouble(),
+      pricePerKwh: ((json['pricePerKwhVnd'] ?? json['pricePerKwh'] ?? json['price_per_kwh']) as num?)?.toDouble(),
+      connectorId: firstConnectorId,
     );
   }
 }
@@ -95,9 +100,10 @@ class PricingModel extends PricingEntity {
   factory PricingModel.fromJson(Map<String, dynamic> json) {
     return PricingModel(
       chargerId: json['chargerId']?.toString() ?? '',
-      pricePerKwh: (json['pricePerKwhVnd'] as num?)?.toDouble() ?? 0,
-      idleFeePerMinute: (json['idleFeePerMinuteVnd'] as num?)?.toDouble(),
-      totalEstimateVnd: (json['estimatedTotalVnd'] as num?)?.toDouble(),
+      // Support multiple key forms returned by backend pricing APIs (including Vnd suffixes)
+      pricePerKwh: ((json['pricePerKwhVnd'] ?? json['pricePerKwh'] ?? json['price_per_kwh_snapshot'] ?? json['price_per_kwh']) as num?)?.toDouble() ?? 0,
+      idleFeePerMinute: ((json['idleFeePerMinuteVnd'] ?? json['idleFeePerMinute'] ?? json['idle_fee_per_minute']) as num?)?.toDouble(),
+      totalEstimateVnd: ((json['estimatedTotalVnd'] ?? json['totalEstimateVnd'] ?? json['estimated_total_vnd'] ?? json['total_estimate_vnd']) as num?)?.toDouble(),
     );
   }
 }
@@ -137,13 +143,14 @@ class StationRepositoryImpl implements IStationRepository {
     String? status,
   }) async {
     try {
+      // Use /stations/nearby endpoint ([36]) when coordinates are provided
       final response = await _client.get(
-        ApiPaths.stations,
+        ApiPaths.stationsNearby,
         queryParameters: {
           'lat': lat,
           'lng': lng,
           'radiusKm': radiusKm,
-          'limit': 1000,
+          'limit': 100,
           if (connectorType != null) 'connectorType': connectorType,
           if (status != null) 'status': status,
         },
@@ -152,14 +159,10 @@ class StationRepositoryImpl implements IStationRepository {
       if (response.data is List) {
         list = response.data as List<dynamic>;
       } else if (response.data is Map) {
-        list =
-            (response.data['items'] ?? response.data['data'] ?? [])
-                as List<dynamic>;
+        list = (response.data['items'] ?? response.data['data'] ?? []) as List<dynamic>;
       }
       return Right(
-        list
-            .map((e) => StationModel.fromJson(e as Map<String, dynamic>))
-            .toList(),
+        list.map((e) => StationModel.fromJson(e as Map<String, dynamic>)).toList(),
       );
     } on DioException catch (e) {
       return Left(ErrorMapper.fromDioException(e));
@@ -170,6 +173,19 @@ class StationRepositoryImpl implements IStationRepository {
   Future<Either<Failure, StationEntity>> getStationById(String id) async {
     try {
       final response = await _client.get(ApiPaths.stationById(id));
+      final data = response.data is Map<String, dynamic>
+          ? (response.data['data'] ?? response.data) as Map<String, dynamic>
+          : <String, dynamic>{};
+      return Right(StationModel.fromJson(data));
+    } on DioException catch (e) {
+      return Left(ErrorMapper.fromDioException(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, StationEntity>> getStationByChargerId(String chargerId) async {
+    try {
+      final response = await _client.get(ApiPaths.stationByCharger(chargerId));
       final data = response.data is Map<String, dynamic>
           ? (response.data['data'] ?? response.data) as Map<String, dynamic>
           : <String, dynamic>{};

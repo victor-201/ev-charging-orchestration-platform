@@ -1,9 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
-import '../../../../core/design_system/theme/app_theme.dart';
 import '../../../../core/utils/vnd_formatter.dart';
 import '../../domain/entities/station_entity.dart';
 import '../../domain/usecases/get_charger_pricing_usecase.dart';

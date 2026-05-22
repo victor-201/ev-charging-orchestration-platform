@@ -3,9 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
-import '../../../../core/design_system/theme/app_theme.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
-import '../../../../core/design_system/widgets/ev_button.dart';
 import '../../domain/entities/station_entity.dart';
 import '../bloc/map_bloc.dart';
 import 'pricing_dialog.dart';
@@ -76,6 +74,7 @@ class StationDetailSheet extends StatelessWidget {
                       children: [
                         // Header
                         Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Expanded(
                               child: Column(
@@ -95,14 +94,84 @@ class StationDetailSheet extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            if (currentStation.distanceKm != null)
-                              Text(
-                                '${currentStation.distanceKm!.toStringAsFixed(1)} km',
-                                style: AppTypography.bodyMd.copyWith(
-                                  color: AppColors.secondary,
-                                  fontWeight: FontWeight.w600,
+                            const SizedBox(width: AppSpacing.sm),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(100),
+                                    onTap: () {
+                                      Navigator.pop(context);
+                                      double userLat = userLocation?.latitude ?? 0.0;
+                                      double userLng = userLocation?.longitude ?? 0.0;
+                                      if (userLat == 0.0 && state is MapLoaded) {
+                                        userLat = state.userLat;
+                                        userLng = state.userLng;
+                                      }
+                                      if (userLat == 0.0 || userLng == 0.0) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Không xác định được vị trí của bạn. Vui lòng bật GPS.')),
+                                        );
+                                        return;
+                                      }
+                                      context.push(
+                                        '/map/station/${currentStation.id}/route',
+                                        extra: {
+                                          'stationLat': currentStation.latitude,
+                                          'stationLng': currentStation.longitude,
+                                          'userLat': userLat,
+                                          'userLng': userLng,
+                                        },
+                                      );
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        gradient: AppColors.primaryGradient,
+                                        borderRadius: BorderRadius.circular(20),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: AppColors.primaryCyan.withValues(alpha: 0.3),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.directions,
+                                            color: Colors.white,
+                                            size: 16,
+                                          ),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            'Đường đi',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                const SizedBox(height: 6),
+                                if (currentStation.distanceKm != null)
+                                  Text(
+                                    '${currentStation.distanceKm!.toStringAsFixed(1)} km',
+                                    style: AppTypography.bodyMd.copyWith(
+                                      color: AppColors.secondary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ],
                         ),
                         const SizedBox(height: AppSpacing.lg),
@@ -315,24 +384,26 @@ class StationDetailSheet extends StatelessWidget {
                                                       return;
                                                     }
                                                     Navigator.pop(context);
-                                                    context.push('/bookings/new', extra: {
-                                                      'stationId': currentStation.id,
-                                                      'chargerId': charger.id,
-                                                      'connectorType': charger.connectorType,
-                                                    });
+                                                    context.push(
+                                                      '/bookings/new?stationId=${currentStation.id}&chargerId=${charger.connectorId ?? charger.id}&connectorType=${charger.connectorType}&physicalChargerId=${charger.id}',
+                                                      extra: {
+                                                        'stationId': currentStation.id,
+                                                        'chargerId': charger.connectorId ?? charger.id,
+                                                        'connectorType': charger.connectorType,
+                                                        'physicalChargerId': charger.id,
+                                                      },
+                                                    );
                                                   },
                                                   borderRadius: BorderRadius.circular(AppRadius.md),
                                                   child: Container(
                                                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                                     decoration: BoxDecoration(
-                                                      gradient: isAvailable ? const LinearGradient(
-                                                        colors: [AppColors.primary, Color(0xFF00B248)],
-                                                      ) : null,
-                                                      color: isAvailable ? null : AppColors.grey400,
+                                                      gradient: isAvailable ? AppColors.primaryGradient : null,
+                                                      color: isAvailable ? null : AppColors.outlineLight,
                                                       borderRadius: BorderRadius.circular(AppRadius.md),
                                                       boxShadow: isAvailable ? [
                                                         BoxShadow(
-                                                          color: AppColors.primary.withValues(alpha: 0.3),
+                                                          color: AppColors.primaryCyan.withValues(alpha: 0.3),
                                                           blurRadius: 6,
                                                           offset: const Offset(0, 3),
                                                         )
@@ -341,7 +412,7 @@ class StationDetailSheet extends StatelessWidget {
                                                     child: Text(
                                                       'ĐẶT',
                                                       style: AppTypography.labelMd.copyWith(
-                                                        color: isAvailable ? Colors.white : AppColors.white,
+                                                        color: Colors.white,
                                                         fontWeight: FontWeight.w800,
                                                       ),
                                                     ),
@@ -360,43 +431,7 @@ class StationDetailSheet extends StatelessWidget {
                           ),
                         const SizedBox(height: AppSpacing.xl),
 
-                        EVButton(
-                          label: 'Chỉ đường đến trạm',
-                          icon: Icons.directions_outlined,
-                          onPressed: () {
-                            Navigator.pop(context);
-                            
-                            // Leverage real GPS coordinates parsed from parent layout context.
-                            double userLat = userLocation?.latitude ?? 0.0;
-                            double userLng = userLocation?.longitude ?? 0.0;
-
-                            if (userLat == 0.0) {
-                              if (state is MapLoaded) {
-                                userLat = state.userLat;
-                                userLng = state.userLng;
-                              }
-                            }
-
-                            if (userLat == 0.0 || userLng == 0.0) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Không xác định được vị trí của bạn. Vui lòng bật GPS.')),
-                              );
-                              return;
-                            }
-
-                            context.push(
-                              '/map/station/${currentStation.id}/route',
-                              extra: {
-                                'stationLat': currentStation.latitude,
-                                'stationLng': currentStation.longitude,
-                                'stationName': currentStation.name,
-                                'userLat': userLat,
-                                'userLng': userLng,
-                              },
-                            );
-                          },
-                        ),
-                        const SizedBox(height: AppSpacing.xl),
+                        // Nút chỉ đường đã được loại bỏ vì đã có ở header
                       ],
                     ),
                   ),

@@ -41,6 +41,7 @@ class ChargerEntity extends Equatable {
   final String connectorType; // CCS | CHAdeMO | Type2 | GB/T | Other
   final double powerKw;
   final double? pricePerKwh;
+  final String? connectorId;
 
   const ChargerEntity({
     required this.id,
@@ -49,10 +50,11 @@ class ChargerEntity extends Equatable {
     required this.connectorType,
     required this.powerKw,
     this.pricePerKwh,
+    this.connectorId,
   });
 
   @override
-  List<Object?> get props => [id, status, connectorType, powerKw];
+  List<Object?> get props => [id, status, connectorType, powerKw, pricePerKwh, connectorId];
 }
 
 /// Charging pricing tariff representation containing base energy cost and idle fees.

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import '../../../../core/design_system/theme/app_colors.dart';
 import '../../domain/entities/station_entity.dart';
 import 'station_marker.dart';
 
@@ -26,21 +26,31 @@ class MapClusterLayer extends StatelessWidget {
       key: ValueKey('cluster_layer_${stations.length}_${selectedStationId ?? 'none'}'),
       options: MarkerClusterLayerOptions(
         maxClusterRadius: 50,
-        size: const Size(65, 65),
+        size: const Size(46, 46),
         rotate: true,
-        markers: stations.map((station) {
+        markers: (stations.toList()..sort((a, b) {
+          // Bring selected station to the very front (drawn last)
+          if (a.id == selectedStationId) return 1;
+          if (b.id == selectedStationId) return -1;
+          // Otherwise, sort by latitude descending (North to South)
+          // so markers further South are drawn on top of markers further North.
+          return b.latitude.compareTo(a.latitude);
+        })).map((station) {
           final isSelected = selectedStationId == station.id;
+          final double markerWidth = 46.0;
+          final double markerHeight = markerWidth * (245.0 / 180.0);
           return Marker(
             key: ValueKey('station_${station.id}'),
             point: LatLng(station.latitude, station.longitude),
-            width: isSelected ? 55 : 45,
-            height: isSelected ? 75 : 60,
+            width: markerWidth,
+            height: markerHeight,
             rotate: true,
-            alignment: Alignment.topCenter,
+            // Align the center of the station's circular bulb (y = markerWidth / 2) with the coordinates.
+            // y_alignment = (markerWidth / markerHeight) - 1.0 = (180.0 / 245.0) - 1.0 = -0.2653
+            alignment: const Alignment(0.0, -0.2653),
             child: StationMarker(
               station: station,
               isSelected: isSelected,
-              onTap: () {},
             ),
           );
         }).toList(),
@@ -51,48 +61,82 @@ class MapClusterLayer extends StatelessWidget {
           final station = stations.firstWhere((s) => s.id == stationId);
           onStationTapped(station);
         },
-        builder: (context, markers) => GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () {
-            if (markers.isEmpty) return;
-            final points = markers.map((m) => m.point).toList();
-            final bounds = LatLngBounds.fromPoints(points);
-            mapController.fitCamera(
-              CameraFit.bounds(
-                bounds: bounds,
-                padding: const EdgeInsets.all(120),
+        builder: (context, markers) {
+          return RepaintBoundary(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                if (markers.isEmpty) return;
+                final points = markers.map((m) => m.point).toList();
+                final bounds = LatLngBounds.fromPoints(points);
+                mapController.fitCamera(
+                  CameraFit.bounds(
+                    bounds: bounds,
+                    padding: const EdgeInsets.all(120),
+                  ),
+                );
+              },
+              child: Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: AppColors.cyanLimeGradient,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    width: 2.0,
+                  ),
+                  boxShadow: [
+                    // Inner highlight
+                    BoxShadow(
+                      color: Colors.white.withValues(alpha: 0.3),
+                      blurRadius: 4,
+                      spreadRadius: 1,
+                    ),
+                    // Outer Glow
+                    BoxShadow(
+                      color: AppColors.cyan.withValues(alpha: 0.5),
+                      blurRadius: 20,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Diagonal glass shine
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.white.withValues(alpha: 0.4),
+                              Colors.transparent,
+                            ],
+                            stops: const [0.0, 0.5],
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Count Text
+                    Text(
+                      '${markers.length}',
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            );
-          },
-          child: Container(
-            width: 65,
-            height: 65,
-            decoration: const BoxDecoration(
-              color: Colors.transparent,
-              shape: BoxShape.circle,
             ),
-            child: Center(
-              child: SvgPicture.string(
-                '''
-                <svg width="65" height="65" viewBox="0 0 65 65" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <defs>
-                    <linearGradient id="grad_green_modern" x1="0" y1="0" x2="65" y2="65" gradientUnits="userSpaceOnUse">
-                      <stop stop-color="#34D399"/>
-                      <stop offset="1" stop-color="#059669"/>
-                    </linearGradient>
-                  </defs>
-                  <circle cx="32.5" cy="32.5" r="30" fill="#10B981" fill-opacity="0.1"/>
-                  <circle cx="32.5" cy="32.5" r="25" stroke="#34D399" stroke-width="1" stroke-opacity="0.4"/>
-                  <circle cx="32.5" cy="32.5" r="22" stroke="white" stroke-width="2" stroke-opacity="0.8"/>
-                  <circle cx="32.5" cy="32.5" r="19" fill="url(#grad_green_modern)"/>
-                  <path d="M19 26C22 19 29 16 36 16" stroke="white" stroke-width="2" stroke-linecap="round" stroke-opacity="0.3"/>
-                  <text x="32.5" y="38" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="16" fill="white">${markers.length}</text>
-                </svg>
-                ''',
-              ),
-            ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
