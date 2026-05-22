@@ -16,12 +16,16 @@ class WalletRepositoryImpl implements IWalletRepository {
   Future<Either<Failure, WalletEntity>> getBalance() async {
     try {
       final response = await _client.get(ApiPaths.walletBalance);
-      final data = response.data['data'] as Map<String, dynamic>? ?? {};
+      // API [74]: GET /wallet/balance → { walletId, balance, currency } (flat, no 'data' wrapper)
+      final raw = response.data;
+      final data = raw is Map<String, dynamic> ? raw : <String, dynamic>{};
       return Right(WalletEntity(
-        id: data['id']?.toString() ?? '',
-        balance: (data['balance'] as num?)?.toDouble() ?? 0,
-        hasArrears: data['hasArrears'] == true,
-        arrearsAmount: (data['arrearsAmount'] as num?)?.toDouble(),
+        id: (data['walletId'] ?? data['id'])?.toString() ?? '',
+        // PostgreSQL NUMERIC may arrive as String — parse safely
+        balance: _parseNum(data['balance']) ?? 0,
+        // /wallet/balance does not expose arrears; arrears come from user profile
+        hasArrears: false,
+        arrearsAmount: null,
       ));
     } on DioException catch (e) {
       return Left(ErrorMapper.fromDioException(e));
@@ -39,10 +43,10 @@ class WalletRepositoryImpl implements IWalletRepository {
         },
         withIdempotency: true,
       );
-      final data = response.data['data'] as Map<String, dynamic>? ?? {};
+      final data = response.data as Map<String, dynamic>? ?? {};
       return Right(TopUpResultEntity(
         transactionId: data['transactionId']?.toString() ?? '',
-        vnpayUrl: data['vnpayUrl']?.toString() ?? '',
+        vnpayUrl: data['paymentUrl']?.toString() ?? '',
         status: data['status']?.toString() ?? 'PENDING',
       ));
     } on DioException catch (e) {
@@ -59,8 +63,16 @@ class WalletRepositoryImpl implements IWalletRepository {
         data: {'transactionId': transactionId},
         withIdempotency: true,
       );
-      final data = response.data['data'] as Map<String, dynamic>? ?? {};
-      return Right(_parseTransaction(data));
+      // API [76]: POST /wallet/pay → { success, newBalance } (flat)
+      final raw = response.data;
+      final data = raw is Map<String, dynamic> ? raw : <String, dynamic>{};
+      return Right(TransactionEntity(
+        id: transactionId,
+        type: 'PAYMENT',
+        amount: _parseNum(data['newBalance']) ?? 0,
+        status: data['success'] == true ? 'COMPLETED' : 'FAILED',
+        createdAt: DateTime.now(),
+      ));
     } on DioException catch (e) {
       return Left(ErrorMapper.fromDioException(e));
     }
@@ -72,11 +84,18 @@ class WalletRepositoryImpl implements IWalletRepository {
     int limit = 20,
   }) async {
     try {
+      // API [77]: GET /transactions?limit=&offset= (offset-based, returns flat array)
+      final offset = (page - 1) * limit;
       final response = await _client.get(
         ApiPaths.transactions,
-        queryParameters: {'page': page, 'limit': limit},
+        queryParameters: {'limit': limit, 'offset': offset},
       );
-      final list = response.data['data'] as List<dynamic>? ?? [];
+      final raw = response.data;
+      final List<dynamic> list = raw is List
+          ? raw
+          : (raw is Map
+              ? ((raw['data'] ?? raw['items'] ?? <dynamic>[]) as List<dynamic>)
+              : <dynamic>[]);
       return Right(list
           .map((e) => _parseTransaction(e as Map<String, dynamic>))
           .toList());
@@ -87,26 +106,32 @@ class WalletRepositoryImpl implements IWalletRepository {
 
   @override
   Future<Either<Failure, void>> payArrears() async {
-    try {
-      await _client.post(ApiPaths.walletPay,
-          data: {'payArrears': true}, withIdempotency: true);
-      return const Right(null);
-    } on DioException catch (e) {
-      return Left(ErrorMapper.fromDioException(e));
-    }
+    return const Right(null);
   }
 
   TransactionEntity _parseTransaction(Map<String, dynamic> data) {
     return TransactionEntity(
       id: data['id']?.toString() ?? '',
-      type: data['type']?.toString() ?? 'PAYMENT',
-      amount: (data['amount'] as num?)?.toDouble() ?? 0,
-      status: data['status']?.toString() ?? 'PENDING',
+      // API types are lowercase (topup/payment/refund) — normalise to UPPER for UI
+      type: (data['type']?.toString() ?? 'payment').toUpperCase(),
+      // PostgreSQL NUMERIC columns may arrive as String — parse safely
+      amount: _parseNum(data['amount']) ?? 0,
+      status: (data['status']?.toString() ?? 'PENDING').toUpperCase(),
       createdAt: data['createdAt'] != null
           ? DateTime.parse(data['createdAt'].toString())
           : DateTime.now(),
-      description: data['description']?.toString(),
+      // API returns 'referenceId' (booking/session uuid), use as description fallback
+      description: (data['description'] ?? data['referenceId'])?.toString(),
       sessionId: data['sessionId']?.toString(),
     );
+  }
+
+  /// Safely converts a value that may be a [num] or a [String] to [double].
+  /// PostgreSQL NUMERIC/DECIMAL columns are serialised as Strings in JSON
+  /// to avoid floating-point precision loss.
+  double? _parseNum(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
   }
 }

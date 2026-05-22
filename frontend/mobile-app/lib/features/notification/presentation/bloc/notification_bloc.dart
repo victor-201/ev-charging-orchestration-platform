@@ -4,66 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/notification_entity.dart';
 import '../../domain/repositories/i_notification_repository.dart';
 
-/// Notification Management Business Logic Component (BLoC)
-///
-/// Coordinates all states and operations related to customer push notifications, unread counts,
-/// push token device registration, and fine-grained communication preferences.
-abstract class NotificationEvent extends Equatable {
-  const NotificationEvent();
-  @override
-  List<Object?> get props => [];
-}
-
-class NotificationLoad extends NotificationEvent { const NotificationLoad(); }
-class NotificationMarkRead extends NotificationEvent {
-  final String id;
-  const NotificationMarkRead({required this.id});
-  @override List<Object?> get props => [id];
-}
-class NotificationMarkAllRead extends NotificationEvent { const NotificationMarkAllRead(); }
-class NotificationRegisterDevice extends NotificationEvent {
-  final String pushToken;
-  const NotificationRegisterDevice({required this.pushToken});
-  @override List<Object?> get props => [pushToken];
-}
-class NotificationUnregisterDevice extends NotificationEvent {
-  final String deviceId;
-  const NotificationUnregisterDevice({required this.deviceId});
-  @override List<Object?> get props => [deviceId];
-}
-class NotificationPreferencesLoad extends NotificationEvent { const NotificationPreferencesLoad(); }
-class NotificationPreferencesUpdate extends NotificationEvent {
-  final NotificationPreferencesEntity prefs;
-  const NotificationPreferencesUpdate({required this.prefs});
-  @override List<Object?> get props => [prefs];
-}
-class NotificationReceived extends NotificationEvent {
-  final NotificationEntity notification;
-  const NotificationReceived({required this.notification});
-  @override List<Object?> get props => [notification];
-}
-
-abstract class NotificationState extends Equatable {
-  const NotificationState();
-  @override List<Object?> get props => [];
-}
-
-class NotificationInitial extends NotificationState { const NotificationInitial(); }
-class NotificationLoading extends NotificationState { const NotificationLoading(); }
-
-class NotificationLoaded extends NotificationState {
-  final List<NotificationEntity> notifications;
-  final int unreadCount;
-  final NotificationPreferencesEntity? preferences;
-  const NotificationLoaded({required this.notifications, required this.unreadCount, this.preferences});
-  @override List<Object?> get props => [notifications, unreadCount];
-}
-
-class NotificationError extends NotificationState {
-  final String message;
-  const NotificationError({required this.message});
-  @override List<Object?> get props => [message];
-}
+part 'notification_event.dart';
+part 'notification_state.dart';
 
 class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
   final INotificationRepository _repository;

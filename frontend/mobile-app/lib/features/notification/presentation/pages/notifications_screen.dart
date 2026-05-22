@@ -4,9 +4,9 @@ import 'package:go_router/go_router.dart';
 import '../bloc/notification_bloc.dart';
 import '../../domain/entities/notification_entity.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
-import '../../../../core/design_system/theme/app_theme.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
+import '../../../../core/design_system/widgets/liquid_glass_scaffold.dart';
 import '../../../../core/utils/date_utils.dart' as ev_date;
 
 /// User Notifications Inbox Screen
@@ -29,9 +29,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return LiquidGlassScaffold(
       appBar: AppBar(
         title: const Text('Thông báo'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.done_all_outlined),
@@ -40,7 +42,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
         ],
       ),
-      body: BlocBuilder<NotificationBloc, NotificationState>(
+      child: BlocBuilder<NotificationBloc, NotificationState>(
         builder: (context, state) {
           if (state is NotificationLoading) return const Center(child: CircularProgressIndicator());
           if (state is NotificationLoaded) {
@@ -56,8 +58,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             return RefreshIndicator(
               onRefresh: () async => context.read<NotificationBloc>().add(const NotificationLoad()),
               child: ListView.separated(
+                padding: const EdgeInsets.only(top: AppSpacing.lg),
                 itemCount: state.notifications.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
+                separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
                 itemBuilder: (_, i) => _NotificationTile(notif: state.notifications[i]),
               ),
             );
