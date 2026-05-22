@@ -38,7 +38,7 @@ import type { AuthenticatedUser }   from '../../shared/guards/jwt-auth.guard';
  *   POST /wallet/pay               → @JwtAuthGuard
  *   GET  /transactions             → @JwtAuthGuard
  */
-@Controller('api/v1')
+@Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class PaymentController {
   private readonly logger = new Logger(PaymentController.name);
