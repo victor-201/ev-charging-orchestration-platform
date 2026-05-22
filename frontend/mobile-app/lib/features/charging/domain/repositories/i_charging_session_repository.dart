@@ -8,10 +8,12 @@ import '../entities/charging_session_entity.dart';
 /// querying live session states, fetching historical metrics, and orchestrating
 /// real-time telemetry streaming over WebSockets.
 abstract class IChargingSessionRepository {
-  /// Spawns a new charging session linked to a verified booking and QR authorization token.
+  /// Spawns a new charging session — POST /api/v1/charging/start
+  /// chargerId is required; bookingId and qrToken are optional (walk-up session).
   Future<Either<Failure, ChargingSessionEntity>> startSession({
-    required String bookingId,
-    required String qrToken,
+    required String chargerId,
+    String? bookingId,
+    String? qrToken,
   });
 
   /// Requests premature termination of an active charging session by its unique identifier.
@@ -21,9 +23,10 @@ abstract class IChargingSessionRepository {
   Future<Either<Failure, ChargingSessionEntity>> getActiveSession(String sessionId);
 
   /// Queries a list of completed charging sessions for the current user.
+  /// GET /api/v1/charging/history uses offset-based pagination, not page-based.
   Future<Either<Failure, List<ChargingSessionEntity>>> getSessionHistory({
-    int? page,
     int? limit,
+    int? offset,
   });
 
   /// Establishes a WebSocket tunnel to stream real-time sensor metrics for a charger.

@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../bloc/charging_session_bloc.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
-import '../../../../core/design_system/theme/app_theme.dart';
+import '../../../../core/design_system/widgets/liquid_glass_scaffold.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/live_meter_widget.dart';
 import '../../../../core/design_system/widgets/alert_banner.dart';
@@ -17,11 +17,14 @@ import '../../../../core/utils/date_utils.dart' as ev_date;
 /// and handles session termination triggers with a secure 1.5-second long press gesture.
 class ActiveSessionScreen extends StatefulWidget {
   final String sessionId;
+  // chargerId required by POST /charging/start — must be passed from navigation
+  final String? chargerId;
   final String? bookingId;
   final String? qrToken;
   const ActiveSessionScreen({
     super.key,
     required this.sessionId,
+    this.chargerId,
     this.bookingId,
     this.qrToken,
   });
@@ -36,12 +39,13 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.sessionId == 'new' &&
-        widget.bookingId != null &&
-        widget.qrToken != null) {
+    // When sessionId == 'new', trigger a new charging session start
+    // chargerId is required by POST /charging/start
+    if (widget.sessionId == 'new' && widget.chargerId != null) {
       context.read<ChargingSessionBloc>().add(ChargingStartRequested(
-            bookingId: widget.bookingId!,
-            qrToken: widget.qrToken!,
+            chargerId: widget.chargerId!,
+            bookingId: widget.bookingId,
+            qrToken: widget.qrToken,
           ));
     }
   }

@@ -55,16 +55,26 @@ class ChargingSessionRepositoryImpl
 
   @override
   Future<Either<Failure, ChargingSessionEntity>> startSession({
-    required String bookingId,
-    required String qrToken,
+    required String chargerId,
+    String? bookingId,
+    String? qrToken,
   }) async {
     try {
       final response = await _client.post(
         ApiPaths.startSession,
-        data: {'bookingId': bookingId, 'qrToken': qrToken},
+        // POST /charging/start: chargerId required, bookingId and qrToken optional
+        data: {
+          'chargerId': chargerId,
+          if (bookingId != null) 'bookingId': bookingId,
+          if (qrToken != null) 'qrToken': qrToken,
+        },
         withIdempotency: true,
       );
-      final data = response.data['data'] as Map<String, dynamic>? ?? {};
+      // Response may be flat or wrapped in data
+      final raw = response.data;
+      final data = raw is Map<String, dynamic>
+          ? ((raw['data'] as Map<String, dynamic>?) ?? raw)
+          : <String, dynamic>{};
       return Right(ChargingSessionModel.fromJson(data));
     } on DioException catch (e) {
       return Left(ErrorMapper.fromDioException(e));
@@ -101,21 +111,24 @@ class ChargingSessionRepositoryImpl
 
   @override
   Future<Either<Failure, List<ChargingSessionEntity>>> getSessionHistory({
-    int? page,
     int? limit,
+    int? offset,
   }) async {
     try {
       final response = await _client.get(
         ApiPaths.chargingHistory,
+        // GET /charging/history uses offset-based pagination
         queryParameters: {
-          if (page != null) 'page': page,
           if (limit != null) 'limit': limit,
+          if (offset != null) 'offset': offset,
         },
       );
-      final list = response.data['data'] as List<dynamic>? ?? [];
+      final raw = response.data;
+      final list = raw is List
+          ? raw
+          : (raw is Map ? (raw['data'] as List<dynamic>? ?? []) : <dynamic>[]);
       return Right(list
-          .map((e) => ChargingSessionModel.fromJson(
-              e as Map<String, dynamic>))
+          .map((e) => ChargingSessionModel.fromJson(e as Map<String, dynamic>))
           .toList());
     } on DioException catch (e) {
       return Left(ErrorMapper.fromDioException(e));

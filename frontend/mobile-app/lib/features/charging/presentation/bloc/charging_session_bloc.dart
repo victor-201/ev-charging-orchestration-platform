@@ -4,109 +4,8 @@ import 'package:hydrated_bloc/hydrated_bloc.dart';
 import '../../domain/entities/charging_session_entity.dart';
 import '../../domain/repositories/i_charging_session_repository.dart';
 
-/// Charging Session Control and Telemetry Business Logic Component (BLoC)
-///
-/// Coordinates all states and operations related to starting, running, and terminating
-/// EV charging sessions, utilizing HydratedBloc to persist active session state across app
-/// launches and WebSocket tunnels for real-time OCPP telemetry streams.
-abstract class ChargingEvent extends Equatable {
-  const ChargingEvent();
-  @override
-  List<Object?> get props => [];
-}
-
-class ChargingStartRequested extends ChargingEvent {
-  final String bookingId;
-  final String qrToken;
-  const ChargingStartRequested(
-      {required this.bookingId, required this.qrToken});
-  @override
-  List<Object?> get props => [bookingId, qrToken];
-}
-
-class ChargingStopRequested extends ChargingEvent {
-  final String sessionId;
-  const ChargingStopRequested({required this.sessionId});
-  @override
-  List<Object?> get props => [sessionId];
-}
-
-class ChargingTelemetryReceived extends ChargingEvent {
-  final TelemetryData data;
-  const ChargingTelemetryReceived({required this.data});
-  @override
-  List<Object?> get props => [data];
-}
-
-class ChargingSessionLoaded extends ChargingEvent {
-  final ChargingSessionEntity session;
-  const ChargingSessionLoaded({required this.session});
-  @override
-  List<Object?> get props => [session];
-}
-
-class ChargingReset extends ChargingEvent {
-  const ChargingReset();
-}
-
-abstract class ChargingState extends Equatable {
-  const ChargingState();
-  @override
-  List<Object?> get props => [];
-}
-
-class ChargingInitial extends ChargingState {
-  const ChargingInitial();
-}
-
-class ChargingLoading extends ChargingState {
-  const ChargingLoading();
-}
-
-class ChargingActive extends ChargingState {
-  final ChargingSessionEntity session;
-  final TelemetryData? latestTelemetry;
-
-  const ChargingActive({
-    required this.session,
-    this.latestTelemetry,
-  });
-
-  ChargingActive copyWithTelemetry(TelemetryData data) {
-    return ChargingActive(
-      session: ChargingSessionEntity(
-        id: session.id,
-        chargerId: session.chargerId,
-        status: session.status,
-        energyKwh: data.energyKwh,
-        socPercent: data.socPercent,
-        powerW: data.powerW,
-        amountDue: data.amountDue,
-        startedAt: session.startedAt,
-        endedAt: session.endedAt,
-        transactionId: session.transactionId,
-      ),
-      latestTelemetry: data,
-    );
-  }
-
-  @override
-  List<Object?> get props => [session, latestTelemetry];
-}
-
-class ChargingCompleted extends ChargingState {
-  final ChargingSessionEntity session;
-  const ChargingCompleted({required this.session});
-  @override
-  List<Object?> get props => [session];
-}
-
-class ChargingError extends ChargingState {
-  final String message;
-  const ChargingError({required this.message});
-  @override
-  List<Object?> get props => [message];
-}
+part 'charging_session_event.dart';
+part 'charging_session_state.dart';
 
 class ChargingSessionBloc
     extends HydratedBloc<ChargingEvent, ChargingState> {
@@ -126,6 +25,8 @@ class ChargingSessionBloc
       ChargingStartRequested event, Emitter<ChargingState> emit) async {
     emit(const ChargingLoading());
     final result = await _repository.startSession(
+      // chargerId is now required by the API
+      chargerId: event.chargerId,
       bookingId: event.bookingId,
       qrToken: event.qrToken,
     );
