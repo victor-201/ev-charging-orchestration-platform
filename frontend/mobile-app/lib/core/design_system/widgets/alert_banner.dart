@@ -3,7 +3,6 @@ import 'package:shimmer/shimmer.dart';
 import 'dart:async';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
-import '../theme/app_theme.dart';
 
 /// Reusable shimmer loader for all async content loading
 class ShimmerLoader extends StatelessWidget {
@@ -117,7 +116,7 @@ class NotificationBanner extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppRadius.md),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.25),
+                color: Colors.black.withValues(alpha: 0.25),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
