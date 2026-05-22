@@ -210,6 +210,33 @@
   2. Chi tiết kèm qrToken (null nếu chưa confirmed)
   3. Admin/Staff xem được tất cả booking
 
+## [18b] Đề xuất trạm sạc tối ưu (Suggest Charger & DP Optimizer)
+
+- **Actor:** User
+- **Objective:** Tìm phương án sạc tối ưu tại các trạm sạc khả dụng, thỏa mãn loại đầu sạc, tối đa hóa năng lượng nhận được trong tầm ngân sách (Budget) và ưu tiên trạm sạc gần/trạm sạc ít tải hơn để điều phối lưới điện.
+- **Trigger:** `GET /api/v1/bookings/suggest`
+- **Flow:**
+  1. Nhận thông tin tọa độ người dùng (mặc định Hà Nội nếu không truyền), loại cổng sạc yêu cầu (`connectorType`), ngân sách (`budgetVnd`, mặc định 150,000 VND), và khoảng thời gian mong muốn sạc (mặc định là 4 giờ tiếp theo).
+  2. Chia nhỏ khoảng thời gian yêu cầu thành các khung giờ trống dài 30 phút (slots).
+  3. Lọc tất cả súng sạc khả dụng trong hệ thống khớp với loại đầu sạc yêu cầu và tìm lịch booking sắp tới để loại bỏ các slot đã bị đặt.
+  4. Tính khoảng cách địa lý từ người dùng tới từng trạm sạc bằng công thức **Haversine**:
+     $$d = 2R \arcsin\left(\sqrt{\sin^2\left(\frac{\Delta \phi}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\Delta \lambda}{2}\right)}\right)$$
+  5. Gọi API Billing/Pricing để lấy báo giá TOU (Time of Use) cho từng slot khả dụng của từng súng sạc.
+  6. Chuyển đổi bài toán thành bài toán **Cái balo 0/1 (0/1 Knapsack)**:
+     - **Tải trọng Balo ($W$)**: Ngân sách khả dụng được quy đổi (chia cho 1000, mặc định $W = 150$).
+     - **Trọng lượng vật phẩm ($w_i$)** cho slot $S_i$: Giá tiền ước tính để sạc trong slot này (quy đổi ra nghìn VND):
+       $$w_i = \max\left(1, \text{round}\left(\frac{\text{Giá điện TOU} \times \text{Công suất súng sạc} \times 0.5 \text{ giờ}}{1000}\right)\right)$$
+     - **Giá trị vật phẩm ($v_i$)** cho slot $S_i$: Độ hữu dụng của slot sạc, tính bằng năng lượng sạc được điều chỉnh giảm dựa theo mức độ tải của trạm để khuyến khích cân bằng tải:
+       $$v_i = \text{Công suất súng sạc} \times 0.5 \text{ giờ} \times (1.0 - 0.5 \times \text{load}_i)$$
+       Trong đó $\text{load}_i = \text{số súng sạc bận trong slot} / \text{tổng số súng sạc tại trạm}$.
+  7. Giải thuật Quy hoạch động Knapsack tìm ra tập hợp các slot sạc tối ưu có tổng chi phí $\le W$ và có tổng độ hữu dụng ($\text{totalValue}$) cao nhất.
+  8. Tính toán điểm số tổng hợp của súng sạc (Score) kết hợp độ hữu dụng và khoảng cách:
+     $$\text{Score} = \frac{\text{totalValue}}{\text{distanceKm} + 0.1}$$
+  9. Sắp xếp danh sách đề xuất giảm dần theo `Score` và tăng dần theo khoảng cách.
+  10. Đối với top 5 đề xuất tốt nhất, lưu thông tin slot vào bảng `scheduling_slots` với cờ `algorithm = 'dp-optimizer'` và điểm tin cậy `confidence_score = Score`.
+  11. Trả về mảng các súng sạc đề xuất xếp hạng theo thứ tự ưu tiên giảm dần.
+
+
 ## [19] Hàng đợi thông minh (Smart Queue)
 
 - **Actor:** User
@@ -467,14 +494,16 @@
 ## [40] Thu thập Telemetry từ Charger
 
 - **Actor:** Charger firmware / MQTT bridge / Staff
-- **Objective:** Nhận dữ liệu đo lường realtime từ phần cứng
-- **Trigger:** `POST /api/v1/telemetry/ingest`
+- **Objective:** Nhận dữ liệu đo lường realtime từ phần cứng, lưu vào ClickHouse và phát tán qua event bus
+- **Trigger:** `POST /api/v1/telemetry/ingest` hoặc `POST /api/v1/telemetry/ingest/:chargerId/:sessionId`
 - **Flow:**
   1. Validate TelemetryReadingVO (powerKw≥0, socPercent 0-100, voltageV≤1000)
   2. normalize() clamp các giá trị ngoài ngưỡng
-  3. TelemetryBuffer gom batch 10 readings/charger
-  4. Flush → publish batch lên `ev.telemetry` exchange
-  5. analytics-service consume → cập nhật hourly stats
+  3. Ghi trực tiếp vào ClickHouse bảng `telemetry_logs` (time-series store, high-throughput)
+  4. TelemetryBuffer gom batch 10 readings/charger
+  5. Flush → publish batch lên `ev.telemetry` exchange
+  6. analytics-service consume → cập nhật `hourly_usage_stats`
+  7. Trả về `{ eventId, warnings[] }` — 202 Accepted
 
 ---
 
@@ -499,15 +528,17 @@
 # Event Flow Summary (RabbitMQ)
 
 ```
-Booking created    → session.booking_created_v1    → billing (deduct deposit) + notification
-Booking cancelled  → session.booking_cancelled_v1  → billing (refund) + notification
-Session started    → session.started_v1            → ocpp-gw (RemoteStart) + notification + analytics
-Session completed  → session.completed_v1          → billing (final charge) + analytics
-Charger faulted    → charger.fault.detected        → infra (update status) + notification
-Payment completed  → billing.deducted_v1           → session (confirm) + analytics
-Payment failed     → billing.deduction_failed_v1   → session (mark failed)
-Arrears created    → billing.arrears_created_v1    → session (lock user)
-Arrears cleared    → billing.arrears_cleared_v1    → session (unlock user)
-Idle fee charged   → billing.idle_fee_charged_v1   → notification (alert user)
-Wallet topup       → billing.wallet_topup_v1       → analytics
+User registered     → user.registered_v1        → iam (user_profiles, user_fcm_tokens sync)
+Booking created     → session.booking_created_v1  → billing (deduct deposit) + notification
+Booking cancelled   → session.booking_cancelled_v1 → billing (refund) + notification
+Session started     → session.started_v1          → ocpp-gw (RemoteStart) + notification + analytics
+Session completed   → session.completed_v1        → billing (final charge) + analytics
+Charger faulted     → charger.fault.detected      → infra (update status) + notification
+Payment completed   → billing.deducted_v1         → session (confirm) + analytics
+Payment failed      → billing.deduction_failed_v1 → session (mark failed)
+Arrears created     → billing.arrears_created_v1  → session (lock user) + iam (users_cache sync)
+Arrears cleared     → billing.arrears_cleared_v1  → session (unlock user) + iam (users_cache sync)
+Idle fee charged    → billing.idle_fee_charged_v1 → notification (alert user)
+Wallet topup        → billing.wallet_topup_v1     → analytics
+Telemetry ingested  → ev.telemetry (batch)        → analytics (hourly_usage_stats) [+ ClickHouse write trực tiếp]
 ```

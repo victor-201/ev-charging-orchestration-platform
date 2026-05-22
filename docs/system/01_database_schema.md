@@ -113,7 +113,7 @@
 | id          | uuid         | NO            | Khóa chính (PK), Mặc định: uuid_generate_v4() |
 | user_id     | uuid         | NO            | Khóa ngoại (FK) → users.id ON DELETE CASCADE  |
 | token_hash  | varchar(255) | NO            | Duy nhất (UNIQUE)                             |
-| short_code  | varchar(6)   | NO            |
+| short_code  | varchar(6)   | YES           | NULL nếu xác thực qua token link              |
 | expires_at  | timestamptz  | NO            |                                               |
 | verified_at | timestamptz  | YES           |                                               |
 | created_at  | timestamptz  | NO            | Mặc định: NOW()                               |
@@ -202,15 +202,45 @@
 | color              | varchar(30)          | YES           |                                               |
 | status             | vehicles_status_enum | NO            | Mặc định: 'active'                            |
 | is_primary         | boolean              | NO            | Mặc định: false                               |
-| mac_address        | varchar(17)          | YES           | Duy nhất (UNIQUE)                             |
-| vin_number         | varchar(17)          | YES           | Duy nhất (UNIQUE)                             |
+| mac_address        | varchar(17)          | YES           | Duy nhất một phần (nếu không NULL)           |
+| vin_number         | varchar(17)          | YES           | Duy nhất một phần (nếu không NULL)           |
 | autocharge_enabled | boolean              | NO            | Mặc định: false                               |
 | version            | integer              | NO            | Mặc định: 1                                   |
 | deleted_at         | timestamptz          | YES           |                                               |
 | created_at         | timestamptz          | NO            | Mặc định: NOW()                               |
 | updated_at         | timestamptz          | NO            | Mặc định: NOW()                               |
 
-**Chỉ mục:** `idx_vehicles_owner_status` ON vehicles(owner_id, status)
+**Chỉ mục:** `idx_vehicles_owner_status` ON vehicles(owner_id, status)  
+**Chỉ mục:** `idx_vehicles_mac_address` ON vehicles(mac_address) WHERE mac_address IS NOT NULL (Duy nhất)  
+**Chỉ mục:** `idx_vehicles_vin_number` ON vehicles(vin_number) WHERE vin_number IS NOT NULL (Duy nhất)
+
+## `vehicle_audit_logs`
+
+| Cột        | Kiểu dữ liệu | Cho phép Null | Ghi chú                                       |
+| ---------- | ------------ | ------------- | --------------------------------------------- |
+| id         | uuid         | NO            | Khóa chính (PK)                               |
+| vehicle_id | uuid         | NO            |                                               |
+| user_id    | uuid         | NO            |                                               |
+| action     | varchar(30)  | NO            | `'created'`, `'updated'`, `'deleted'`, `'set_primary'` |
+| changes    | jsonb        | YES           | Snapshot các trường đã thay đổi               |
+| changed_by | uuid         | YES           | ID admin/user thực hiện thay đổi              |
+| created_at | timestamptz  | NO            | Mặc định: NOW()                               |
+
+**Chỉ mục:** `idx_val_vehicle` ON vehicle_audit_logs(vehicle_id)  
+**Chỉ mục:** `idx_val_user` ON vehicle_audit_logs(user_id)
+
+## `profile_audit_logs`
+
+| Cột        | Kiểu dữ liệu | Cho phép Null | Ghi chú                                       |
+| ---------- | ------------ | ------------- | --------------------------------------------- |
+| id         | uuid         | NO            | Khóa chính (PK)                               |
+| user_id    | uuid         | NO            |                                               |
+| action     | varchar(30)  | NO            | `'updated'`, `'deleted'`                      |
+| changes    | jsonb        | YES           | Snapshot các trường đã thay đổi               |
+| changed_by | uuid         | YES           | ID admin/user thực hiện thay đổi              |
+| created_at | timestamptz  | NO            | Mặc định: NOW()                               |
+
+**Chỉ mục:** `idx_pal_user` ON profile_audit_logs(user_id)
 
 ## `user_arrears`
 
@@ -444,10 +474,10 @@
 
 ### Enums
 
-- `bookings_status_enum`: `'pending'`, `'pending_payment'`, `'confirmed'`, `'cancelled'`, `'completed'`, `'expired'`, `'no_show'`
+- `bookings_status_enum`: `'pending_payment'`, `'confirmed'`, `'cancelled'`, `'completed'`, `'expired'`, `'no_show'`
 - `queue_entries_status_enum`: `'waiting'`, `'notified'`, `'served'`, `'cancelled'`, `'expired'`
 - `charger_state_availability_enum`: `'available'`, `'occupied'`, `'faulted'`, `'offline'`, `'reserved'`
-- `charging_sessions_status_enum`: `'init'`, `'active'`, `'stopped'`, `'billed'`, `'completed'`, `'error'`, `'interrupted'`
+- `charging_sessions_status_enum`: `'pending'`, `'active'`, `'completed'`, `'error'`, `'interrupted'`
 - `event_outbox_status_enum`: `'pending'`, `'processed'`, `'published'`, `'failed'`
 
 ## `bookings`
@@ -466,20 +496,13 @@
 | notes                  | text                 | YES           |                             |
 | deposit_amount         | numeric(12, 0)       | YES           |                             |
 | deposit_transaction_id | uuid                 | YES           |                             |
-| qr_token               | varchar(128)         | YES           |                             |
-| penalty_amount         | numeric(12, 0)       | YES           | Mặc định: 0                 |
-| connector_type         | varchar(20)          | YES           |                             |
-| price_per_kwh_snapshot | numeric(10, 2)       | YES           |                             |
-| idempotency_key        | varchar(64)          | YES           | Duy nhất (UNIQUE)           |
+| qr_token               | varchar(40)          | YES           | Duy nhất (UNIQUE), sinh sau khi thanh toán |
+| penalty_amount         | numeric(12, 0)       | YES           |                             |
 | created_at             | timestamptz          | NO            | Mặc định: NOW()             |
 | updated_at             | timestamptz          | NO            | Mặc định: NOW()             |
 
 **Chỉ mục:** `idx_book_user_status` ON bookings(user_id, status, start_time)  
-**Chỉ mục:** `idx_book_charger_time` ON bookings(charger_id, start_time)  
-**Chỉ mục:** `idx_book_confirmed_start` ON bookings(status, start_time) WHERE status = 'confirmed'  
-**Chỉ mục:** `idx_book_connector` ON bookings(charger_id, connector_type, start_time)  
-**Chỉ mục:** `idx_book_pending_payment` ON bookings(status, created_at) WHERE status = 'pending_payment'  
-**Chỉ mục:** `idx_book_deposit_tx` ON bookings(deposit_transaction_id) WHERE deposit_transaction_id IS NOT NULL
+**Chỉ mục:** `idx_book_charger_time` ON bookings(charger_id, start_time)
 
 ## `booking_status_history`
 
@@ -558,33 +581,24 @@
 
 ## `charging_sessions`
 
-| Cột                    | Kiểu dữ liệu                  | Cho phép Null | Ghi chú           |
-| ---------------------- | ----------------------------- | ------------- | ----------------- |
-| id                     | uuid                          | NO            | Khóa chính (PK)   |
-| booking_id             | uuid                          | YES           | Duy nhất (UNIQUE) |
-| user_id                | uuid                          | NO            |                   |
-| charger_id             | uuid                          | NO            |                   |
-| start_time             | timestamptz                   | NO            | Mặc định: NOW()   |
-| end_time               | timestamptz                   | YES           |                   |
-| start_meter_wh         | bigint                        | NO            | Mặc định: 0       |
-| end_meter_wh           | bigint                        | YES           |                   |
-| status                 | charging_sessions_status_enum | NO            | Mặc định: 'init'  |
-| error_reason           | varchar(500)                  | YES           |                   |
-| initiated_by           | varchar(20)                   | NO            | Mặc định: 'user'  |
-| idempotency_key        | varchar(128)                  | YES           | Duy nhất (UNIQUE) |
-| energy_fee_vnd         | numeric(12, 0)                | YES           | Mặc định: 0       |
-| idle_fee_vnd           | numeric(12, 0)                | YES           | Mặc định: 0       |
-| stopped_at             | timestamptz                   | YES           |                   |
-| billed_at              | timestamptz                   | YES           |                   |
-| deposit_amount         | numeric(12, 0)                | NO            | Mặc định: 0       |
-| deposit_transaction_id | uuid                          | YES           |                   |
-| created_at             | timestamptz                   | NO            | Mặc định: NOW()   |
-| updated_at             | timestamptz                   | NO            | Mặc định: NOW()   |
+| Cột          | Kiểu dữ liệu                  | Cho phép Null | Ghi chú             |
+| ------------ | ----------------------------- | ------------- | ------------------- |
+| id           | uuid                          | NO            | Khóa chính (PK)     |
+| booking_id   | uuid                          | YES           | Duy nhất (UNIQUE)   |
+| user_id      | uuid                          | NO            |                     |
+| charger_id   | uuid                          | NO            |                     |
+| start_time   | timestamptz                   | NO            | Mặc định: NOW()     |
+| end_time     | timestamptz                   | YES           |                     |
+| start_meter_wh | bigint                      | NO            | Mặc định: 0         |
+| end_meter_wh | bigint                        | YES           |                     |
+| status       | charging_sessions_status_enum | NO            | Mặc định: 'pending' |
+| error_reason | varchar(500)                  | YES           |                     |
+| initiated_by | varchar(20)                   | NO            | Mặc định: 'user'    |
+| created_at   | timestamptz                   | NO            | Mặc định: NOW()     |
 
 **Chỉ mục:** `idx_session_user_status` ON charging_sessions(user_id, status)  
 **Chỉ mục:** `idx_session_charger_status` ON charging_sessions(charger_id, status)  
 **Chỉ mục:** `idx_session_active` ON charging_sessions(charger_id, start_time) WHERE status = 'active'  
-**Chỉ mục:** `idx_session_stopped` ON charging_sessions(status, end_time) WHERE status = 'stopped'  
 **Chỉ mục:** `idx_session_booking` ON charging_sessions(booking_id) WHERE booking_id IS NOT NULL
 
 ## `session_telemetry`
@@ -664,7 +678,7 @@
 | Cột            | Kiểu dữ liệu             | Cho phép Null | Ghi chú                                       |
 | -------------- | ------------------------ | ------------- | --------------------------------------------- |
 | id             | uuid                     | NO            | Khóa chính (PK), Mặc định: uuid_generate_v4() |
-| aggregate_type | varchar(50)              | NO            |                                               |
+| aggregate_type | varchar(100)             | NO            |                                               |
 | aggregate_id   | uuid                     | NO            |                                               |
 | event_type     | varchar(100)             | NO            |                                               |
 | payload        | jsonb                    | NO            |                                               |
@@ -1024,6 +1038,33 @@
 | event_id     | varchar(255) | NO            | Khóa chính (PK) |
 | event_type   | varchar(100) | NO            |                 |
 | processed_at | timestamptz  | NO            | Mặc định: NOW() |
+
+---
+
+# Dịch vụ: Telemetry Ingestion Service (ClickHouse)
+
+**Cơ sở dữ liệu:** ClickHouse | **Bảng:** `telemetry_logs`
+
+> Bảng chuỗi thời gian (time-series) lưu trữ dữ liệu đo lường thô từ charger. Ghi với throughput cao, không dùng PostgreSQL. Dữ liệu được ingest từ `telemetry-ingestion-service` sau khi nhận từ `ev.telemetry` exchange.
+
+## `telemetry_logs` (ClickHouse)
+
+| Cột                | Kiểu dữ liệu  | Cho phép Null | Ghi chú                                      |
+| ------------------ | ------------- | ------------- | -------------------------------------------- |
+| event_id           | uuid          | NO            | Khóa chính (PK)                              |
+| charger_id         | uuid          | NO            |                                              |
+| session_id         | uuid          | YES           |                                              |
+| power_kw           | Float32       | YES           | Công suất tức thời (kW)                      |
+| current_a          | Float32       | YES           | Dòng điện (A)                                |
+| voltage_v          | Float32       | YES           | Điện áp (V)                                  |
+| meter_wh           | UInt64        | YES           | Chỉ số công tơ (Wh)                          |
+| soc_percent        | UInt8         | YES           | State of Charge 0-100 (%)                    |
+| temperature_c      | Float32       | YES           | Nhiệt độ (°C)                                |
+| error_code         | String        | YES           | Mã lỗi OCPP                                  |
+| hardware_timestamp | DateTime      | YES           | Thời gian ghi nhận tại phần cứng             |
+| received_at        | DateTime      | NO            | Thời gian nhận tại server, Mặc định: NOW()   |
+
+**Engine:** MergeTree() ORDER BY (charger_id, received_at)
 
 ---
 

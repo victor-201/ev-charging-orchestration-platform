@@ -522,16 +522,19 @@
   }
   // Body
   {
-    "macAddress": "string (optional)",
-    "vinNumber": "string (optional)",
+    "macAddress": "string (optional, format: XX:XX:XX...)",
+    "vinNumber": "string (optional, 17 characters)",
     "autochargeEnabled": "boolean (optional)"
   }
   ```
 - **Response (200 OK):**
   ```json
   {
-    "message": "string",
-    "vehicleId": "uuid"
+    "id": "uuid",
+    "macAddress": "string (nullable)",
+    "vinNumber": "string (nullable)",
+    "autochargeEnabled": "boolean",
+    "version": "number"
   }
   ```
 
@@ -957,7 +960,7 @@
         "chargerId": "uuid",
         "startTime": "iso-date",
         "endTime": "iso-date",
-        "status": "string (PENDING_PAYMENT, CONFIRMED, COMPLETED, CANCELLED, EXPIRED)",
+        "status": "string (pending_payment, confirmed, completed, cancelled, expired, no_show)",
         "durationMinutes": "number",
         "qrToken": "string (nullable)",
         "depositAmount": "number",
@@ -1077,6 +1080,34 @@
   }
   ```
 
+### [61b] [GET] /api/v1/bookings/suggest
+
+- **Auth:** Bearer | **Roles:** User
+- **Name:** Đề xuất trạm sạc tối ưu (Suggest Charger & DP Optimizer)
+- **Request (Query Params):**
+  ```json
+  {
+    "connectorType": "string (required, enum: CCS, CCS2, CHAdeMO, Type2, GB/T, Other)",
+    "latitude": "number (optional)",
+    "longitude": "number (optional)",
+    "startTime": "iso-date (optional)",
+    "endTime": "iso-date (optional)",
+    "budgetVnd": "number (optional, mặc định: 150000)"
+  }
+  ```
+- **Response (200 OK):**
+  ```json
+  [
+    {
+      "chargerId": "uuid",
+      "stationId": "uuid",
+      "score": "number",
+      "rank": "number"
+    }
+  ]
+  ```
+
+
 ### [62] [POST] /api/v1/charging/start
 
 - **Auth:** Bearer | **Roles:** User
@@ -1098,7 +1129,7 @@
     "chargerId": "uuid",
     "bookingId": "uuid (nullable)",
     "startTime": "iso-date",
-    "status": "string (STARTING, CHARGING)",
+    "status": "string (pending, active)",
     "startMeterWh": "number",
     "createdAt": "iso-date"
   }
@@ -1124,7 +1155,7 @@
   ```json
   {
     "id": "uuid",
-    "status": "string (COMPLETED)",
+    "status": "string (completed)",
     "startTime": "iso-date",
     "endTime": "iso-date",
     "totalKwh": "number",
