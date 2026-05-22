@@ -30,12 +30,23 @@ class BookingModel extends BookingEntity {
       connectorType: json['connectorType']?.toString() ?? '',
       startTime: DateTime.parse(json['startTime'].toString()),
       endTime: DateTime.parse(json['endTime'].toString()),
-      status: json['status']?.toString() ?? 'PENDING_PAYMENT',
-      depositAmount: (json['depositAmount'] as num?)?.toDouble() ?? 0,
+      status: (json['status']?.toString() ?? 'PENDING_PAYMENT')
+          .toUpperCase()
+          .replaceAll('-', '_'),
+      // PostgreSQL NUMERIC columns are serialised as Strings in JSON
+      // (e.g. "50000") to preserve precision — parse safely with tryParse.
+      depositAmount: _parseNum(json['depositAmount']) ?? 0,
       qrToken: json['qrToken']?.toString(),
-      penaltyAmount: (json['penaltyAmount'] as num?)?.toDouble(),
-      refundAmount: (json['refundAmount'] as num?)?.toDouble(),
+      penaltyAmount: _parseNum(json['penaltyAmount']),
+      refundAmount: _parseNum(json['refundAmount']),
     );
+  }
+
+  /// Safely converts a value that may be a [num] or a [String] to [double].
+  static double? _parseNum(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
   }
 }
 
@@ -50,20 +61,47 @@ class BookingRepositoryImpl implements IBookingRepository {
     required DateTime date,
   }) async {
     try {
+      // ignore: avoid_print
+      print('=== [DEBUG] getAvailability CALLED WITH: chargerId = "$chargerId", date = "$date" ===');
       final response = await _client.get(
         ApiPaths.bookingAvailability,
         queryParameters: {
           'chargerId': chargerId,
+          // API expects YYYY-MM-DD format
           'date': date.toIso8601String().split('T')[0],
         },
       );
-      final list = response.data['data'] as List<dynamic>? ?? [];
+      // GET /bookings/availability returns a list of slots containing startTime, endTime, and isBooked
+      final raw = response.data;
+      final list = raw is List
+          ? raw
+          : (raw is Map ? (raw['data'] as List<dynamic>? ?? []) : <dynamic>[]);
       return Right(list.map((s) {
         final m = s as Map<String, dynamic>;
+        DateTime slotStart;
+        DateTime slotEnd;
+
+        if (m.containsKey('startTime')) {
+          slotStart = DateTime.parse(m['startTime'].toString()).toLocal();
+          slotEnd = m.containsKey('endTime')
+              ? DateTime.parse(m['endTime'].toString()).toLocal()
+              : slotStart.add(const Duration(minutes: 30));
+        } else {
+          // Fallback to slot: "08:00" format
+          final slotStr = m['slot']?.toString() ?? '00:00';
+          final parts = slotStr.split(':');
+          final slotHour = int.tryParse(parts[0]) ?? 0;
+          final slotMin = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
+          slotStart = DateTime(
+            date.year, date.month, date.day, slotHour, slotMin);
+          slotEnd = slotStart.add(const Duration(minutes: 30));
+        }
+
         return AvailabilitySlotEntity(
-          startTime: DateTime.parse(m['startTime'].toString()),
-          endTime: DateTime.parse(m['endTime'].toString()),
-          isAvailable: m['isAvailable'] == true,
+          startTime: slotStart,
+          endTime: slotEnd,
+          // API field is "isBooked" (not "isAvailable")
+          isAvailable: m['isBooked'] != true,
         );
       }).toList());
     } on DioException catch (e) {
@@ -75,7 +113,11 @@ class BookingRepositoryImpl implements IBookingRepository {
   Future<Either<Failure, List<BookingEntity>>> getMyBookings() async {
     try {
       final response = await _client.get(ApiPaths.myBookings);
-      final list = response.data['data'] as List<dynamic>? ?? [];
+      // GET /bookings/me returns { items: [...], total: number }
+      final raw = response.data;
+      final List<dynamic> list = raw is Map
+          ? ((raw['items'] ?? raw['data']) as List<dynamic>? ?? [])
+          : (raw is List ? raw : []);
       return Right(list
           .map((e) => BookingModel.fromJson(e as Map<String, dynamic>))
           .toList());
@@ -104,7 +146,11 @@ class BookingRepositoryImpl implements IBookingRepository {
         },
         withIdempotency: true,
       );
-      final data = response.data['data'] as Map<String, dynamic>? ?? {};
+      // POST /bookings returns the booking object directly (not wrapped in data)
+      final raw = response.data;
+      final data = raw is Map<String, dynamic>
+          ? ((raw['data'] as Map<String, dynamic>?) ?? raw)
+          : <String, dynamic>{};
       return Right(BookingModel.fromJson(data));
     } on DioException catch (e) {
       return Left(ErrorMapper.fromDioException(e));
@@ -115,7 +161,11 @@ class BookingRepositoryImpl implements IBookingRepository {
   Future<Either<Failure, BookingEntity>> getBookingById(String id) async {
     try {
       final response = await _client.get(ApiPaths.bookingById(id));
-      final data = response.data['data'] as Map<String, dynamic>? ?? {};
+      // GET /bookings/:id returns the booking object directly (not wrapped in data)
+      final raw = response.data;
+      final data = raw is Map<String, dynamic>
+          ? ((raw['data'] as Map<String, dynamic>?) ?? raw)
+          : <String, dynamic>{};
       return Right(BookingModel.fromJson(data));
     } on DioException catch (e) {
       return Left(ErrorMapper.fromDioException(e));

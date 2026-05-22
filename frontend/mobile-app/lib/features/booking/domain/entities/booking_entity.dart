@@ -1,5 +1,8 @@
 import 'package:equatable/equatable.dart';
 
+export 'availability_slot_entity.dart';
+export 'queue_position_entity.dart';
+
 /// Domain entity representing reservation records
 class BookingEntity extends Equatable {
   final String id;
@@ -35,34 +38,4 @@ class BookingEntity extends Equatable {
 
   @override
   List<Object?> get props => [id, status, startTime, endTime];
-}
-
-/// Domain entity representing available charger reservation slots
-class AvailabilitySlotEntity extends Equatable {
-  final DateTime startTime;
-  final DateTime endTime;
-  final bool isAvailable;
-
-  const AvailabilitySlotEntity({
-    required this.startTime,
-    required this.endTime,
-    required this.isAvailable,
-  });
-
-  @override
-  List<Object?> get props => [startTime, isAvailable];
-}
-
-/// Domain entity representing real-time charger queues
-class QueuePositionEntity extends Equatable {
-  final int position;
-  final int estimatedWaitMinutes; // position × 45
-
-  const QueuePositionEntity({
-    required this.position,
-    required this.estimatedWaitMinutes,
-  });
-
-  @override
-  List<Object?> get props => [position];
 }

@@ -3,14 +3,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../bloc/booking_bloc.dart';
 import '../../domain/entities/booking_entity.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
-import '../../../../core/design_system/theme/app_theme.dart';
+import '../../../../core/design_system/widgets/liquid_glass_scaffold.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
+import '../../../../core/di/injection.dart';
 import '../../../../core/utils/vnd_formatter.dart';
 import '../../../../core/utils/date_utils.dart' as ev_date;
+import '../../../../features/map/domain/entities/station_entity.dart';
+import '../../../../features/map/domain/repositories/i_station_repository.dart';
+import '../widgets/booking_station_card.dart';
+import '../widgets/booking_info_row.dart';
 
 /// Detailed Reservation Information Screen
 ///
@@ -29,10 +35,125 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
   Duration _qrRemaining = Duration.zero;
   bool _qrValid = false;
 
+  // Station and charger detail fields
+  StationEntity? _station;
+  ChargerEntity? _charger;
+  PricingEntity? _pricing;
+  bool _loadingStation = false;
+  String? _stationError;
+
   @override
   void initState() {
     super.initState();
     context.read<BookingBloc>().add(BookingLoadDetail(id: widget.bookingId));
+  }
+
+  Future<void> _loadStationDetails(BookingEntity booking) async {
+    final chargerId = booking.chargerId;
+
+    // If already loaded and matches chargerId, skip
+    if (_station != null && _charger != null && _charger!.id == chargerId) {
+      return;
+    }
+    setState(() {
+      _loadingStation = true;
+      _stationError = null;
+    });
+
+    try {
+      final stationRepo = getIt<IStationRepository>();
+      final result = await stationRepo.getStationByChargerId(chargerId);
+
+      if (mounted) {
+        await result.fold(
+          (failure) async {
+            setState(() {
+              _loadingStation = false;
+              _stationError = 'Không tìm thấy thông tin trạm sạc từ mã trụ sạc: $chargerId (${failure.message})';
+            });
+          },
+          (station) async {
+            ChargerEntity? matchingCharger;
+            for (final c in station.chargers) {
+              if (c.id == chargerId) {
+                matchingCharger = c;
+                break;
+              }
+            }
+            if (matchingCharger == null && station.chargers.isNotEmpty) {
+              matchingCharger = station.chargers.first;
+            }
+
+            setState(() {
+              _station = station;
+              _charger = matchingCharger;
+            });
+
+            // Fetch pricing dynamically
+            if (matchingCharger != null) {
+              try {
+                final resolvedConnectorType = matchingCharger.connectorType.isNotEmpty
+                    ? matchingCharger.connectorType
+                    : (booking.connectorType.isNotEmpty ? booking.connectorType : 'GB/T');
+
+                final pricingResult = await stationRepo.getChargerPricing(
+                  stationId: station.id,
+                  chargerId: matchingCharger.id,
+                  connectorType: resolvedConnectorType,
+                  startTime: booking.startTime,
+                  endTime: booking.endTime,
+                );
+                pricingResult.fold(
+                  (pricingFailure) {
+                    debugPrint('Failed to load dynamic pricing: ${pricingFailure.message}');
+                  },
+                  (pricing) {
+                    if (mounted) {
+                      setState(() {
+                        _pricing = pricing;
+                      });
+                    }
+                  },
+                );
+              } catch (e) {
+                debugPrint('Error loading dynamic pricing: $e');
+              }
+            }
+
+            if (mounted) {
+              setState(() {
+                _loadingStation = false;
+              });
+            }
+          },
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loadingStation = false;
+          _stationError = 'Lỗi truy xuất thông tin sạc: $e';
+        });
+      }
+    }
+  }
+
+  Future<void> _openGoogleMaps() async {
+    if (_station == null) return;
+    final url = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1'
+      '&destination=${_station!.latitude},${_station!.longitude}'
+      '&travelmode=driving',
+    );
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không thể mở ứng dụng bản đồ.')),
+        );
+      }
+    }
   }
 
   void _startCountdown(BookingEntity b) {
@@ -66,45 +187,53 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return LiquidGlassScaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text('Chi tiết đặt lịch'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios),
           onPressed: () => context.pop(),
         ),
       ),
-      body: BlocConsumer<BookingBloc, BookingState>(
-        listener: (context, state) {
-          if (state is BookingDetailLoaded) _startCountdown(state.booking);
-          if (state is BookingCancelled) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                content: Text('Đã hủy'), backgroundColor: AppColors.primary));
-            context.go('/bookings');
-          }
-        },
-        builder: (context, state) {
-          if (state is BookingLoading) {
+      child: SafeArea(
+        child: BlocConsumer<BookingBloc, BookingState>(
+          listener: (context, state) {
+            if (state is BookingDetailLoaded) {
+              _startCountdown(state.booking);
+              _loadStationDetails(state.booking);
+            }
+            if (state is BookingCancelled) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('Đã hủy'), backgroundColor: AppColors.primary));
+              context.go('/bookings');
+            }
+          },
+          builder: (context, state) {
+            if (state is BookingLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (state is BookingDetailLoaded) {
+              return _buildDetail(context, state.booking);
+            }
+            if (state is BookingError) {
+              return Center(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Text(state.message, style: AppTypography.bodyMd.copyWith(color: AppColors.error)),
+                  const SizedBox(height: AppSpacing.lg),
+                  EVButton(
+                    label: 'Thử lại',
+                    variant: EVButtonVariant.secondary,
+                    onPressed: () => context.read<BookingBloc>().add(BookingLoadDetail(id: widget.bookingId)),
+                  ),
+                ]),
+              );
+            }
             return const Center(child: CircularProgressIndicator());
-          }
-          if (state is BookingDetailLoaded) {
-            return _buildDetail(context, state.booking);
-          }
-          if (state is BookingError) {
-            return Center(
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Text(state.message, style: AppTypography.bodyMd.copyWith(color: AppColors.error)),
-                const SizedBox(height: AppSpacing.lg),
-                EVButton(
-                  label: 'Thử lại',
-                  variant: EVButtonVariant.secondary,
-                  onPressed: () => context.read<BookingBloc>().add(BookingLoadDetail(id: widget.bookingId)),
-                ),
-              ]),
-            );
-          }
-          return const Center(child: CircularProgressIndicator());
-        },
+          },
+        ),
       ),
     );
   }
@@ -139,6 +268,18 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
           child: Text(statusLabel, style: AppTypography.bodyMd.copyWith(color: statusColor, fontWeight: FontWeight.w600)),
         ),
         const SizedBox(height: AppSpacing.xl),
+
+        // Beautiful Charging Station & Charger Point details card!
+        BookingStationCard(
+          isLoading: _loadingStation,
+          error: _stationError,
+          station: _station,
+          charger: _charger,
+          pricing: _pricing,
+          booking: b,
+          onRetry: () => _loadStationDetails(b),
+          onOpenMaps: _openGoogleMaps,
+        ),
 
         if (b.qrToken != null && b.isConfirmed) ...[
           Text('Mã QR sạc điện', style: AppTypography.headingMd),
@@ -184,25 +325,23 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
             border: Border.all(color: Theme.of(context).colorScheme.outline),
           ),
           child: Column(children: [
-            _InfoRow(icon: Icons.cable_outlined, label: 'Đầu sạc', value: b.connectorType),
+            BookingInfoRow(icon: Icons.play_circle_outline, label: 'Thời gian bắt đầu', value: ev_date.DateUtils.formatDateTime(b.startTime)),
             const Divider(height: AppSpacing.lg),
-            _InfoRow(icon: Icons.play_circle_outline, label: 'Bắt đầu', value: ev_date.DateUtils.formatDateTime(b.startTime)),
-            const Divider(height: AppSpacing.lg),
-            _InfoRow(icon: Icons.stop_circle_outlined, label: 'Kết thúc', value: ev_date.DateUtils.formatDateTime(b.endTime)),
+            BookingInfoRow(icon: Icons.stop_circle_outlined, label: 'Thời gian kết thúc', value: ev_date.DateUtils.formatDateTime(b.endTime)),
             if (b.depositAmount > 0) ...[
               const Divider(height: AppSpacing.lg),
-              _InfoRow(icon: Icons.payment_outlined, label: 'Đặt cọc', value: VndFormatter.format(b.depositAmount)),
+              BookingInfoRow(icon: Icons.payment_outlined, label: 'Tiền đặt cọc', value: VndFormatter.format(b.depositAmount)),
             ],
             if (b.penaltyAmount != null) ...[
               const Divider(height: AppSpacing.lg),
-              _InfoRow(icon: Icons.warning_amber_outlined, label: 'Phạt NO_SHOW',
+              BookingInfoRow(icon: Icons.warning_amber_outlined, label: 'Phạt vi phạm (NO_SHOW)',
                   value: VndFormatter.format(b.penaltyAmount!), valueColor: AppColors.error),
             ],
           ]),
         ),
         const SizedBox(height: AppSpacing.xl),
 
-        if (b.isCancellable)
+        if (b.isCancellable) ...[
           EVButton(
             label: 'Hủy đặt lịch (hoàn 100%)',
             variant: EVButtonVariant.danger,
@@ -222,24 +361,16 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
               ),
             ),
           ),
+          const SizedBox(height: AppSpacing.md),
+        ],
+
+        EVButton(
+          label: 'Quay lại',
+          variant: EVButtonVariant.secondary,
+          icon: Icons.arrow_back,
+          onPressed: () => context.pop(),
+        ),
       ]),
     );
   }
-}
-
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color? valueColor;
-  const _InfoRow({required this.icon, required this.label, required this.value, this.valueColor});
-
-  @override
-  Widget build(BuildContext context) => Row(children: [
-    Icon(icon, size: 18, color: AppColors.grey600),
-    const SizedBox(width: AppSpacing.sm),
-    Text(label, style: AppTypography.bodyMd.copyWith(color: AppColors.grey600)),
-    const Spacer(),
-    Text(value, style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.w600, color: valueColor)),
-  ]);
 }

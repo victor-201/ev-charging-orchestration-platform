@@ -4,15 +4,18 @@ import 'package:go_router/go_router.dart';
 import '../bloc/booking_bloc.dart';
 import '../../domain/entities/booking_entity.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
-import '../../../../core/design_system/theme/app_theme.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
-import '../../../../core/utils/date_utils.dart' as ev_date;
+import '../../../../core/design_system/widgets/glass_pill.dart';
+import '../../../../core/design_system/widgets/glass_square.dart';
+import '../../../../core/design_system/widgets/liquid_glass_card.dart';
+import '../../../../core/design_system/widgets/liquid_glass_scaffold.dart';
+import '../../../../core/di/injection.dart';
+import '../../../../features/map/domain/entities/station_entity.dart';
+import '../../../../features/map/domain/repositories/i_station_repository.dart';
+import '../widgets/booking_card.dart';
 
-/// Historic Reservations and Booking Records Screen
-///
-/// Queries and lists the chronological log of user charger slot reservations,
-/// displaying transactional statuses and redirect links to detailed QR tickets.
+/// Booking History Screen — Liquid Glass Design
 class BookingHistoryScreen extends StatefulWidget {
   const BookingHistoryScreen({super.key});
 
@@ -21,160 +24,280 @@ class BookingHistoryScreen extends StatefulWidget {
 }
 
 class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
+  String _filter = 'ALL';
+  List<BookingEntity> _bookings = [];
+  final Map<String, StationEntity> _stationCache = {};
+  final Set<String> _loadingChargerIds = {};
+  final Set<String> _failedChargerIds = {}; // Track failed charger IDs to prevent infinite loop
+
   @override
   void initState() {
     super.initState();
     context.read<BookingBloc>().add(const BookingLoadHistory());
   }
 
+  void _loadStationsForBookings(List<BookingEntity> bookings) {
+    final repo = getIt<IStationRepository>();
+    final uniqueChargerIds = bookings.map((b) => b.chargerId).toSet();
+    for (final chargerId in uniqueChargerIds) {
+      if (!_stationCache.containsKey(chargerId) &&
+          !_loadingChargerIds.contains(chargerId) &&
+          !_failedChargerIds.contains(chargerId)) {
+        _loadingChargerIds.add(chargerId);
+        repo.getStationByChargerId(chargerId).then((result) {
+          if (mounted) {
+            setState(() {
+              _loadingChargerIds.remove(chargerId);
+              result.fold(
+                (failure) {
+                  _failedChargerIds.add(chargerId);
+                },
+                (station) {
+                  _stationCache[chargerId] = station;
+                },
+              );
+            });
+          }
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Đặt lịch của tôi'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline),
-            onPressed: () => context.push('/bookings/new'),
-          ),
-        ],
-      ),
-      body: BlocBuilder<BookingBloc, BookingState>(
-        builder: (context, state) {
-          if (state is BookingLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (state is BookingHistoryLoaded) {
-            if (state.bookings.isEmpty) {
-              return Center(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.event_busy_outlined,
-                      size: 72, color: AppColors.grey400),
-                  const SizedBox(height: AppSpacing.lg),
-                  Text('Chưa có lịch đặt nào',
-                      style: AppTypography.headingMd
-                          .copyWith(color: AppColors.grey600)),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text('Nhấn + để đặt lịch sạc mới',
-                      style: AppTypography.bodyMd
-                          .copyWith(color: AppColors.grey400)),
-                  const SizedBox(height: AppSpacing.xl),
-                  EVButton(
-                    label: 'Đặt lịch ngay',
-                    onPressed: () => context.push('/bookings/new'),
+    return LiquidGlassScaffold(
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header ──────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Đặt lịch',
+                          style: AppTypography.headingLg.copyWith(fontWeight: FontWeight.w700)),
+                      Text('Booking History',
+                          style: AppTypography.bodyMd.copyWith(color: AppColors.textMuted)),
+                    ],
                   ),
-                ]),
-              );
-            }
-            return RefreshIndicator(
-              onRefresh: () async =>
-                  context.read<BookingBloc>().add(const BookingLoadHistory()),
-              child: ListView.separated(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                itemCount: state.bookings.length,
-                separatorBuilder: (_, __) =>
-                    const SizedBox(height: AppSpacing.sm),
-                itemBuilder: (_, i) =>
-                    _BookingCard(booking: state.bookings[i]),
+                   GestureDetector(
+                    onTap: () async {
+                      await context.push('/bookings/new');
+                      if (context.mounted) {
+                        context.read<BookingBloc>().add(const BookingLoadHistory());
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        gradient: AppColors.cyanLimeGradient,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.cyan.withValues(alpha: 0.4),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.add, color: Colors.white, size: 18),
+                          const SizedBox(width: 4),
+                          Text('Đặt mới',
+                              style: AppTypography.labelMd.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              )),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            );
-          }
-          if (state is BookingError) {
-            return Center(
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.error_outline, size: 48, color: AppColors.error),
-                const SizedBox(height: AppSpacing.md),
-                Text(state.message,
-                    style: AppTypography.bodyMd.copyWith(color: AppColors.error),
-                    textAlign: TextAlign.center),
-                const SizedBox(height: AppSpacing.lg),
-                EVButton(
-                  label: 'Thử lại',
-                  variant: EVButtonVariant.secondary,
-                  onPressed: () => context.read<BookingBloc>().add(const BookingLoadHistory()),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+
+            // ── Status Filter Pills ──────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _Chip(label: 'Tất cả',    value: 'ALL',             current: _filter, onTap: (v) => setState(() => _filter = v)),
+                    const SizedBox(width: 8),
+                    _Chip(label: 'Chờ TT',    value: 'PENDING_PAYMENT', current: _filter, onTap: (v) => setState(() => _filter = v)),
+                    const SizedBox(width: 8),
+                    _Chip(label: 'Xác nhận',  value: 'CONFIRMED',       current: _filter, onTap: (v) => setState(() => _filter = v)),
+                    const SizedBox(width: 8),
+                    _Chip(label: 'Hoàn thành',value: 'COMPLETED',       current: _filter, onTap: (v) => setState(() => _filter = v)),
+                    const SizedBox(width: 8),
+                    _Chip(label: 'Đã hủy',    value: 'CANCELLED',       current: _filter, onTap: (v) => setState(() => _filter = v)),
+                  ],
                 ),
-              ]),
-            );
-          }
-          return const SizedBox.shrink();
-        },
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+
+            // ── Content ──────────────────────────────────────────
+            Expanded(
+              child: BlocBuilder<BookingBloc, BookingState>(
+                builder: (context, state) {
+                  if (state is BookingHistoryLoaded) {
+                    _bookings = state.bookings;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _loadStationsForBookings(_bookings);
+                    });
+                  }
+
+                  if (state is BookingLoading && _bookings.isEmpty) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  if (state is BookingError && _bookings.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpacing.lg),
+                        child: LiquidGlassCard(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.error_outline, size: 48, color: AppColors.error),
+                              const SizedBox(height: AppSpacing.md),
+                              Text(state.message,
+                                  style: AppTypography.bodyMd.copyWith(color: AppColors.error),
+                                  textAlign: TextAlign.center),
+                              const SizedBox(height: AppSpacing.lg),
+                              EVButton(
+                                label: 'Thử lại',
+                                variant: EVButtonVariant.secondary,
+                                onPressed: () => context
+                                    .read<BookingBloc>()
+                                    .add(const BookingLoadHistory()),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
+                  final filtered = _filter == 'ALL'
+                      ? _bookings
+                      : _bookings.where((b) => b.status == _filter).toList();
+
+                  if (filtered.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpacing.lg),
+                        child: LiquidGlassCard(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Stat tiles row
+                              Wrap(
+                                spacing: AppSpacing.md,
+                                runSpacing: AppSpacing.md,
+                                alignment: WrapAlignment.center,
+                                children: [
+                                  GlassSquare(
+                                    size: 110,
+                                    gradient: AppColors.cyanLimeGradient,
+                                    shadowColor: AppColors.cyan.withValues(alpha: 0.4),
+                                    children: [
+                                      Text(_bookings.length.toString(),
+                                          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Colors.white)),
+                                      const Text('Tổng', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+                                    ],
+                                  ),
+                                  GlassSquare(
+                                    size: 110,
+                                    gradient: AppColors.blueCyanGradient,
+                                    shadowColor: AppColors.blue.withValues(alpha: 0.4),
+                                    children: [
+                                      Text(
+                                          _bookings.where((b) => b.status == 'COMPLETED').length.toString(),
+                                          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Colors.white)),
+                                      const Text('Xong', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: AppSpacing.xl),
+                              const Icon(Icons.event_busy_outlined, size: 56, color: AppColors.textMuted),
+                              const SizedBox(height: AppSpacing.md),
+                              Text('Không có lịch đặt', style: AppTypography.headingMd),
+                              const SizedBox(height: AppSpacing.sm),
+                              Text('Nhấn "+ Đặt mới" để tạo lịch sạc',
+                                  style: AppTypography.bodyMd.copyWith(color: AppColors.textMuted)),
+                              const SizedBox(height: AppSpacing.xl),
+                              EVButton(
+                                  label: 'Đặt lịch ngay',
+                                  onPressed: () async {
+                                    await context.push('/bookings/new');
+                                    if (context.mounted) {
+                                      context.read<BookingBloc>().add(const BookingLoadHistory());
+                                    }
+                                  },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
+                  return RefreshIndicator(
+                    onRefresh: () async {
+                      context.read<BookingBloc>().add(const BookingLoadHistory());
+                      setState(() {
+                        _stationCache.clear();
+                        _loadingChargerIds.clear();
+                        _failedChargerIds.clear();
+                      });
+                    },
+                    child: ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.xxxl),
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+                      itemBuilder: (_, i) {
+                        final b = filtered[i];
+                        return BookingCard(
+                          booking: b,
+                          station: _stationCache[b.chargerId],
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _BookingCard extends StatelessWidget {
-  final BookingEntity booking;
-  const _BookingCard({required this.booking});
+class _Chip extends StatelessWidget {
+  final String label;
+  final String value;
+  final String current;
+  final ValueChanged<String> onTap;
+  const _Chip({required this.label, required this.value, required this.current, required this.onTap});
 
   @override
-  Widget build(BuildContext context) {
-    Color statusColor;
-    String statusLabel;
-    switch (booking.status) {
-      case 'CONFIRMED':       statusColor = AppColors.chargerAvailable; statusLabel = 'Đã xác nhận'; break;
-      case 'PENDING_PAYMENT': statusColor = AppColors.amber;            statusLabel = 'Chờ thanh toán'; break;
-      case 'COMPLETED':       statusColor = AppColors.secondary;        statusLabel = 'Hoàn thành'; break;
-      case 'CANCELLED':       statusColor = AppColors.grey400;          statusLabel = 'Đã hủy'; break;
-      case 'EXPIRED':         statusColor = AppColors.grey400;          statusLabel = 'Hết hạn'; break;
-      case 'NO_SHOW':         statusColor = AppColors.error;            statusLabel = 'Không đến'; break;
-      default:                statusColor = AppColors.grey400;          statusLabel = booking.status;
-    }
-
-    return GestureDetector(
-      onTap: () => context.push('/bookings/${booking.id}'),
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          border: Border.all(color: statusColor.withValues(alpha: 0.2)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(children: [
-          Container(
-            width: 4,
-            height: 60,
-            decoration: BoxDecoration(
-              color: statusColor,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                const Icon(Icons.cable_outlined, size: 16, color: AppColors.grey600),
-                const SizedBox(width: 4),
-                Text(booking.connectorType,
-                    style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.w600)),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(AppRadius.full),
-                  ),
-                  child: Text(statusLabel,
-                      style: AppTypography.caption.copyWith(color: statusColor, fontWeight: FontWeight.w600)),
-                ),
-              ]),
-              const SizedBox(height: 4),
-              Text(
-                '${ev_date.DateUtils.formatDateTime(booking.startTime)} → ${ev_date.DateUtils.formatTimeHm(booking.endTime)}',
-                style: AppTypography.caption.copyWith(color: AppColors.grey600),
-              ),
-            ]),
-          ),
-          const Icon(Icons.chevron_right, color: AppColors.grey400),
-        ]),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => GlassPill(
+        label: label,
+        isActive: value == current,
+        onTap: () => onTap(value),
+      );
 }
