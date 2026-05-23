@@ -2,7 +2,7 @@ import {
   Controller, Get, Post, Patch, Body, Param, Query,
   HttpCode, HttpStatus, NotFoundException, BadRequestException,
   ConflictException, UnprocessableEntityException,
-  UseGuards,
+  UseGuards, Delete,
   ParseUUIDPipe,
 } from '@nestjs/common';
 import {
@@ -10,7 +10,7 @@ import {
   ListStationsUseCase, GetNearbyStationsUseCase,
   AddChargerUseCase, UpdateChargerStatusUseCase,
   GetChargersUseCase, GetCitiesUseCase,
-  GetStationByChargerUseCase,
+  GetStationByChargerUseCase, DeleteStationUseCase,
 } from '../../application/use-cases/station.use-cases';
 import {
   GetPricingUseCase, CalculateSessionFeeUseCase,
@@ -68,6 +68,7 @@ export class StationController {
     private readonly deactivateRule:      DeactivatePricingRuleUseCase,
     private readonly listPricingRules:    ListPricingRulesUseCase,
     private readonly getStationByCharger: GetStationByChargerUseCase,
+    private readonly deleteStation:       DeleteStationUseCase,
   ) {}
 
   @Get()
@@ -140,6 +141,17 @@ export class StationController {
     @Body() body: UpdateStationDto,
   ) {
     return this.handleDomainErrors(() => this.updateStation.execute(id, body));
+  }
+
+  /**
+   * DELETE /api/v1/stations/:id
+   * Admin only: Vô hiệu hóa trạm (soft delete)
+   */
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Roles('admin')
+  async delete(@Param('id', ParseUUIDPipe) id: string) {
+    return this.handleDomainErrors(() => this.deleteStation.execute(id));
   }
 
   /**

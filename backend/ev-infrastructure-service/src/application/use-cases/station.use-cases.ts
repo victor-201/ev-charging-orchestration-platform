@@ -183,6 +183,44 @@ export class UpdateStationUseCase {
 
 
 @Injectable()
+export class DeleteStationUseCase {
+  constructor(
+    @Inject(STATION_REPOSITORY) private readonly stationRepo: IStationRepository,
+    @Inject(CHARGER_REPOSITORY) private readonly chargerRepo: IChargerRepository,
+    @Inject(EVENT_BUS)          private readonly eventBus: IEventBus,
+    private readonly cache: RedisAvailabilityCache,
+    private readonly dataSource: DataSource,
+  ) {}
+
+  async execute(stationId: string): Promise<void> {
+    const station = await this.stationRepo.findById(stationId);
+    if (!station) throw new StationNotFoundException(stationId);
+
+    // Soft delete by changing status
+    station.changeStatus(StationStatus.INACTIVE);
+
+    await this.dataSource.transaction(async (manager) => {
+      await this.stationRepo.save(station, manager);
+      await this.eventBus.publishAll(station.domainEvents, manager);
+    });
+
+    station.clearDomainEvents();
+
+    try {
+      const chargers = await this.chargerRepo.findByStationId(stationId);
+      for (const charger of chargers) {
+        await this.cache.invalidateCharger(charger.id);
+      }
+      await this.cache.invalidateStation(stationId);
+    } catch (err) {
+      // Log cache invalidation errors
+    }
+  }
+}
+
+
+
+@Injectable()
 export class GetStationUseCase {
   constructor(
     @Inject(STATION_REPOSITORY) private readonly stationRepo: IStationRepository,
