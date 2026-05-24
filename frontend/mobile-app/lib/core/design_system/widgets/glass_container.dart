@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_theme.dart';
 
 /// A reusable container that implements the "Liquid Glass" neumorphism effect.
 class GlassContainer extends StatelessWidget {

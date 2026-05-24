@@ -3,9 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/profile_bloc.dart';
 import '../../domain/entities/profile_entity.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
-import '../../../../core/design_system/widgets/liquid_glass_scaffold.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
+import 'vehicle_audit_log_screen.dart';
 
 /// Vehicles Registration and Management Screen
 ///
@@ -61,6 +61,17 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
               onSetPrimary: () => context.read<ProfileBloc>().add(VehicleSetPrimary(id: vehicles[i].id)),
               onDelete: () => _confirmDelete(context, vehicles[i]),
               onAutoCharge: () => _showAutoChargeDialog(context, vehicles[i]),
+              onHistory: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => VehicleAuditLogScreen(
+                      vehicleId: vehicles[i].id,
+                      plateNumber: vehicles[i].plateNumber,
+                    ),
+                  ),
+                );
+              },
             ),
           );
         },
@@ -98,7 +109,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
               Row(children: [
                 Expanded(
                   child: DropdownButtonFormField<int>(
-                    value: year,
+                    initialValue: year,
                     decoration: const InputDecoration(labelText: 'Năm sản xuất'),
                     items: List.generate(15, (i) => DateTime.now().year - i)
                         .map((y) => DropdownMenuItem(value: y, child: Text('$y'))).toList(),
@@ -194,8 +205,8 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
 
 class _VehicleCard extends StatelessWidget {
   final VehicleEntity vehicle;
-  final VoidCallback onSetPrimary, onDelete, onAutoCharge;
-  const _VehicleCard({required this.vehicle, required this.onSetPrimary, required this.onDelete, required this.onAutoCharge});
+  final VoidCallback onSetPrimary, onDelete, onAutoCharge, onHistory;
+  const _VehicleCard({required this.vehicle, required this.onSetPrimary, required this.onDelete, required this.onAutoCharge, required this.onHistory});
 
   @override
   Widget build(BuildContext context) => Container(
@@ -230,6 +241,8 @@ class _VehicleCard extends StatelessWidget {
         if (!vehicle.isPrimary)
           TextButton.icon(onPressed: onSetPrimary, icon: const Icon(Icons.star_outline, size: 16), label: const Text('Đặt chính')),
         TextButton.icon(onPressed: onAutoCharge, icon: const Icon(Icons.wifi_outlined, size: 16), label: const Text('AutoCharge')),
+        const SizedBox(width: AppSpacing.sm),
+        IconButton(icon: const Icon(Icons.history_outlined, size: 20), onPressed: onHistory, tooltip: 'Lịch sử hoạt động xe'),
         const Spacer(),
         IconButton(icon: const Icon(Icons.delete_outline, color: AppColors.error), onPressed: onDelete),
       ]),

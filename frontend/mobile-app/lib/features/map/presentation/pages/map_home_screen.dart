@@ -7,12 +7,12 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:get_it/get_it.dart';
-import 'package:flutter_compass/flutter_compass.dart';
 
 import '../bloc/map_bloc.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 import '../../domain/entities/station_entity.dart';
 import '../../domain/usecases/search_stations_usecase.dart';
+import '../../domain/usecases/suggest_optimal_station_usecase.dart';
 
 import '../widgets/user_location_marker.dart';
 import '../widgets/station_detail_sheet.dart';
@@ -20,6 +20,7 @@ import '../widgets/search_results_overlay.dart';
 import '../widgets/map_filter_bar.dart';
 import '../widgets/map_cluster_layer.dart';
 import '../widgets/map_search_bar.dart';
+import '../widgets/ai_suggestion_sheet.dart';
 
 /// Main Geospatial Charging Stations Map Screen
 ///
@@ -50,10 +51,15 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
   int _searchLimit = 3;
   bool _hasMoreSearchResults = false;
 
-  double? _userHeading;
-  StreamSubscription? _compassSubscription;
   String? _selectedStationId;
   List<StationEntity> _cachedStations = [];
+
+  // Singleton Dio for geocoding — avoids re-allocation on every search submission.
+  static final Dio _geocodeDio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 6),
+    receiveTimeout: const Duration(seconds: 8),
+    headers: {'User-Agent': 'EVoltSync/1.0 (com.evcharging.app)'},
+  ));
 
   static const _connectorTypes = ['CCS', 'CHAdeMO', 'Type2', 'GB/T', 'Other'];
   final GlobalKey _searchFieldKey = GlobalKey();
@@ -77,10 +83,13 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
   @override
   void initState() {
     super.initState();
-    _checkLocationPermission();
-    _initCompass();
+    // Defer GPS permission check until after the first frame is rendered.
+    // This prevents the blocking getCurrentPosition() call from delaying
+    // the initial map paint (was causing 30k ms startup lag).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _checkLocationPermission();
+    });
     // Periodically re-scan the current viewport to update station availability.
-    // Uses MapLoadStations so the BLoC decides whether to hit the API or serve cache.
     _refreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
       if (!mounted) return;
       try {
@@ -113,7 +122,12 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
 
     if (permission == LocationPermission.deniedForever) return;
 
-    final pos = await Geolocator.getCurrentPosition();
+    // Use reduced accuracy + timeout to avoid blocking for 30+ seconds
+    // waiting for GPS hardware lock on startup.
+    final pos = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.reduced,
+      timeLimit: const Duration(seconds: 10),
+    );
     if (mounted) {
       final loc = LatLng(pos.latitude, pos.longitude);
       setState(() {
@@ -127,22 +141,11 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
     }
   }
 
-  void _initCompass() {
-    _compassSubscription = FlutterCompass.events?.listen((event) {
-      if (mounted) {
-        setState(() {
-          _userHeading = event.heading;
-        });
-      }
-    });
-  }
-
   @override
   void dispose() {
     _refreshTimer?.cancel();
     _debounce?.cancel();
     _mapMoveDebounce?.cancel();
-    _compassSubscription?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
@@ -238,8 +241,7 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
     if (query.trim().isEmpty) return;
 
     try {
-      final dio = Dio();
-      final response = await dio.get(
+      final response = await _geocodeDio.get(
         'https://nominatim.openstreetmap.org/search',
         queryParameters: {
           'q': query.trim(),
@@ -273,6 +275,76 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
     );
   }
 
+  void _showAiSuggestionBottomSheet(BuildContext context, StationEntity station) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: true,
+      enableDrag: true,
+      builder: (context) => AiSuggestionSheet(
+        station: station,
+        userLocation: _userLocation,
+      ),
+    );
+  }
+
+  void _getAiSuggestion() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: Card(
+          color: Theme.of(context).cardColor.withValues(alpha: 0.95),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: AppColors.primaryCyan),
+                SizedBox(height: 16),
+                Text(
+                  'Đang tối ưu hóa vị trí sạc bằng AI...',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final usecase = GetIt.instance<SuggestOptimalStationUseCase>();
+    final center = _mapController.camera.center;
+    final result = await usecase(
+      lat: _userLocation?.latitude ?? center.latitude,
+      lng: _userLocation?.longitude ?? center.longitude,
+      connectorType: _selectedConnector,
+    );
+
+    if (mounted) Navigator.of(context).pop();
+
+    result.fold(
+      (failure) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(failure.message),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      },
+      (station) {
+        if (mounted) {
+          _mapController.move(LatLng(station.latitude, station.longitude), 15.5);
+          _showAiSuggestionBottomSheet(context, station);
+        }
+      },
+    );
+  }
+
   void _applyFilter() {
     context.read<MapBloc>().add(MapFilterChanged(
           connectorType: _selectedConnector,
@@ -300,7 +372,17 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
         child: Stack(
           children: [
             BlocBuilder<MapBloc, MapState>(
+            // Only rebuild the map layer when the stations list changes
+            // or the state type changes. Avoids repaint on user-location-only updates.
+            buildWhen: (prev, next) {
+              if (prev.runtimeType != next.runtimeType) return true;
+              if (prev is MapLoaded && next is MapLoaded) {
+                return prev.stations != next.stations;
+              }
+              return true;
+            },
             builder: (context, state) {
+              final isDark = Theme.of(context).brightness == Brightness.dark;
               final stationsToShow = state is MapLoaded
                   ? state.stations
                   : (state is MapLoading ? _cachedStations : <StationEntity>[]);
@@ -376,8 +458,7 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
                 ),
                 children: [
                   ColorFiltered(
-                    colorFilter: Theme.of(context).brightness == Brightness.dark
-                        // Dark mode: dim to 92.5% brightness
+                    colorFilter: isDark
                         ? const ColorFilter.matrix(<double>[
                             0.925, 0,     0,     0, 0,
                             0,     0.925, 0,     0, 0,
@@ -403,7 +484,7 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
                           width: 60,
                           height: 60,
                           rotate: true,
-                          child: UserLocationMarker(heading: _userHeading),
+                          child: const UserLocationMarker(),
                         ),
                       ],
                     ),
@@ -425,27 +506,29 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
           ),
 
           BlocBuilder<MapBloc, MapState>(
+            // Only show the overlay on state *type* transitions (e.g. loading -> loaded)
+            buildWhen: (prev, next) => prev.runtimeType != next.runtimeType,
             builder: (context, state) {
               // Initial load spinner
               if (state is MapLoading) {
-                return Positioned(
+                return const Positioned(
                   bottom: 120,
                   left: 0,
                   right: 0,
                   child: Center(
                     child: Card(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const SizedBox(
+                            SizedBox(
                               width: 16,
                               height: 16,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             ),
-                            const SizedBox(width: 8),
-                            const Text('Đang tải trạm sạc...'),
+                            SizedBox(width: 8),
+                            Text('Đang tải trạm sạc...'),
                           ],
                         ),
                       ),
@@ -547,6 +630,33 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
                     onLoadMore: _loadMoreSearch,
                   ),
               ],
+            ),
+          ),
+
+          Positioned(
+            bottom: 176,
+            right: AppSpacing.lg,
+            child: GestureDetector(
+              key: const ValueKey('ai_optimizer_btn'),
+              onTap: _getAiSuggestion,
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppColors.primaryCyan, AppColors.primaryLime],
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primaryCyan.withValues(alpha: 0.5),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.psychology_outlined, color: Colors.white, size: 24),
+              ),
             ),
           ),
 

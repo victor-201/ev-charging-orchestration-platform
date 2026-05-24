@@ -1,6 +1,8 @@
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_compass/flutter_compass.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 
 /// GPS User Location Map Marker Widget
@@ -10,12 +12,10 @@ import '../../../../core/design_system/theme/app_colors.dart';
 /// Uses AnimationController to smoothly animate heading changes (no more jerky jumps).
 /// Handles 360°→0° wrap-around via shortest-path interpolation.
 class UserLocationMarker extends StatefulWidget {
-  final double? heading;
   final double size;
 
   const UserLocationMarker({
     super.key,
-    this.heading,
     this.size = 60.0,
   });
 
@@ -26,7 +26,9 @@ class UserLocationMarker extends StatefulWidget {
 class _UserLocationMarkerState extends State<UserLocationMarker>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
+  late Tween<double> _tween;
   late Animation<double> _animation;
+  StreamSubscription? _compassSubscription;
 
   /// Current animated angle in radians (accumulated, not wrapped to [-π, π]).
   double _currentAngle = 0.0;
@@ -38,33 +40,31 @@ class _UserLocationMarkerState extends State<UserLocationMarker>
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-    _animation = _controller;
-    // Seed with initial heading so first render matches sensor.
-    _currentAngle = _toRad(widget.heading ?? 0.0);
+    // Create the Tween and animation once; we only update the begin/end values.
+    _tween = Tween<double>(begin: 0.0, end: 0.0);
+    _animation = _tween.animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+
+    _compassSubscription = FlutterCompass.events?.listen((event) {
+      if (mounted && event.heading != null) {
+        _updateHeading(event.heading!);
+      }
+    });
   }
 
-  @override
-  void didUpdateWidget(UserLocationMarker oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    // Map rotation is read inside build, but we only need it to compute
-    // the final display angle. The raw heading drives the animation target.
-    final newHeadingRad = _toRad(widget.heading ?? 0.0);
+  void _updateHeading(double heading) {
+    if (!mounted) return;
+    final newHeadingRad = _toRad(heading);
 
     // Compute the angular delta on shortest path [-π, π].
-    double delta = _normalise(newHeadingRad - _currentAngle);
+    final double delta = _normalise(newHeadingRad - _currentAngle);
+    final double targetAngle = _currentAngle + delta;
 
-    final targetAngle = _currentAngle + delta;
-
-    // Re-animate from current animated value to new target.
-    _animation = Tween<double>(
-      begin: _animation.value,
-      end: targetAngle,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    ));
-
+    // Update tween endpoints without calling setState — the AnimatedBuilder
+    // will pick up the new values on the next animation tick.
+    _tween.begin = _animation.value;
+    _tween.end = targetAngle;
     _currentAngle = targetAngle;
     _controller
       ..reset()
@@ -73,6 +73,7 @@ class _UserLocationMarkerState extends State<UserLocationMarker>
 
   @override
   void dispose() {
+    _compassSubscription?.cancel();
     _controller.dispose();
     super.dispose();
   }

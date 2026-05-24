@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:mobile_app/core/constants/api_paths.dart';
 import 'package:mobile_app/core/network/dio_client.dart';
 import 'admin_response_dtos.dart';

@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_theme.dart';
 import '../theme/app_typography.dart';
 
 /// Circular dynamic battery state-of-charge widget
@@ -152,7 +151,7 @@ class _SocGaugePainter extends CustomPainter {
       math.pi * 1.6 * progress,
       false,
       Paint()
-        ..shader = SweepGradient(
+        ..shader = const SweepGradient(
           startAngle: -math.pi * 0.8,
           endAngle: -math.pi * 0.8 + math.pi * 1.6,
           colors: [
@@ -160,7 +159,7 @@ class _SocGaugePainter extends CustomPainter {
             AppColors.primary,
             AppColors.secondary,
           ],
-          stops: const [0.0, 0.5, 1.0],
+          stops: [0.0, 0.5, 1.0],
         ).createShader(Rect.fromCircle(center: center, radius: radius))
         ..strokeWidth = 12
         ..style = PaintingStyle.stroke

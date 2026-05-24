@@ -110,3 +110,15 @@ class VehicleSetAutoCharge extends ProfileEvent {
   @override
   List<Object?> get props => [vehicleId, macAddress, vinNumber, autochargeEnabled];
 }
+
+class ProfileLoadAuditLogs extends ProfileEvent {
+  const ProfileLoadAuditLogs();
+}
+
+class VehicleLoadAuditLogs extends ProfileEvent {
+  final String vehicleId;
+  const VehicleLoadAuditLogs({required this.vehicleId});
+
+  @override
+  List<Object?> get props => [vehicleId];
+}

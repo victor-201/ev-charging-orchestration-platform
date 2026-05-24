@@ -6,7 +6,7 @@ import '../../../../core/design_system/theme/app_colors.dart';
 import '../../domain/entities/station_entity.dart';
 import 'station_marker.dart';
 
-class MapClusterLayer extends StatelessWidget {
+class MapClusterLayer extends StatefulWidget {
   final List<StationEntity> stations;
   final String? selectedStationId;
   final Function(StationEntity) onStationTapped;
@@ -21,45 +21,65 @@ class MapClusterLayer extends StatelessWidget {
   });
 
   @override
+  State<MapClusterLayer> createState() => _MapClusterLayerState();
+}
+
+class _MapClusterLayerState extends State<MapClusterLayer> {
+  List<Marker> _markers = [];
+  List<StationEntity>? _lastStations;
+  String? _lastSelectedId;
+
+  @override
+  void didUpdateWidget(MapClusterLayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Only rebuild the markers list when data actually changes
+    if (widget.stations != _lastStations || widget.selectedStationId != _lastSelectedId) {
+      _rebuildMarkers();
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _rebuildMarkers();
+  }
+
+  void _rebuildMarkers() {
+    _lastStations = widget.stations;
+    _lastSelectedId = widget.selectedStationId;
+    _markers = widget.stations.map((station) {
+      final isSelected = widget.selectedStationId == station.id;
+      const double markerWidth = 46.0;
+      const double markerHeight = markerWidth * (245.0 / 180.0);
+      return Marker(
+        key: ValueKey('station_${station.id}'),
+        point: LatLng(station.latitude, station.longitude),
+        width: markerWidth,
+        height: markerHeight,
+        rotate: true,
+        alignment: const Alignment(0.0, -0.2653),
+        child: StationMarker(
+          station: station,
+          isSelected: isSelected,
+        ),
+      );
+    }).toList();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MarkerClusterLayerWidget(
-      key: ValueKey('cluster_layer_${stations.length}_${selectedStationId ?? 'none'}'),
       options: MarkerClusterLayerOptions(
         maxClusterRadius: 50,
         size: const Size(46, 46),
         rotate: true,
-        markers: (stations.toList()..sort((a, b) {
-          // Bring selected station to the very front (drawn last)
-          if (a.id == selectedStationId) return 1;
-          if (b.id == selectedStationId) return -1;
-          // Otherwise, sort by latitude descending (North to South)
-          // so markers further South are drawn on top of markers further North.
-          return b.latitude.compareTo(a.latitude);
-        })).map((station) {
-          final isSelected = selectedStationId == station.id;
-          final double markerWidth = 46.0;
-          final double markerHeight = markerWidth * (245.0 / 180.0);
-          return Marker(
-            key: ValueKey('station_${station.id}'),
-            point: LatLng(station.latitude, station.longitude),
-            width: markerWidth,
-            height: markerHeight,
-            rotate: true,
-            // Align the center of the station's circular bulb (y = markerWidth / 2) with the coordinates.
-            // y_alignment = (markerWidth / markerHeight) - 1.0 = (180.0 / 245.0) - 1.0 = -0.2653
-            alignment: const Alignment(0.0, -0.2653),
-            child: StationMarker(
-              station: station,
-              isSelected: isSelected,
-            ),
-          );
-        }).toList(),
+        markers: _markers,
         onMarkerTap: (marker) {
           final key = marker.key as ValueKey<String>?;
           if (key == null) return;
           final stationId = key.value.replaceFirst('station_', '');
-          final station = stations.firstWhere((s) => s.id == stationId);
-          onStationTapped(station);
+          final station = widget.stations.firstWhere((s) => s.id == stationId);
+          widget.onStationTapped(station);
         },
         builder: (context, markers) {
           return RepaintBoundary(
@@ -69,7 +89,7 @@ class MapClusterLayer extends StatelessWidget {
                 if (markers.isEmpty) return;
                 final points = markers.map((m) => m.point).toList();
                 final bounds = LatLngBounds.fromPoints(points);
-                mapController.fitCamera(
+                widget.mapController.fitCamera(
                   CameraFit.bounds(
                     bounds: bounds,
                     padding: const EdgeInsets.all(120),
@@ -87,13 +107,11 @@ class MapClusterLayer extends StatelessWidget {
                     width: 2.0,
                   ),
                   boxShadow: [
-                    // Inner highlight
                     BoxShadow(
                       color: Colors.white.withValues(alpha: 0.3),
                       blurRadius: 4,
                       spreadRadius: 1,
                     ),
-                    // Outer Glow
                     BoxShadow(
                       color: AppColors.cyan.withValues(alpha: 0.5),
                       blurRadius: 20,
@@ -104,7 +122,6 @@ class MapClusterLayer extends StatelessWidget {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    // Diagonal glass shine
                     Positioned.fill(
                       child: Container(
                         decoration: BoxDecoration(
@@ -121,7 +138,6 @@ class MapClusterLayer extends StatelessWidget {
                         ),
                       ),
                     ),
-                    // Count Text
                     Text(
                       '${markers.length}',
                       style: const TextStyle(
@@ -140,7 +156,5 @@ class MapClusterLayer extends StatelessWidget {
       ),
     );
   }
-
-  // Helper because latlong2 LatLng cannot be imported if not in same file usually,
-  // but we can just use the properties. Wait, we need to import latlong2.
 }
+

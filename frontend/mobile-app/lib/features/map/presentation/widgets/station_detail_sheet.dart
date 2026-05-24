@@ -25,13 +25,16 @@ class StationDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<MapBloc, MapState>(
-      builder: (context, state) {
-        // Use the fresh state-loaded station data when ID matches.
-        StationEntity currentStation = station;
-        if (state is MapLoaded && state.selectedStation != null && state.selectedStation!.id == station.id) {
-          currentStation = state.selectedStation!;
+    return BlocSelector<MapBloc, MapState, StationEntity>(
+      selector: (state) {
+        if (state is MapLoaded &&
+            state.selectedStation != null &&
+            state.selectedStation!.id == station.id) {
+          return state.selectedStation!;
         }
+        return station;
+      },
+      builder: (context, currentStation) {
 
         return DraggableScrollableSheet(
           initialChildSize: 0.5,
@@ -106,9 +109,12 @@ class StationDetailSheet extends StatelessWidget {
                                       Navigator.pop(context);
                                       double userLat = userLocation?.latitude ?? 0.0;
                                       double userLng = userLocation?.longitude ?? 0.0;
-                                      if (userLat == 0.0 && state is MapLoaded) {
-                                        userLat = state.userLat;
-                                        userLng = state.userLng;
+                                      if (userLat == 0.0) {
+                                        final mapState = context.read<MapBloc>().state;
+                                        if (mapState is MapLoaded) {
+                                          userLat = mapState.userLat;
+                                          userLng = mapState.userLng;
+                                        }
                                       }
                                       if (userLat == 0.0 || userLng == 0.0) {
                                         ScaffoldMessenger.of(context).showSnackBar(
@@ -183,7 +189,8 @@ class StationDetailSheet extends StatelessWidget {
                               'Số trụ sạc: ${currentStation.chargers.length}',
                               style: AppTypography.headingMd,
                             ),
-                            if (currentStation.chargers.isEmpty && (state is! MapLoaded || state.selectedStation?.id != station.id))
+                            // Show spinner while loading charger details (station hasn't been enriched yet)
+                            if (currentStation.chargers.isEmpty && identical(currentStation, station))
                               const SizedBox(
                                 width: 16,
                                 height: 16,
@@ -193,7 +200,9 @@ class StationDetailSheet extends StatelessWidget {
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         
-                        if (currentStation.chargers.isEmpty && (state is! MapLoaded || state.selectedStation?.id != station.id))
+                        // `identical` checks reference: if `currentStation` is still the
+                        // original `station` prop (no enriched data yet), we are still loading.
+                        if (currentStation.chargers.isEmpty && identical(currentStation, station))
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
                             child: Center(
@@ -366,8 +375,8 @@ class StationDetailSheet extends StatelessWidget {
                                                       ),
                                                     );
                                                   },
-                                                  child: Padding(
-                                                    padding: const EdgeInsets.only(bottom: 8.0, left: 8.0),
+                                                  child: const Padding(
+                                                    padding: EdgeInsets.only(bottom: 8.0, left: 8.0),
                                                     child: Icon(
                                                       Icons.info_outline_rounded,
                                                       color: AppColors.grey600,

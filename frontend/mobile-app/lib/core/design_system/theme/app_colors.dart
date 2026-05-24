@@ -122,6 +122,37 @@ abstract class AppColors {
   static const glassHighlightDark  = Color(0x1AFFFFFF);
   static const glassHighlightLight = Color(0xFFFFFFFF);
 
+  // ── Map pin marker gradients ──────────────────────────────────
+  /// Active — available (≥1 charger free): màu chính đồ án cyan→lime
+  static const markerAvailable = cyanLimeGradient;
+
+  /// Active — full (0 charger free): vibrant peach to pink gradient.
+  static const markerFull = orangePinkGradient;
+
+  /// Maintenance: warm yellow to orange gradient.
+  static const markerMaintenance = yellowOrangeGradient;
+
+  /// Closed: soft grey to slate gradient.
+  static const markerClosed = LinearGradient(
+    begin: Alignment.topLeft,
+    end:   Alignment.bottomRight,
+    colors: [Color(0xFFE2E8F0), Color(0xFF94A3B8)],
+  );
+
+  /// Inactive: light grey to medium-dark slate gradient.
+  static const markerInactive = LinearGradient(
+    begin: Alignment.topLeft,
+    end:   Alignment.bottomRight,
+    colors: [Color(0xFFCBD5E1), Color(0xFF64748B)],
+  );
+
+  /// Shadow colors for each marker state
+  static const markerShadowAvailable   = cyan;
+  static const markerShadowFull        = pink;
+  static const markerShadowMaintenance = orange;
+  static const markerShadowClosed      = Color(0xFF94A3B8);
+  static const markerShadowInactive    = Color(0xFF64748B);
+
   // ── Status color helpers ──────────────────────────────────────
   static Color forChargerStatus(String status) {
     switch (status.toUpperCase()) {
@@ -172,7 +203,6 @@ abstract class AppRadius {
   static const double full = 999.0;
 }
 
-// ── Spacing tokens ────────────────────────────────────────────
 abstract class AppSpacing {
   static const double xs  = 4.0;
   static const double sm  = 8.0;
@@ -181,4 +211,59 @@ abstract class AppSpacing {
   static const double xl  = 32.0;
   static const double xxl = 48.0;
   static const double xxxl = 64.0;
+}
+
+// ── Unified App Layout Dimension Tokens ───────────────────────
+abstract class AppLayout {
+  /// Standard header (AppBar) height in logical pixels
+  static const double headerHeight = 56.0;
+
+  /// Standard bottom navigation bar height (excluding bottom margin/padding)
+  static const double barHeight = 72.0;
+
+  /// Standard screen side padding (md)
+  static const double sidePadding = 16.0;
+
+  /// Dynamically calculates the perfect top padding to clear the transparent AppBar
+  static double topPadding(BuildContext context) {
+    return headerHeight;
+  }
+
+  /// Dynamically calculates the perfect bottom padding to clear the floating glass navbar completely
+  static double bottomPadding(BuildContext context) {
+    final bottom = MediaQuery.of(context).padding.bottom;
+    final bottomPadding = bottom > 0 ? bottom + 6 : 16.0;
+    // We add 16.0 pixels of extra breathing room so the list items never touch the navbar too closely!
+    return barHeight + bottomPadding + 16.0;
+  }
+
+  /// Dynamic padding for pages WITH transparent AppBar and NO persistent bottom navbar
+  static EdgeInsets paddingWithHeader(BuildContext context) {
+    return EdgeInsets.fromLTRB(
+      sidePadding,
+      topPadding(context),
+      sidePadding,
+      sidePadding,
+    );
+  }
+
+  /// Dynamic padding for pages WITH transparent AppBar AND persistent bottom navbar
+  static EdgeInsets paddingWithHeaderAndNavbar(BuildContext context) {
+    return EdgeInsets.fromLTRB(
+      sidePadding,
+      topPadding(context),
+      sidePadding,
+      bottomPadding(context),
+    );
+  }
+
+  /// Dynamic padding for pages WITH NO AppBar (custom header in body) and persistent bottom navbar
+  static EdgeInsets paddingWithNavbar(BuildContext context) {
+    return EdgeInsets.fromLTRB(
+      sidePadding,
+      sidePadding,
+      sidePadding,
+      bottomPadding(context),
+    );
+  }
 }

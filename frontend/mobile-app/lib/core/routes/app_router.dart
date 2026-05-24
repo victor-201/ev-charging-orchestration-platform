@@ -3,13 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hydrated_bloc/hydrated_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/pages/splash_screen.dart';
 import '../../features/auth/presentation/pages/welcome_screen.dart';
+import '../../features/auth/presentation/pages/forgot_password_screen.dart';
 import '../../features/auth/presentation/pages/login_screen.dart';
 import '../../features/auth/presentation/pages/register_screen.dart';
 import '../../features/auth/presentation/pages/mfa_verify_screen.dart';
-import '../../features/auth/presentation/pages/email_verification_screen.dart';
 import '../../features/auth/presentation/pages/verify_email_pending_screen.dart';
 import '../../features/auth/presentation/pages/magic_link_verify_screen.dart';
 import '../../features/map/presentation/pages/map_home_screen.dart';
@@ -25,6 +26,7 @@ import '../../features/charging/presentation/pages/session_summary_screen.dart';
 import '../../features/charging/domain/entities/charging_session_entity.dart';
 import '../../features/wallet/presentation/pages/wallet_dashboard_screen.dart';
 import '../../features/wallet/presentation/pages/vnpay_processing_screen.dart';
+import '../../features/wallet/presentation/pages/arrears_screen.dart';
 import '../../features/profile/presentation/pages/profile_screen.dart';
 import '../../features/profile/presentation/pages/vehicles_screen.dart';
 import '../../features/profile/presentation/pages/security_settings_screen.dart';
@@ -47,8 +49,23 @@ class AppRouter {
       final isPublic = state.matchedLocation == '/splash'
           || state.matchedLocation == '/welcome'
           || state.matchedLocation.startsWith('/map');
-      if (isAuth && isAuthRoute) return '/map';
-      if (!isAuth && !isAuthRoute && !isPublic) return '/auth/login?redirect=${state.uri}';
+
+      // Save last visited route to storage
+      final routeStr = state.uri.toString();
+      if (!state.matchedLocation.startsWith('/auth') &&
+          state.matchedLocation != '/splash' &&
+          state.matchedLocation != '/welcome') {
+        HydratedBloc.storage.write('last_visited_route', routeStr);
+      }
+
+      if (isAuth && isAuthRoute) {
+        final savedRoute = HydratedBloc.storage.read('last_visited_route') as String?;
+        if (savedRoute != null && savedRoute.isNotEmpty) {
+          return savedRoute;
+        }
+        return '/map';
+      }
+      if (!isAuth && !isAuthRoute && !isPublic) return '/welcome?redirect=${Uri.encodeComponent(state.uri.toString())}';
       return null;
     },
     routes: [
@@ -57,12 +74,15 @@ class AppRouter {
       GoRoute(
         path: '/welcome',
         name: 'welcome',
-        pageBuilder: (context, state) => CustomTransitionPage(
-          key: state.pageKey,
-          child: const WelcomeScreen(),
-          transitionDuration: Duration.zero,
-          transitionsBuilder: (context, animation, secondaryAnimation, child) => child,
-        ),
+        pageBuilder: (context, state) {
+          final redirect = state.uri.queryParameters['redirect'];
+          return CustomTransitionPage(
+            key: state.pageKey,
+            child: WelcomeScreen(redirectUrl: redirect),
+            transitionDuration: Duration.zero,
+            transitionsBuilder: (context, animation, secondaryAnimation, child) => child,
+          );
+        },
       ),
 
       // ── Auth ───────────────────────────────────────────────────────
@@ -85,6 +105,16 @@ class AppRouter {
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,
           child: const RegisterScreen(),
+          transitionDuration: Duration.zero,
+          transitionsBuilder: (context, animation, secondaryAnimation, child) => child,
+        ),
+      ),
+      GoRoute(
+        path: '/auth/forgot-password',
+        name: 'forgot-password',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const ForgotPasswordScreen(),
           transitionDuration: Duration.zero,
           transitionsBuilder: (context, animation, secondaryAnimation, child) => child,
         ),
@@ -235,6 +265,7 @@ class AppRouter {
               routes: [
                 GoRoute(path: 'vehicles', name: 'vehicles', builder: (_, __) => const VehiclesScreen()),
                 GoRoute(path: 'security', name: 'security-settings', builder: (_, __) => const SecuritySettingsScreen()),
+                GoRoute(path: 'arrears', name: 'arrears', builder: (_, __) => const ArrearsScreen()),
               ],
             ),
             GoRoute(path: '/notifications', name: 'notifications', builder: (_, __) => const NotificationsScreen()),
@@ -266,7 +297,7 @@ class _AppScaffold extends StatelessWidget {
           isDark: isDark,
           onTap: (i) => navigationShell.goBranch(
             i,
-            initialLocation: i == navigationShell.currentIndex,
+            initialLocation: true,
           ),
         ),
       ),
@@ -393,7 +424,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activeColor = Colors.white;
+    const activeColor = Colors.white;
     final inactiveColor = isDark
         ? AppColors.textMuted
         : AppColors.textFaded;
@@ -404,31 +435,32 @@ class _NavItem extends StatelessWidget {
         onTap();
       },
       behavior: HitTestBehavior.opaque,
-      child: Stack(
-        alignment: Alignment.topCenter,
-        clipBehavior: Clip.none,
-        children: [
+      child: SizedBox.expand(
+        child: Stack(
+          alignment: Alignment.topCenter,
+          clipBehavior: Clip.none,
+          children: [
           // 1. The Floating Bubble Icon (Rises up beautifully with translation and elasticity)
           AnimatedContainer(
             duration: const Duration(milliseconds: 320),
             curve: Curves.easeOutCubic, // Safe and fluid easeOut curve
-            transform: Matrix4.translationValues(0, isActive ? -26 : 10, 0),
-            width: isActive ? 52 : 38,
-            height: isActive ? 52 : 38,
+            transform: Matrix4.translationValues(0, isActive ? -28 : 5, 0),
+            width: isActive ? 56 : 42,
+            height: isActive ? 56 : 42,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: isActive
-                  ? AppColors.blueCyanGradient // Brand Ocean/Blue Gradient from Design System
+                  ? AppColors.primaryGradient // App's main color gradient
                   : null,
               boxShadow: isActive
                   ? [
                       BoxShadow(
-                        color: AppColors.blueCyanGradient.colors.first.withValues(alpha: 0.45),
+                        color: AppColors.primaryGradient.colors.first.withValues(alpha: 0.45),
                         blurRadius: 16,
                         offset: const Offset(0, 8),
                       ),
                       BoxShadow(
-                        color: AppColors.blueCyanGradient.colors.last.withValues(alpha: 0.3),
+                        color: AppColors.primaryGradient.colors.last.withValues(alpha: 0.3),
                         blurRadius: 24,
                         offset: const Offset(0, 12),
                       ),
@@ -442,7 +474,7 @@ class _NavItem extends StatelessWidget {
                 curve: Curves.easeOutBack,
                 child: Icon(
                   icon,
-                  size: 22,
+                  size: 26,
                   color: isActive ? activeColor : inactiveColor,
                 ),
               ),
@@ -460,7 +492,7 @@ class _NavItem extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: isActive
-                    ? AppColors.blueCyanGradient
+                    ? AppColors.primaryGradient
                     : null,
               ),
             ),
@@ -468,22 +500,24 @@ class _NavItem extends StatelessWidget {
 
           // 3. The Tab Label (fades out when active for a premium, minimalist UI)
           Positioned(
-            bottom: 8,
+            bottom: 10,
             child: AnimatedOpacity(
               opacity: isActive ? 0.0 : 1.0,
               duration: const Duration(milliseconds: 200),
               child: Text(
                 label,
                 style: TextStyle(
-                  fontSize: 9,
+                  fontSize: 11,
                   fontFamily: 'Outfit',
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                   color: inactiveColor,
+                  letterSpacing: 0.2,
                 ),
               ),
             ),
           ),
         ],
+        ),
       ),
     );
   }

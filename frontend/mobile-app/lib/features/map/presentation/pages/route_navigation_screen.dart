@@ -2,9 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_compass/flutter_compass.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -53,8 +51,7 @@ class _RouteNavigationScreenState
   bool _isLoading = true;
   String? _error;
 
-  double? _userHeading;
-  StreamSubscription? _compassSubscription;
+
 
   late double _currentStartLat;
   late double _currentStartLng;
@@ -75,25 +72,10 @@ class _RouteNavigationScreenState
     _currentDestLng = widget.stationLng;
     _currentDestName = widget.stationName;
 
-    _initCompass();
     _fetchRoute();
   }
 
-  void _initCompass() {
-    _compassSubscription = FlutterCompass.events?.listen((event) {
-      if (mounted) {
-        setState(() {
-          _userHeading = event.heading;
-        });
-      }
-    });
-  }
 
-  @override
-  void dispose() {
-    _compassSubscription?.cancel();
-    super.dispose();
-  }
 
   double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
     const p = 0.017453292519943295; // Math.PI / 180
@@ -122,7 +104,7 @@ class _RouteNavigationScreenState
       ));
 
       final response = await dio.get(
-        '$osrmBaseUrl/${_currentStartLng},${_currentStartLat};${_currentDestLng},${_currentDestLat}',
+        '$osrmBaseUrl/$_currentStartLng,$_currentStartLat;$_currentDestLng,$_currentDestLat',
         queryParameters: {
           'overview': 'full',
           'geometries': 'geojson',
@@ -175,8 +157,8 @@ class _RouteNavigationScreenState
   Future<void> _openGoogleMaps() async {
     final url = Uri.parse(
       'https://www.google.com/maps/dir/?api=1'
-      '&origin=${_currentStartLat},${_currentStartLng}'
-      '&destination=${_currentDestLat},${_currentDestLng}'
+      '&origin=$_currentStartLat,$_currentStartLng'
+      '&destination=$_currentDestLat,$_currentDestLng'
       '&travelmode=driving',
     );
     if (await canLaunchUrl(url)) {
@@ -189,15 +171,15 @@ class _RouteNavigationScreenState
     final userLatLng = LatLng(_currentStartLat, _currentStartLng);
     final stationLatLng = LatLng(_currentDestLat, _currentDestLng);
     
-    final mapState = context.watch<MapBloc>().state;
-    StationEntity? station;
-    if (mapState is MapLoaded) {
-      try {
-        station = mapState.stations.firstWhere((s) => s.id == widget.stationId);
-      } catch (_) {
-        station = null;
+    final station = context.select<MapBloc, StationEntity?>((bloc) {
+      final mapState = bloc.state;
+      if (mapState is MapLoaded) {
+        try {
+          return mapState.stations.firstWhere((s) => s.id == widget.stationId);
+        } catch (_) {}
       }
-    }
+      return null;
+    });
 
     final topPadding = MediaQuery.of(context).padding.top + kToolbarHeight;
 
@@ -265,7 +247,7 @@ class _RouteNavigationScreenState
                     width: 60,
                     height: 60,
                     rotate: true,
-                    child: UserLocationMarker(heading: _userHeading),
+                    child: const UserLocationMarker(),
                   ),
                   if (station != null)
                     Marker(

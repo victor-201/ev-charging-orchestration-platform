@@ -257,4 +257,44 @@ class StationRepositoryImpl implements IStationRepository {
       return Left(ErrorMapper.fromDioException(e));
     }
   }
+
+  @override
+  Future<Either<Failure, StationEntity>> suggestOptimalStation({
+    required double lat,
+    required double lng,
+    String? connectorType,
+  }) async {
+    try {
+      final response = await _client.get(
+        ApiPaths.bookingSuggest,
+        queryParameters: {
+          'lat': lat,
+          'lng': lng,
+          if (connectorType != null) 'connectorType': connectorType,
+        },
+      );
+      List<dynamic> list = [];
+      if (response.data is List) {
+        list = response.data as List<dynamic>;
+      } else if (response.data is Map) {
+        list = (response.data['items'] ?? response.data['data'] ?? []) as List<dynamic>;
+      }
+      
+      if (list.isEmpty) {
+        return const Left(ServerFailure('Không tìm thấy gợi ý sạc tối ưu nào lúc này.'));
+      }
+      
+      // Get top 1 suggested charger
+      final topSuggestion = list[0] as Map<String, dynamic>;
+      final chargerId = topSuggestion['chargerId']?.toString();
+      if (chargerId == null || chargerId.isEmpty) {
+        return const Left(ServerFailure('Dữ liệu gợi ý không hợp lệ.'));
+      }
+      
+      // Fetch details of this optimal station containing the recommended charger
+      return await getStationByChargerId(chargerId);
+    } on DioException catch (e) {
+      return Left(ErrorMapper.fromDioException(e));
+    }
+  }
 }

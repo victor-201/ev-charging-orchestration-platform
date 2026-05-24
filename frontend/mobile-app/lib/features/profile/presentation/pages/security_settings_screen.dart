@@ -1,12 +1,12 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import '../bloc/profile_bloc.dart';
 import '../../domain/entities/profile_entity.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
 import '../../../../core/utils/date_utils.dart' as ev_date;
+import 'mfa_setup_wizard_screen.dart';
 
 /// Security Settings Screen
 ///
@@ -143,9 +143,28 @@ class _MFATab extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.xl),
         if (!mfaEnabled)
-          EVButton(label: 'Bật MFA (TOTP)', icon: Icons.security_outlined, onPressed: () => context.push('/auth/mfa'))
+          EVButton(
+            label: 'Bật MFA (TOTP)',
+            icon: Icons.security_outlined,
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const MfaSetupWizardScreen(isCurrentlyEnabled: false),
+              ),
+            ),
+          )
         else
-          EVButton(label: 'Tắt MFA', variant: EVButtonVariant.danger, icon: Icons.no_encryption_outlined, onPressed: () => context.push('/auth/mfa')),
+          EVButton(
+            label: 'Tắt MFA',
+            variant: EVButtonVariant.danger,
+            icon: Icons.no_encryption_outlined,
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const MfaSetupWizardScreen(isCurrentlyEnabled: true),
+              ),
+            ),
+          ),
       ]),
     );
   }

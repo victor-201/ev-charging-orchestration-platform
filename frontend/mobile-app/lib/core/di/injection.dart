@@ -23,6 +23,7 @@ import '../../features/map/domain/usecases/get_stations_usecase.dart';
 import '../../features/map/domain/usecases/search_stations_usecase.dart';
 import '../../features/map/domain/usecases/get_station_by_id_usecase.dart';
 import '../../features/map/domain/usecases/get_charger_pricing_usecase.dart';
+import '../../features/map/domain/usecases/suggest_optimal_station_usecase.dart';
 import '../../features/map/presentation/bloc/map_bloc.dart';
 import '../../features/profile/presentation/bloc/profile_bloc.dart';
 import '../../features/wallet/presentation/bloc/wallet_bloc.dart';
@@ -79,6 +80,7 @@ Future<void> configureDependencies() async {
   getIt.registerLazySingleton<SearchStationsUseCase>(() => SearchStationsUseCase(getIt<IStationRepository>()));
   getIt.registerLazySingleton<GetStationByIdUseCase>(() => GetStationByIdUseCase(getIt<IStationRepository>()));
   getIt.registerLazySingleton<GetChargerPricingUseCase>(() => GetChargerPricingUseCase(getIt<IStationRepository>()));
+  getIt.registerLazySingleton<SuggestOptimalStationUseCase>(() => SuggestOptimalStationUseCase(getIt<IStationRepository>()));
 
   // ── Blocs ────────────────────────────────────────────────────────────
   getIt.registerFactory<MapBloc>(() => MapBloc(

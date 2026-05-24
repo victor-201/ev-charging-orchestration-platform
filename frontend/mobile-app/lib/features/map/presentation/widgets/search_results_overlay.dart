@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../domain/entities/station_entity.dart';
@@ -147,7 +147,7 @@ class SearchResultsOverlay extends StatelessWidget {
                                   const SizedBox(height: 4),
                                   Row(
                                     children: [
-                                      Icon(Icons.location_on_rounded, size: 12, color: AppColors.grey400),
+                                      const Icon(Icons.location_on_rounded, size: 12, color: AppColors.grey400),
                                       const SizedBox(width: 4),
                                       Expanded(
                                         child: Text(

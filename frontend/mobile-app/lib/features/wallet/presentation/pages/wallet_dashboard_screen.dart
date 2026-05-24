@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../bloc/wallet_bloc.dart';
 import '../../domain/entities/wallet_entity.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
-import '../../../../core/design_system/widgets/alert_banner.dart';
 import '../../../../core/design_system/widgets/glass_pill.dart';
 import '../../../../core/design_system/widgets/glass_square.dart';
 import '../../../../core/design_system/widgets/liquid_glass_card.dart';
@@ -14,7 +14,7 @@ import '../../../../core/design_system/widgets/liquid_glass_scaffold.dart';
 import '../../../../core/utils/vnd_formatter.dart';
 import '../../../../core/utils/date_utils.dart' as ev_date;
 
-/// Wallet Dashboard Screen — Liquid Glass Design
+/// Wallet Dashboard Screen — High-Fidelity Futuristic Design
 class WalletDashboardScreen extends StatefulWidget {
   const WalletDashboardScreen({super.key});
 
@@ -34,25 +34,28 @@ class _WalletDashboardScreenState extends State<WalletDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return LiquidGlassScaffold(
-      child: BlocConsumer<WalletBloc, WalletState>(
-        listener: (context, state) {
-          if (state is WalletTopUpInitiated) {
-            _openVNPayUrl(state.vnpayUrl, state.transactionId, context);
-          } else if (state is WalletError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message), backgroundColor: AppColors.error),
-            );
-          }
-        },
-        builder: (context, state) {
-          if (state is WalletLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (state is! WalletLoaded) {
-            return const Center(child: Text('Đang tải...'));
-          }
-          return _buildContent(context, state);
-        },
+      child: SafeArea(
+        bottom: false,
+        child: BlocConsumer<WalletBloc, WalletState>(
+          listener: (context, state) {
+            if (state is WalletTopUpInitiated) {
+              _openVNPayUrl(state.vnpayUrl);
+            } else if (state is WalletError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(state.message), backgroundColor: AppColors.error),
+              );
+            }
+          },
+          builder: (context, state) {
+            if (state is WalletLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (state is! WalletLoaded) {
+              return const Center(child: Text('Đang tải dữ liệu ví...'));
+            }
+            return _buildContent(context, state);
+          },
+        ),
       ),
     );
   }
@@ -67,137 +70,299 @@ class _WalletDashboardScreenState extends State<WalletDashboardScreen> {
       onRefresh: () async => context.read<WalletBloc>().add(const WalletLoad()),
       child: CustomScrollView(
         slivers: [
-          // ── Header ──────────────────────────────────────────────
+          // ── Premium Header ──────────────────────────────────────
           SliverToBoxAdapter(
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Ví điện tử',
-                            style: AppTypography.headingLg.copyWith(fontWeight: FontWeight.w700)),
-                        Text('Digital Wallet',
-                            style: AppTypography.bodyMd.copyWith(color: AppColors.textMuted)),
-                      ],
-                    ),
-                    GestureDetector(
-                      onTap: () => context.read<WalletBloc>().add(const WalletLoad()),
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Ví điện tử',
+                          style: AppTypography.headingLg.copyWith(fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => context.push('/profile/arrears'),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: state.wallet.hasArrears
+                                ? AppColors.error.withValues(alpha: 0.15)
+                                : Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: state.wallet.hasArrears
+                                  ? AppColors.error.withValues(alpha: 0.3)
+                                  : Colors.white.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  Icon(
+                                    Icons.receipt_long_outlined,
+                                    size: 16,
+                                    color: state.wallet.hasArrears ? AppColors.error : Colors.white,
+                                  ),
+                                  if (state.wallet.hasArrears)
+                                    Positioned(
+                                      right: -2,
+                                      top: -2,
+                                      child: Container(
+                                        width: 6,
+                                        height: 6,
+                                        decoration: const BoxDecoration(
+                                          color: AppColors.error,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Công nợ',
+                                style: AppTypography.labelMd.copyWith(
+                                  color: state.wallet.hasArrears ? AppColors.error : Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        child: const Icon(Icons.refresh_outlined, size: 20),
                       ),
-                    ),
-                  ],
-                ),
+                      const SizedBox(width: AppSpacing.sm),
+                      GestureDetector(
+                        onTap: () => context.read<WalletBloc>().add(const WalletLoad()),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                          ),
+                          child: const Icon(Icons.refresh_outlined, size: 20),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
 
-          // ── Balance + Stats Tiles ────────────────────────────────
+          // ── Cyberpunk EVolt Credit Card & Arrears ───────────────
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
+              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.lg),
               child: Column(
                 children: [
-                  // Balance hero — full-width GlassSquare style card
+                  // Futuristic EVolt Credit Card layout
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(AppSpacing.xl),
+                    height: 200,
                     decoration: BoxDecoration(
                       gradient: AppColors.cyanLimeGradient,
-                      borderRadius: BorderRadius.circular(28),
+                      borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.cyan.withValues(alpha: 0.4),
-                          blurRadius: 40,
-                          offset: const Offset(0, 20),
+                          color: AppColors.cyan.withValues(alpha: 0.35),
+                          blurRadius: 32,
+                          offset: const Offset(0, 16),
                         ),
                       ],
                     ),
                     child: Stack(
                       children: [
-                        // Shine overlay
+                        // Card lines overlay
+                        Positioned.fill(
+                          child: Opacity(
+                            opacity: 0.15,
+                            child: CustomPaint(
+                              painter: _CardLinesPainter(),
+                            ),
+                          ),
+                        ),
+                        // Shiny gradient overlay
                         Positioned.fill(
                           child: Container(
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(28),
+                              borderRadius: BorderRadius.circular(24),
                               gradient: LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                                 colors: [
-                                  Colors.white.withValues(alpha: 0.3),
+                                  Colors.white.withValues(alpha: 0.25),
                                   Colors.transparent,
                                 ],
-                                stops: const [0.0, 0.5],
+                                stops: const [0.0, 0.4],
                               ),
                             ),
                           ),
                         ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Số dư khả dụng',
-                              style: AppTypography.bodyMd.copyWith(
-                                color: Colors.white.withValues(alpha: 0.85),
+                        // Card details
+                        Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  // Golden simulated credit card chip
+                                  Container(
+                                    width: 42,
+                                    height: 32,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFE2E8F0),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: const Color(0xFFCBD5E1), width: 1.5),
+                                    ),
+                                    child: GridView.count(
+                                      crossAxisCount: 3,
+                                      padding: const EdgeInsets.all(2),
+                                      children: List.generate(
+                                        9,
+                                        (index) => Container(
+                                          margin: const EdgeInsets.all(1),
+                                          decoration: BoxDecoration(
+                                            border: Border.all(color: const Color(0xFF94A3B8), width: 0.5),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  // Glowing bolt branding
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.electric_bolt, color: Colors.white, size: 18),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'EVOLTSYNC',
+                                        style: AppTypography.labelMd.copyWith(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 1.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            Text(
-                              VndFormatter.format(state.wallet.balance),
-                              style: AppTypography.displayLg.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w800,
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'SỐ DƯ KHẢ DỤNG',
+                                        style: AppTypography.caption.copyWith(
+                                          color: Colors.white.withValues(alpha: 0.75),
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 1.0,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        VndFormatter.format(state.wallet.balance),
+                                        style: AppTypography.displayLg.copyWith(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 28,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  ElevatedButton.icon(
+                                    onPressed: () => _showTopUpDialog(context),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.white,
+                                      foregroundColor: AppColors.cyan,
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      elevation: 0,
+                                    ),
+                                    icon: const Icon(Icons.add_circle_outline, size: 16),
+                                    label: Text(
+                                      'Nạp tiền',
+                                      style: AppTypography.labelMd.copyWith(
+                                        color: AppColors.cyan,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                            const SizedBox(height: AppSpacing.lg),
-                            ElevatedButton.icon(
-                              onPressed: () => _showTopUpDialog(context),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: AppColors.cyan,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 20, vertical: 10),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(AppRadius.full),
-                                ),
-                                elevation: 0,
-                              ),
-                              icon: const Icon(Icons.add, size: 18),
-                              label: Text('Nạp tiền',
-                                  style: AppTypography.labelMd.copyWith(
-                                    color: AppColors.cyan,
-                                    fontWeight: FontWeight.w700,
-                                  )),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ],
                     ),
                   ),
+
                   const SizedBox(height: AppSpacing.lg),
 
-                  // Arrears warning
+                  // Arrears warning card & management options
                   if (state.wallet.hasArrears) ...[
-                    ArrearsAlertBanner(
-                      amount: 'Nợ tồn đọng: ${VndFormatter.format(state.wallet.arrearsAmount ?? 0)}',
-                      onTap: null,
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    EVButton(
-                      label: 'Thanh toán nợ (${VndFormatter.format(state.wallet.arrearsAmount ?? 0)})',
-                      variant: EVButtonVariant.danger,
-                      onPressed: () =>
-                          context.read<WalletBloc>().add(const WalletPayArrears()),
+                    LiquidGlassCard(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 22),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Cảnh báo nợ quá hạn',
+                                style: AppTypography.bodyMd.copyWith(
+                                  color: AppColors.error,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          Text(
+                            'Tài khoản đang phát sinh nợ tồn đọng trị giá ${VndFormatter.format(state.wallet.arrearsAmount ?? 0)}. Đặt lịch và sạc pin bị tạm khoá.',
+                            style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: EVButton(
+                                  label: 'Thanh toán ngay',
+                                  variant: EVButtonVariant.danger,
+                                  onPressed: () =>
+                                      context.read<WalletBloc>().add(const WalletPayArrears()),
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Expanded(
+                                child: EVButton(
+                                  label: 'Chi tiết công nợ',
+                                  variant: EVButtonVariant.secondary,
+                                  onPressed: () => context.push('/profile/arrears'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.lg),
                   ],
@@ -209,23 +374,24 @@ class _WalletDashboardScreenState extends State<WalletDashboardScreen> {
                     alignment: WrapAlignment.center,
                     children: [
                       GlassSquare(
-                        size: 120,
+                        size: 130,
                         gradient: AppColors.blueCyanGradient,
-                        shadowColor: AppColors.blue.withValues(alpha: 0.4),
+                        shadowColor: AppColors.blue.withValues(alpha: 0.3),
                         children: [
                           Text(
                             state.transactions.length.toString(),
                             style: const TextStyle(
-                                fontSize: 28, fontWeight: FontWeight.w800, color: Colors.white),
+                                fontSize: 26, fontWeight: FontWeight.w800, color: Colors.white),
                           ),
+                          const SizedBox(height: 4),
                           const Text('Giao dịch',
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
                         ],
                       ),
                       GlassSquare(
-                        size: 120,
+                        size: 130,
                         gradient: AppColors.yellowOrangeGradient,
-                        shadowColor: AppColors.yellow.withValues(alpha: 0.4),
+                        shadowColor: AppColors.yellow.withValues(alpha: 0.3),
                         children: [
                           Text(
                             VndFormatter.compact(
@@ -236,8 +402,9 @@ class _WalletDashboardScreenState extends State<WalletDashboardScreen> {
                             style: const TextStyle(
                                 fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white),
                           ),
-                          const Text('Đã nạp',
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+                          const SizedBox(height: 4),
+                          const Text('Đã nạp ví',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
                         ],
                       ),
                     ],
@@ -280,22 +447,28 @@ class _WalletDashboardScreenState extends State<WalletDashboardScreen> {
           if (txList.isEmpty)
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.xxxl),
-                child: LiquidGlassCard(
-                  child: Column(
-                    children: [
-                      const Icon(Icons.receipt_long_outlined, size: 56, color: AppColors.textMuted),
-                      const SizedBox(height: AppSpacing.lg),
-                      Text('Chưa có giao dịch nào',
-                          style: AppTypography.bodyMd.copyWith(color: AppColors.textMuted)),
-                    ],
-                  ),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                child: Column(
+                  children: [
+                    LiquidGlassCard(
+                      padding: const EdgeInsets.all(AppSpacing.xxl),
+                      child: Column(
+                        children: [
+                          const Icon(Icons.receipt_long_outlined, size: 56, color: AppColors.textMuted),
+                          const SizedBox(height: AppSpacing.lg),
+                          Text('Chưa có giao dịch nào',
+                              style: AppTypography.bodyMd.copyWith(color: AppColors.textMuted)),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: AppLayout.bottomPadding(context)), // Bottom padding to prevent navbar overlap
+                  ],
                 ),
               ),
             )
-          else
+          else ...[
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.xxxl),
+              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, 0),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (_, i) => Padding(
@@ -306,6 +479,11 @@ class _WalletDashboardScreenState extends State<WalletDashboardScreen> {
                 ),
               ),
             ),
+            // Substantial bottom padding to prevent items from being covered by translucent bottom navigation bar
+            SliverToBoxAdapter(
+              child: SizedBox(height: AppLayout.bottomPadding(context)),
+            ),
+          ],
         ],
       ),
     );
@@ -348,7 +526,7 @@ class _WalletDashboardScreenState extends State<WalletDashboardScreen> {
     );
   }
 
-  Future<void> _openVNPayUrl(String url, String txnRef, BuildContext context) async {
+  Future<void> _openVNPayUrl(String url) async {
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -455,4 +633,30 @@ class _TransactionTile extends StatelessWidget {
       default:        return type;
     }
   }
+}
+
+/// Simulated circuit lines to give a cyberpunk cyber-credit-card feel
+class _CardLinesPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+
+    final path = Path()
+      ..moveTo(size.width * 0.1, 0)
+      ..lineTo(size.width * 0.3, size.height * 0.5)
+      ..lineTo(size.width * 0.7, size.height * 0.5)
+      ..lineTo(size.width * 0.9, size.height)
+      ..moveTo(size.width * 0.2, 0)
+      ..lineTo(size.width * 0.35, size.height * 0.3)
+      ..lineTo(size.width * 0.65, size.height * 0.3)
+      ..lineTo(size.width * 0.8, size.height);
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

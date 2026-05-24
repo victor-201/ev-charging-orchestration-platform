@@ -22,21 +22,25 @@ class ProfileRepositoryImpl implements IProfileRepository {
   }
 
   UserProfileEntity _parseProfile(Map<String, dynamic> d) => UserProfileEntity(
-    // API may return userId or id
-    id: (d['userId'] ?? d['id'])?.toString() ?? '',
-    email: d['email']?.toString() ?? '',
-    fullName: d['fullName']?.toString() ?? '',
-    phone: d['phone']?.toString(),
-    dateOfBirth: d['dateOfBirth'] != null
-        ? DateTime.tryParse(d['dateOfBirth'].toString())
-        : null,
-    role: d['role']?.toString() ?? 'user',
-    mfaEnabled: d['mfaEnabled'] == true,
-    status: d['status']?.toString(),
-    emailVerified: d['emailVerified'] == true,
-    avatarUrl: d['avatarUrl']?.toString(),
-    address: d['address']?.toString(),
-  );
+        // API may return userId or id
+        id: (d['userId'] ?? d['id'])?.toString() ?? '',
+        email: d['email']?.toString() ?? '',
+        fullName: d['fullName']?.toString() ?? '',
+        phone: d['phone']?.toString(),
+        dateOfBirth: d['dateOfBirth'] != null
+            ? DateTime.tryParse(d['dateOfBirth'].toString())
+            : null,
+        role: d['role']?.toString() ?? 'user',
+        mfaEnabled: d['mfaEnabled'] == true,
+        status: d['status']?.toString(),
+        emailVerified: d['emailVerified'] == true,
+        avatarUrl: d['avatarUrl']?.toString(),
+        address: d['address']?.toString(),
+        hasArrears: d['hasOutstandingDebt'] == true || d['hasArrears'] == true,
+        arrearsAmount: d['arrearsAmount'] != null
+            ? (double.tryParse(d['arrearsAmount'].toString()) ?? 0.0)
+            : 0.0,
+      );
 
   VehicleEntity _parseVehicle(Map<String, dynamic> d) => VehicleEntity(
     id: d['id']?.toString() ?? '',
@@ -226,6 +230,95 @@ class ProfileRepositoryImpl implements IProfileRepository {
       });
       final data = _extract(r.data);
       return Right(_parseVehicle(data));
+    } on DioException catch (e) { return Left(ErrorMapper.fromDioException(e)); }
+  }
+
+  @override
+  Future<Either<Failure, List<AuditLogEntity>>> getAuditLogs({int limit = 20}) async {
+    try {
+      final r = await _client.get(
+        ApiPaths.userAuditLogs,
+        queryParameters: {'limit': limit},
+      );
+      final raw = r.data;
+      final List<dynamic> list = raw is List
+          ? raw
+          : (raw is Map ? (raw['data'] as List<dynamic>? ?? []) : []);
+      
+      return Right(list.map((e) {
+        final d = e as Map<String, dynamic>;
+        return AuditLogEntity(
+          action: d['action']?.toString() ?? '',
+          changedAt: d['changedAt'] != null
+              ? DateTime.parse(d['changedAt'].toString())
+              : (d['createdAt'] != null ? DateTime.parse(d['createdAt'].toString()) : DateTime.now()),
+          details: d['details'] is Map<String, dynamic>
+              ? d['details'] as Map<String, dynamic>
+              : <String, dynamic>{},
+        );
+      }).toList());
+    } on DioException catch (e) { return Left(ErrorMapper.fromDioException(e)); }
+  }
+
+  @override
+  Future<Either<Failure, List<AuditLogEntity>>> getVehicleAuditLogs(String vehicleId, {int limit = 20}) async {
+    try {
+      final r = await _client.get(
+        ApiPaths.vehicleAudit(vehicleId),
+        queryParameters: {'limit': limit},
+      );
+      final raw = r.data;
+      final List<dynamic> list = raw is List
+          ? raw
+          : (raw is Map ? (raw['data'] as List<dynamic>? ?? []) : []);
+      
+      return Right(list.map((e) {
+        final d = e as Map<String, dynamic>;
+        return AuditLogEntity(
+          action: d['action']?.toString() ?? '',
+          changedAt: d['changedAt'] != null
+              ? DateTime.parse(d['changedAt'].toString())
+              : (d['createdAt'] != null ? DateTime.parse(d['createdAt'].toString()) : DateTime.now()),
+          details: d['details'] is Map<String, dynamic>
+              ? d['details'] as Map<String, dynamic>
+              : <String, dynamic>{},
+        );
+      }).toList());
+    } on DioException catch (e) { return Left(ErrorMapper.fromDioException(e)); }
+  }
+
+  @override
+  Future<Either<Failure, Map<String, dynamic>>> setupMfa() async {
+    try {
+      final r = await _client.post(ApiPaths.mfaSetup);
+      final data = _extract(r.data);
+      return Right(data);
+    } on DioException catch (e) { return Left(ErrorMapper.fromDioException(e)); }
+  }
+
+  @override
+  Future<Either<Failure, List<String>>> verifyAndEnableMfa(String token) async {
+    try {
+      final r = await _client.post(
+        ApiPaths.mfaVerify,
+        data: {'token': token},
+      );
+      final data = _extract(r.data);
+      final backupCodes = (data['backupCodes'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList();
+      return Right(backupCodes);
+    } on DioException catch (e) { return Left(ErrorMapper.fromDioException(e)); }
+  }
+
+  @override
+  Future<Either<Failure, void>> disableMfa(String password) async {
+    try {
+      await _client.post(
+        ApiPaths.mfaDisable,
+        data: {'password': password},
+      );
+      return const Right(null);
     } on DioException catch (e) { return Left(ErrorMapper.fromDioException(e)); }
   }
 }

@@ -47,7 +47,7 @@ class GlassPill extends StatelessWidget {
           color: bg,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isActive ? AppColors.cyan : Colors.white.withValues(alpha: isDark ? 0.2 : 0.7),
+            color: isActive ? AppColors.cyan : border,
             width: isActive ? 1.5 : 1.0,
           ),
           boxShadow: [

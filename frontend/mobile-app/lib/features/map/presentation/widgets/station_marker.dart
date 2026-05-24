@@ -2,11 +2,19 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/station_entity.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 
-/// Dynamic Liquid Glass Charging Station Map Marker Widget
+/// Map pin marker for a charging station.
 ///
-/// Renders dynamic stateful marker shapes and colors based on a station's current
-/// operational status, connector capacity, and live charger availabilities.
-/// Rebuilt with Liquid Glass UI patterns as a Teardrop pin.
+/// Visual state is derived purely from [StationEntity.status] and live
+/// charger counts. Shape is a teardrop — the anchor point (geographic
+/// coordinate) aligns with the vertical center of the circular bulb, not
+/// the tip. All gradient tokens are sourced from [AppColors] so any
+/// brand-level palette change propagates automatically.
+///
+/// States
+///   available    — [AppColors.markerAvailable]   (≥1 charger free)
+///   full         — [AppColors.markerFull]         (0 chargers free, shows X/X)
+///   maintenance  — [AppColors.markerMaintenance]  (station temporarily offline)
+///   closed       — [AppColors.markerClosed]       (station temporarily closed)
 class StationMarker extends StatelessWidget {
   final StationEntity station;
   final bool isSelected;
@@ -19,242 +27,236 @@ class StationMarker extends StatelessWidget {
     this.onTap,
   });
 
+  // ── Status resolution ─────────────────────────────────────────────────────
+
+  _PinData _resolve(StationEntity s) {
+    final st = s.status.toLowerCase();
+
+    if (st == 'closed') {
+      return const _PinData(
+        gradient: AppColors.markerClosed,
+        shadow:   AppColors.markerShadowClosed,
+        icon:     Icons.lock_outline_rounded,
+        label:    'CLOSE',
+      );
+    }
+
+    if (st == 'maintenance') {
+      return const _PinData(
+        gradient: AppColors.markerMaintenance,
+        shadow:   AppColors.markerShadowMaintenance,
+        icon:     Icons.build_rounded,
+        label:    'MAIN',
+      );
+    }
+
+    if (st == 'inactive') {
+      return const _PinData(
+        gradient: AppColors.markerInactive,
+        shadow:   AppColors.markerShadowInactive,
+        icon:     Icons.power_off_rounded,
+        label:    'INACT',
+      );
+    }
+
+    // Active — derive from live charger counts
+    final total     = s.totalChargers;
+    final available = s.availableChargers;
+    final inUse     = total - available;
+
+    if (total == 0 || available == 0) {
+      // All chargers occupied — show occupied/total so user knows capacity
+      return _PinData(
+        gradient: AppColors.markerFull,
+        shadow:   AppColors.markerShadowFull,
+        icon:     Icons.ev_station_rounded,
+        label:    '$total/$total',
+      );
+    }
+
+    // At least one charger free — primary brand gradient
+    return _PinData(
+      gradient: AppColors.markerAvailable,
+      shadow:   AppColors.markerShadowAvailable,
+      icon:     Icons.ev_station_rounded,
+      label:    '$inUse/$total',
+    );
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
-    final statusData = _getStationStatusData(station);
-    final gradient = _getGradientForStatus(statusData.statusKey);
-    final shadowColor = _getShadowForStatus(statusData.statusKey);
+    final pin = _resolve(station);
 
-    // Fixed size regardless of selection to prevent enlargement on click
-    final double width = 46.0;
-    final double height = width * (245.0 / 180.0);
+    // Fixed dimensions — changes here must also update the Marker alignment
+    // in MapClusterLayer (alignment: Alignment(0, -0.2653) maps the bulb
+    // center = width/2 to the coordinate anchor).
+    const double w = 46.0;
+    const double h = w * (245.0 / 180.0); // ≈ 62.6 px
 
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedScale(
-        scale: 1.0, // Disable scale up on click
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOutBack,
-        child: SizedBox(
-          width: width,
-          height: height,
-          child: RepaintBoundary(
-            child: Stack(
-              alignment: Alignment.topCenter,
-              children: [
-                // Teardrop Shape Painter (Gradient, Border, Shadow)
-                CustomPaint(
-                  size: Size(width, height),
-                  painter: _TeardropGlassPainter(
-                    gradient: gradient,
-                    shadowColor: shadowColor,
-                    isSelected: isSelected,
-                  ),
+      child: SizedBox(
+        width: w,
+        height: h,
+        child: RepaintBoundary(
+          child: Stack(
+            alignment: Alignment.topCenter,
+            children: [
+              CustomPaint(
+                size: const Size(w, h),
+                painter: _TeardropPainter(
+                  gradient:    pin.gradient,
+                  shadowColor: pin.shadow,
+                  isSelected:  isSelected,
                 ),
-                // Content (Centered exactly in the circular bulb of the teardrop, shifted slightly down for optical balance)
-                Positioned(
-                  top: 3, // Lowered slightly to fit the teardrop's center of mass better
-                  left: 0,
-                  right: 0,
-                  child: SizedBox(
-                    width: width,
-                    height: width, // The circular head of the teardrop has diameter = width
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            _getIconForStatus(statusData.statusKey),
-                            color: Colors.white,
-                            size: 20, // Reduced slightly to fit perfectly with the text
+              ),
+
+              // Content anchored to the circular bulb (top w×w region)
+              Positioned(
+                top: 3,
+                left: 0,
+                right: 0,
+                child: SizedBox(
+                  width: w,
+                  height: w,
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(pin.icon, color: Colors.white, size: 17),
+                        const SizedBox(height: 1),
+                        Text(
+                          pin.label,
+                          style: const TextStyle(
+                            fontFamily:    'Inter',
+                            color:         Colors.white,
+                            fontWeight:    FontWeight.w900,
+                            fontSize:      10,
+                            letterSpacing: -0.5,
+                            height:        1.0,
                           ),
-                          Transform.translate(
-                            offset: const Offset(0, -1), // Slight optical adjustment
-                            child: Text(
-                              statusData.text,
-                              style: const TextStyle(
-                                fontFamily: 'Inter',
-                                color: Colors.white,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 11,
-                                letterSpacing: -0.8,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
-
-  LinearGradient _getGradientForStatus(String status) {
-    switch (status) {
-      case 'active_full':
-        return const LinearGradient(colors: [Color(0xFFFD6585), AppColors.danger]);
-      case 'active_empty':
-        return AppColors.cyanLimeGradient;
-      case 'active_partial':
-        return AppColors.blueCyanGradient;
-      case 'maintenance':
-        return AppColors.yellowOrangeGradient;
-      case 'closed':
-      case 'inactive':
-      default:
-        return const LinearGradient(colors: [Color(0xFF9CA3AF), Color(0xFF4B5563)]);
-    }
-  }
-
-  Color _getShadowForStatus(String status) {
-    switch (status) {
-      case 'active_full':
-        return AppColors.danger;
-      case 'active_empty':
-        return AppColors.lime;
-      case 'active_partial':
-        return AppColors.cyan;
-      case 'maintenance':
-        return AppColors.yellow;
-      case 'closed':
-      case 'inactive':
-      default:
-        return const Color(0xFF4B5563);
-    }
-  }
-
-  IconData _getIconForStatus(String status) {
-    switch (status) {
-      case 'active_full':
-      case 'active_empty':
-      case 'active_partial':
-        return Icons.ev_station_rounded;
-      case 'maintenance':
-        return Icons.build_circle_rounded;
-      case 'closed':
-      case 'inactive':
-      default:
-        return Icons.do_not_disturb_alt_rounded;
-    }
-  }
-
-  _MarkerStatusData _getStationStatusData(StationEntity station) {
-    if (station.status.toLowerCase() == 'closed') {
-      return _MarkerStatusData('closed', 'CLOSE');
-    }
-    if (station.status.toLowerCase() == 'maintenance') {
-      return _MarkerStatusData('maintenance', 'MAINT');
-    }
-    if (station.status.toLowerCase() == 'inactive') {
-      return _MarkerStatusData('inactive', 'OFF');
-    }
-
-    final int total = station.totalChargers;
-    final int availableCount = station.availableChargers;
-
-    if (total == 0) {
-      return _MarkerStatusData('inactive', '0/0');
-    }
-
-    if (availableCount == 0) {
-      return _MarkerStatusData('active_full', '$total/$total');
-    }
-
-    final int unavailableCount = total - availableCount;
-    return _MarkerStatusData('active_empty', '$unavailableCount/$total');
-  }
 }
 
-class _MarkerStatusData {
-  final String statusKey;
-  final String text;
+// ── Internal data holder ──────────────────────────────────────────────────────
 
-  _MarkerStatusData(this.statusKey, this.text);
+class _PinData {
+  final LinearGradient gradient;
+  final Color shadow;
+  final IconData icon;
+  final String label;
+
+  const _PinData({
+    required this.gradient,
+    required this.shadow,
+    required this.icon,
+    required this.label,
+  });
 }
 
-class _TeardropGlassPainter extends CustomPainter {
+// ── Painter ───────────────────────────────────────────────────────────────────
+
+/// Renders a teardrop-shaped pin with a status gradient fill, glass sheen
+/// overlay, and a drop shadow sized to the selection state.
+///
+/// Paint objects and the path are cached per [Size] instance to avoid
+/// per-frame shader reallocations across the ~300 markers on the map.
+class _TeardropPainter extends CustomPainter {
   final LinearGradient gradient;
   final Color shadowColor;
   final bool isSelected;
 
-  _TeardropGlassPainter({
+  _TeardropPainter({
     required this.gradient,
     required this.shadowColor,
     required this.isSelected,
   });
 
+  Paint? _fillPaint;
+  Paint? _sheenPaint;
+  Paint? _strokePaint;
+  Path?  _path;
+  Size?  _size;
+
   @override
   void paint(Canvas canvas, Size size) {
-    final path = _getTeardropPath(size);
+    // Rebuild path and paints only when size changes (marker dimensions are
+    // fixed at 46×62.6 px, so this executes once per painter instance).
+    if (_path == null || _size != size) {
+      _path        = _buildPath(size);
+      _size        = size;
+      _fillPaint   = null;
+      _sheenPaint  = null;
+      _strokePaint = null;
+    }
 
-    // 1. Draw glowing outer shadow
+    final path = _path!;
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+
+    // Elevation shadow — larger when selected to lift the pin above cluster
     canvas.drawShadow(
       path,
-      shadowColor.withValues(alpha: isSelected ? 0.7 : 0.4),
-      isSelected ? 16.0 : 8.0,
-      false, // transparentOccluder
+      shadowColor.withValues(alpha: isSelected ? 0.80 : 0.50),
+      isSelected ? 20.0 : 10.0,
+      false,
     );
 
-    // 2. Fill with main gradient
-    final fillPaint = Paint()
-      ..shader = gradient.createShader(Rect.fromLTWH(0, 0, size.width, size.height))
-      ..style = PaintingStyle.fill;
-    canvas.drawPath(path, fillPaint);
+    // Status gradient fill
+    _fillPaint ??= Paint()..style = PaintingStyle.fill;
+    _fillPaint!.shader = gradient.createShader(rect);
+    canvas.drawPath(path, _fillPaint!);
 
-    // 3. Add diagonal glass highlight (Top-left to bottom-right)
-    final highlightGradient = LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [
-        Colors.white.withValues(alpha: 0.4),
-        Colors.transparent,
-      ],
-      stops: const [0.0, 0.6],
-    );
-    final highlightPaint = Paint()
-      ..shader = highlightGradient.createShader(Rect.fromLTWH(0, 0, size.width, size.height))
+    // Diagonal glass sheen — constant across all states for visual consistency
+    _sheenPaint ??= Paint()
+      ..shader = const LinearGradient(
+        begin:  Alignment.topLeft,
+        end:    Alignment.center,
+        colors: [Color(0x55FFFFFF), Colors.transparent],
+      ).createShader(const Rect.fromLTWH(0, 0, 46, 46))
       ..style = PaintingStyle.fill;
-    canvas.drawPath(path, highlightPaint);
+    canvas.drawPath(path, _sheenPaint!);
 
-    // 4. Draw border stroke (Glass edge)
-    final strokePaint = Paint()
-      ..color = isSelected ? Colors.white : Colors.white.withValues(alpha: 0.6)
-      ..style = PaintingStyle.stroke
+    // Border — full-opacity white when selected for clear visual feedback
+    _strokePaint ??= Paint()..style = PaintingStyle.stroke;
+    _strokePaint!
+      ..color       = Colors.white.withValues(alpha: isSelected ? 1.0 : 0.60)
       ..strokeWidth = isSelected ? 2.5 : 1.5;
-    canvas.drawPath(path, strokePaint);
+    canvas.drawPath(path, _strokePaint!);
   }
 
-  Path _getTeardropPath(Size size) {
-    final path = Path();
-    // Path translated and scaled from SVG:
-    // M 0,-90 C -55,-90 -90,-55 -90,0 C -90,38 -68,70 -40,95 L 0,155 L 40,95 C 68,70 90,38 90,0 C 90,-55 55,-90 0,-90 Z
-    // Shifted (+90, +90) => Width 180, Height 245
-    // Top-Center is (90, 0). Tip is (90, 245).
-    final sx = size.width / 180.0;
-    final sy = size.height / 245.0;
-
-    path.moveTo(90 * sx, 0 * sy);
-    path.cubicTo(35 * sx, 0 * sy, 0 * sx, 35 * sy, 0 * sx, 90 * sy);
-    path.cubicTo(0 * sx, 128 * sy, 22 * sx, 160 * sy, 50 * sx, 185 * sy);
-    path.lineTo(90 * sx, 245 * sy);
-    path.lineTo(130 * sx, 185 * sy);
-    path.cubicTo(158 * sx, 160 * sy, 180 * sx, 128 * sy, 180 * sx, 90 * sy);
-    path.cubicTo(180 * sx, 35 * sy, 145 * sx, 0 * sy, 90 * sx, 0 * sy);
-    path.close();
-
-    return path;
+  /// Teardrop path derived from SVG:
+  ///   M 0,-90 … Z  (origin at bulb center, tip at +155 below center)
+  /// Scaled to [size] so the shape adapts if marker dimensions ever change.
+  Path _buildPath(Size s) {
+    final sx = s.width  / 180.0;
+    final sy = s.height / 245.0;
+    return Path()
+      ..moveTo(90 * sx, 0)
+      ..cubicTo(35 * sx, 0,         0,           35 * sy,  0,           90 * sy)
+      ..cubicTo( 0,       128 * sy,  22 * sx,    160 * sy,  50 * sx,    185 * sy)
+      ..lineTo( 90 * sx, 245 * sy)
+      ..lineTo(130 * sx, 185 * sy)
+      ..cubicTo(158 * sx, 160 * sy, 180 * sx,   128 * sy, 180 * sx,    90 * sy)
+      ..cubicTo(180 * sx,  35 * sy, 145 * sx,    0,        90 * sx,     0)
+      ..close();
   }
 
   @override
-  bool shouldRepaint(covariant _TeardropGlassPainter oldDelegate) {
-    return oldDelegate.gradient != gradient ||
-        oldDelegate.shadowColor != shadowColor ||
-        oldDelegate.isSelected != isSelected;
-  }
+  bool shouldRepaint(covariant _TeardropPainter old) =>
+      old.gradient    != gradient    ||
+      old.shadowColor != shadowColor ||
+      old.isSelected  != isSelected;
 }

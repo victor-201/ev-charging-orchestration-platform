@@ -6,11 +6,12 @@ import '../bloc/profile_bloc.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
-import '../../../../core/design_system/widgets/glass_pill.dart';
 import '../../../../core/design_system/widgets/glass_square.dart';
 import '../../../../core/design_system/widgets/liquid_glass_card.dart';
 import '../../../../core/design_system/widgets/liquid_glass_scaffold.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../../core/utils/vnd_formatter.dart';
+import 'audit_log_screen.dart';
 
 /// Main Profile Screen — Liquid Glass Design
 class ProfileScreen extends StatefulWidget {
@@ -196,7 +197,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               // ── Content ────────────────────────────────────────
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppLayout.sidePadding,
+                    vertical: AppLayout.sidePadding,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -287,6 +291,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             : const Icon(Icons.warning_amber_outlined, color: AppColors.yellow),
                         onTap: () => context.push('/profile/security'),
                       ),
+                      const SizedBox(height: AppSpacing.md),
+                      _MenuPill(
+                        label: 'Quản lý công nợ',
+                        trailing: profile?.hasArrears == true
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '-${VndFormatter.format(profile?.arrearsAmount ?? 0.0)}',
+                                    style: const TextStyle(color: AppColors.error, fontWeight: FontWeight.bold, fontSize: 13),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 16),
+                                ],
+                              )
+                            : const Icon(Icons.chevron_right, color: AppColors.textMuted),
+                        onTap: () => context.push('/profile/arrears'),
+                      ),
                       const SizedBox(height: AppSpacing.xxxl),
 
                       // Phương tiện
@@ -310,12 +332,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const SizedBox(height: AppSpacing.md),
                       _MenuPill(
+                        label: 'Nhật ký hoạt động',
+                        trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AuditLogScreen(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      _MenuPill(
                         label: 'Đăng xuất',
                         isDanger: true,
                         isDarkVariant: true,
                         onTap: () => _confirmLogout(context),
                       ),
-                      const SizedBox(height: AppSpacing.xxxl),
+                      SizedBox(height: AppLayout.bottomPadding(context)),
                     ],
                   ),
                 ),

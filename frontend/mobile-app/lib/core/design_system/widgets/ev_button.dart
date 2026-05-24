@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_typography.dart';
 
 /// Visual configuration variants: primary, secondary, danger, outlined
 enum EVButtonVariant { primary, secondary, danger, outlined }

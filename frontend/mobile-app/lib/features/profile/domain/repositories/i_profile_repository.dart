@@ -71,4 +71,19 @@ abstract class IProfileRepository {
     String? vinNumber,
     bool? autochargeEnabled,
   });
+
+  /// Queries all security and profile change audit logs for the current user.
+  Future<Either<Failure, List<AuditLogEntity>>> getAuditLogs({int limit = 20});
+
+  /// Queries all audit logs for a specific vehicle by its ID.
+  Future<Either<Failure, List<AuditLogEntity>>> getVehicleAuditLogs(String vehicleId, {int limit = 20});
+
+  /// Generates a TOTP secret and QR URL to setup MFA.
+  Future<Either<Failure, Map<String, dynamic>>> setupMfa();
+
+  /// Verifies a 6-digit TOTP token to activate MFA. Returns backup codes.
+  Future<Either<Failure, List<String>>> verifyAndEnableMfa(String token);
+
+  /// Disables MFA for the current account. Requires current password.
+  Future<Either<Failure, void>> disableMfa(String password);
 }

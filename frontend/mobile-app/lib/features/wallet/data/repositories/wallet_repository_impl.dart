@@ -23,9 +23,8 @@ class WalletRepositoryImpl implements IWalletRepository {
         id: (data['walletId'] ?? data['id'])?.toString() ?? '',
         // PostgreSQL NUMERIC may arrive as String — parse safely
         balance: _parseNum(data['balance']) ?? 0,
-        // /wallet/balance does not expose arrears; arrears come from user profile
-        hasArrears: false,
-        arrearsAmount: null,
+        hasArrears: data['hasArrears'] == true,
+        arrearsAmount: _parseNum(data['arrearsAmount']),
       ));
     } on DioException catch (e) {
       return Left(ErrorMapper.fromDioException(e));
@@ -106,7 +105,15 @@ class WalletRepositoryImpl implements IWalletRepository {
 
   @override
   Future<Either<Failure, void>> payArrears() async {
-    return const Right(null);
+    try {
+      await _client.post(
+        ApiPaths.walletPayArrears,
+        withIdempotency: true,
+      );
+      return const Right(null);
+    } on DioException catch (e) {
+      return Left(ErrorMapper.fromDioException(e));
+    }
   }
 
   TransactionEntity _parseTransaction(Map<String, dynamic> data) {

@@ -13,6 +13,8 @@ class UserProfileEntity extends Equatable {
   final bool emailVerified;
   final String? avatarUrl;
   final String? address;
+  final bool hasArrears;
+  final double arrearsAmount;
 
   const UserProfileEntity({
     required this.id,
@@ -26,10 +28,23 @@ class UserProfileEntity extends Equatable {
     this.emailVerified = false,
     this.avatarUrl,
     this.address,
+    required this.hasArrears,
+    required this.arrearsAmount,
   });
 
   @override
-  List<Object?> get props => [id, email, fullName, mfaEnabled, status, emailVerified, avatarUrl, address];
+  List<Object?> get props => [
+        id,
+        email,
+        fullName,
+        mfaEnabled,
+        status,
+        emailVerified,
+        avatarUrl,
+        address,
+        hasArrears,
+        arrearsAmount,
+      ];
 }
 
 /// Vehicle entity — matches GET/POST /api/v1/users/me/vehicles response
@@ -89,4 +104,20 @@ class SessionDeviceEntity extends Equatable {
 
   @override
   List<Object?> get props => [id];
+}
+
+/// Audit Log entity — matches GET /api/v1/users/me/audit-log
+class AuditLogEntity extends Equatable {
+  final String action;
+  final DateTime changedAt;
+  final Map<String, dynamic> details;
+
+  const AuditLogEntity({
+    required this.action,
+    required this.changedAt,
+    required this.details,
+  });
+
+  @override
+  List<Object?> get props => [action, changedAt, details];
 }

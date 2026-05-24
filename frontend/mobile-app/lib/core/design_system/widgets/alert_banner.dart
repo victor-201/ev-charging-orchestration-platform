@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
-import 'dart:async';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 

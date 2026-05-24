@@ -48,4 +48,11 @@ abstract class IStationRepository {
     int limit = 8,
     String? connectorType,
   });
+
+  /// Fetches an AI optimal charging point recommendation based on user location.
+  Future<Either<Failure, StationEntity>> suggestOptimalStation({
+    required double lat,
+    required double lng,
+    String? connectorType,
+  });
 }

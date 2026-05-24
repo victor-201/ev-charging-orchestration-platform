@@ -141,7 +141,7 @@ class MapSearchBar extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(AppRadius.full),
-          onTap: () => context.push('/auth/login'),
+          onTap: () => context.push('/welcome'),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
             child: Center(

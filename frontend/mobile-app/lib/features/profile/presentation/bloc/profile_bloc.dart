@@ -22,6 +22,8 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     on<VehicleDelete>(_onVehicleDelete);
     on<VehicleSetPrimary>(_onVehicleSetPrimary);
     on<VehicleSetAutoCharge>(_onVehicleSetAutoCharge);
+    on<ProfileLoadAuditLogs>(_onLoadAuditLogs);
+    on<VehicleLoadAuditLogs>(_onVehicleLoadAuditLogs);
   }
 
   Future<void> _onLoad(ProfileLoad e, Emitter<ProfileState> emit) async {
@@ -130,6 +132,28 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     result.fold(
       (f) => emit(ProfileError(message: f.message)),
       (_) { add(const VehicleLoad()); emit(const ProfileSuccess(message: 'Đã cấu hình AutoCharge')); },
+    );
+  }
+
+  Future<void> _onLoadAuditLogs(ProfileLoadAuditLogs e, Emitter<ProfileState> emit) async {
+    final result = await _repository.getAuditLogs();
+    result.fold(
+      (f) => emit(ProfileError(message: f.message)),
+      (logs) {
+        final current = state;
+        if (current is ProfileLoaded) emit(current.copyWith(auditLogs: logs));
+      },
+    );
+  }
+
+  Future<void> _onVehicleLoadAuditLogs(VehicleLoadAuditLogs e, Emitter<ProfileState> emit) async {
+    final result = await _repository.getVehicleAuditLogs(e.vehicleId);
+    result.fold(
+      (f) => emit(ProfileError(message: f.message)),
+      (logs) {
+        final current = state;
+        if (current is ProfileLoaded) emit(current.copyWith(vehicleAuditLogs: logs));
+      },
     );
   }
 }

@@ -42,39 +42,41 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
         ],
       ),
-      child: BlocBuilder<NotificationBloc, NotificationState>(
-        builder: (context, state) {
-          if (state is NotificationLoading) return const Center(child: CircularProgressIndicator());
-          if (state is NotificationLoaded) {
-            if (state.notifications.isEmpty) {
-              return Center(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.notifications_none_outlined, size: 72, color: AppColors.grey400),
-                  const SizedBox(height: AppSpacing.lg),
-                  Text('Không có thông báo nào', style: AppTypography.headingMd.copyWith(color: AppColors.grey600)),
-                ]),
+      child: SafeArea(
+        child: BlocBuilder<NotificationBloc, NotificationState>(
+          builder: (context, state) {
+            if (state is NotificationLoading) return const Center(child: CircularProgressIndicator());
+            if (state is NotificationLoaded) {
+              if (state.notifications.isEmpty) {
+                return Center(
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.notifications_none_outlined, size: 72, color: AppColors.grey400),
+                    const SizedBox(height: AppSpacing.lg),
+                    Text('Không có thông báo nào', style: AppTypography.headingMd.copyWith(color: AppColors.grey600)),
+                  ]),
+                );
+              }
+              return RefreshIndicator(
+                onRefresh: () async => context.read<NotificationBloc>().add(const NotificationLoad()),
+                child: ListView.separated(
+                  padding: AppLayout.paddingWithHeader(context),
+                  itemCount: state.notifications.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+                  itemBuilder: (_, i) => _NotificationTile(notif: state.notifications[i]),
+                ),
               );
             }
-            return RefreshIndicator(
-              onRefresh: () async => context.read<NotificationBloc>().add(const NotificationLoad()),
-              child: ListView.separated(
-                padding: const EdgeInsets.only(top: AppSpacing.lg),
-                itemCount: state.notifications.length,
-                separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
-                itemBuilder: (_, i) => _NotificationTile(notif: state.notifications[i]),
-              ),
-            );
-          }
-          if (state is NotificationError) {
-            return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Text(state.message, style: AppTypography.bodyMd.copyWith(color: AppColors.error)),
-              const SizedBox(height: AppSpacing.lg),
-              EVButton(label: 'Thử lại', variant: EVButtonVariant.secondary,
-                  onPressed: () => context.read<NotificationBloc>().add(const NotificationLoad())),
-            ]));
-          }
-          return const SizedBox.shrink();
-        },
+            if (state is NotificationError) {
+              return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Text(state.message, style: AppTypography.bodyMd.copyWith(color: AppColors.error)),
+                const SizedBox(height: AppSpacing.lg),
+                EVButton(label: 'Thử lại', variant: EVButtonVariant.secondary,
+                    onPressed: () => context.read<NotificationBloc>().add(const NotificationLoad())),
+              ]));
+            }
+            return const SizedBox.shrink();
+          },
+        ),
       ),
     );
   }
