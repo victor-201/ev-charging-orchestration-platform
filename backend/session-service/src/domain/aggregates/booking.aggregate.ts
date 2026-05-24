@@ -132,15 +132,6 @@ export class Booking {
       ),
     );
 
-    // Request deposit transaction creation as soon as booking is created
-    booking._domainEvents.push(
-      new SessionReservedEventV1(
-        booking.id,
-        booking.userId,
-        booking.chargerId,
-        props.depositAmount,
-      ),
-    );
 
     return booking;
   }

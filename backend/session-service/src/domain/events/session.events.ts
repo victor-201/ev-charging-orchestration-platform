@@ -1,9 +1,9 @@
 import { DomainEvent } from './domain-event.base';
 
-// session.booking_created_v1
+// session.booking_created
 
 export class BookingCreatedEvent extends DomainEvent {
-  readonly eventType = 'session.booking_created_v1';
+  readonly eventType = 'session.booking_created';
 
   constructor(
     public readonly bookingId: string,
@@ -19,7 +19,7 @@ export class BookingCreatedEvent extends DomainEvent {
 // Deposit Requested (auto-trigger after booking.create)
 
 export class SessionReservedEvent extends DomainEvent {
-  readonly eventType = 'session.reserved_v1';
+  readonly eventType = 'session.reserved';
 
   constructor(
     public readonly bookingId: string,
