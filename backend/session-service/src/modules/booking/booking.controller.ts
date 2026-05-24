@@ -6,6 +6,7 @@ import {
   ParseUUIDPipe, NotFoundException,
   UseGuards,
   Inject,
+  Header,
 } from '@nestjs/common';
 import { CreateBookingUseCase, GetAvailabilityUseCase } from '../../application/use-cases/create-booking.use-case';
 import { CancelBookingUseCase } from '../../application/use-cases/booking-lifecycle.use-case';
@@ -107,6 +108,7 @@ export class BookingController {
    */
   @Get('me')
   @SkipArrearsCheck()
+  @Header('Cache-Control', 'no-store, no-cache, must-revalidate')
   async getMyBookings(
     @CurrentUser() user: AuthenticatedUser,
     @Query('limit') limit = 20,

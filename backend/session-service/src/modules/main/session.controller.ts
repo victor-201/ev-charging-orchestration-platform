@@ -2,7 +2,7 @@ import {
   Controller, Get, Post, Patch, Body, Param, Query,
   HttpCode, HttpStatus, ParseUUIDPipe, NotFoundException,
   BadRequestException, Logger, UnauthorizedException,
-  UseGuards,
+  UseGuards, Header,
 } from '@nestjs/common';
 import {
   StartSessionUseCase, StopSessionUseCase,
@@ -151,6 +151,7 @@ export class SessionController {
    * User views own session.
    */
   @Get('session/:id')
+  @Header('Cache-Control', 'no-store, no-cache, must-revalidate')
   async getById(@Param('id', ParseUUIDPipe) id: string) {
     const session = await this.getSession.execute(id);
     if (!session) throw new NotFoundException('Session not found');
@@ -176,6 +177,7 @@ export class SessionController {
    */
   @Get('history')
   @SkipChargingArrearsCheck()
+  @Header('Cache-Control', 'no-store, no-cache, must-revalidate')
   async getHistory(
     @CurrentUser() user: AuthenticatedUser,
     @Query('limit') limit?: number,

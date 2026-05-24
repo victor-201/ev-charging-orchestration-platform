@@ -8,9 +8,10 @@ import {
   BookingOrmEntity, BookingStatusHistoryOrmEntity,
   ChargerReadModelOrmEntity, PricingSnapshotOrmEntity,
   OutboxOrmEntity, ProcessedEventOrmEntity,
-  QueueOrmEntity, UserDebtReadModelOrmEntity,
+  QueueOrmEntity,
   SchedulingSlotOrmEntity,
 } from '../../infrastructure/persistence/typeorm/entities/booking.orm-entities';
+import { UserDebtReadModelOrmEntity } from '../../infrastructure/persistence/typeorm/entities/session.orm-entities';
 import { SuggestChargerUseCase } from '../../application/use-cases/suggest-charger.use-case';
 import { BookingRepository } from '../../infrastructure/persistence/typeorm/repositories/booking.repository';
 import { ChargerRepository } from '../../infrastructure/persistence/typeorm/repositories/charger.repository';
@@ -47,9 +48,9 @@ import {
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard }   from '../../shared/guards/roles.guard';
 import {
-  BillingDeductedConsumer, BillingDeductionFailedConsumer,
+  BillingDeductedConsumer, BillingDeductionFailedConsumer,  BookingPaymentCompletedConsumer,
   SessionStartedConsumer,
-  ChargerStatusConsumer,
+  BookingChargerStatusConsumer,
 } from '../../infrastructure/messaging/consumers/booking.consumers';
 import { StationStatusChangedConsumer } from '../../infrastructure/messaging/consumers/station-status-sync.consumer';
 
@@ -113,9 +114,9 @@ import { StationStatusChangedConsumer } from '../../infrastructure/messaging/con
     LeaveQueueUseCase,
     ProcessQueueUseCase,
     // RabbitMQ consumers
-    BillingDeductedConsumer, BillingDeductionFailedConsumer,    // successful payment -> auto confirm
+    BillingDeductedConsumer, BillingDeductionFailedConsumer, BookingPaymentCompletedConsumer,   // successful payment -> auto confirm
     SessionStartedConsumer,      // session started -> auto complete
-    ChargerStatusConsumer,       // charger available -> serve queue
+    BookingChargerStatusConsumer,       // charger available -> serve queue
     StationStatusChangedConsumer,
     // Arrears Sync Consumers (Lock Bad Debt)
     BookingArrearsCreatedConsumer,  // wallet.arrears.created -> block user
