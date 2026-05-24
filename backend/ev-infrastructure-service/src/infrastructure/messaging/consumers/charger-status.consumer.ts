@@ -28,7 +28,7 @@ export class ChargerStatusConsumer {
     exchange: 'ev.charging',
     routingKey: 'charger.status.changed',
     queue: 'station-service.charger.status.changed',
-    queueOptions: { durable: true },
+    queueOptions: { durable: true, deadLetterExchange: 'ev.charging.dlx' },
   })
   async handleChargerStatusChanged(payload: {
     eventId: string;
@@ -79,7 +79,7 @@ export class ChargerStatusConsumer {
     exchange: 'ev.charging',
     routingKey: 'charger.fault.detected',
     queue: 'station-service.charger.fault.detected',
-    queueOptions: { durable: true },
+    queueOptions: { durable: true, deadLetterExchange: 'ev.charging.dlx' },
   })
   async handleChargerFault(payload: {
     eventId: string;

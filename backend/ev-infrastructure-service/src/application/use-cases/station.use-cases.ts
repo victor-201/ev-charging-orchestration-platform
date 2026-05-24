@@ -275,12 +275,16 @@ export class GetNearbyStationsUseCase {
     @Inject(STATION_REPOSITORY) private readonly stationRepo: IStationRepository,
   ) {}
 
-  async execute(lat: number, lng: number, radiusKm = 10, limit = 20): Promise<StationResponse[]> {
+  async execute(lat: number, lng: number, radiusKm = 10, limit = 20, status?: StationStatus): Promise<StationResponse[]> {
     const result = await this.stationRepo.findMany({
       nearLat:  lat,
       nearLng:  lng,
       radiusKm,
-      status:   StationStatus.ACTIVE,
+      // If caller requests a specific status, honor it.
+      // Otherwise exclude 'inactive' (permanently offline) — shown on request via filter only.
+      ...(status
+        ? { status }
+        : { statusNotIn: [StationStatus.INACTIVE] }),
       limit,
       offset:   0,
     });

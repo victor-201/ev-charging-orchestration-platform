@@ -46,6 +46,9 @@ export class StationRepository implements IStationRepository {
 
     if (filter.cityId)  qb.andWhere('s.city_id = :cityId', { cityId: filter.cityId });
     if (filter.status)  qb.andWhere('s.status = :status',  { status: filter.status });
+    if (filter.statusNotIn && filter.statusNotIn.length > 0) {
+      qb.andWhere('s.status NOT IN (:...statusNotIn)', { statusNotIn: filter.statusNotIn });
+    }
     if (filter.ownerId) qb.andWhere('s.owner_id = :ownerId', { ownerId: filter.ownerId });
 
     // Geo bounding box — approximation (NOT haversine, used for all queries)

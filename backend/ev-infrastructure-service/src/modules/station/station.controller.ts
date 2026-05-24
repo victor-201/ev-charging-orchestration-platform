@@ -5,6 +5,9 @@ import {
   UseGuards, Delete,
   ParseUUIDPipe,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import {
   CreateStationUseCase, UpdateStationUseCase, GetStationUseCase,
   ListStationsUseCase, GetNearbyStationsUseCase,
@@ -34,6 +37,11 @@ import { RolesGuard }               from '../../shared/guards/roles.guard';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 import { Roles, Public } from '../../shared/decorators/roles.decorator';
 import type { AuthenticatedUser }   from '../../shared/guards/jwt-auth.guard';
+import {
+  IncidentOrmEntity,
+  MaintenanceOrmEntity,
+} from '../../infrastructure/persistence/typeorm/entities/station.orm-entities';
+import { StationStatus } from '../../domain/entities/station.aggregate';
 
 /**
  * StationController — Auth policy:
@@ -69,6 +77,10 @@ export class StationController {
     private readonly listPricingRules:    ListPricingRulesUseCase,
     private readonly getStationByCharger: GetStationByChargerUseCase,
     private readonly deleteStation:       DeleteStationUseCase,
+    @InjectRepository(IncidentOrmEntity)
+    private readonly incidentRepo:        Repository<IncidentOrmEntity>,
+    @InjectRepository(MaintenanceOrmEntity)
+    private readonly maintenanceRepo:     Repository<MaintenanceOrmEntity>,
   ) {}
 
   @Get()
@@ -84,9 +96,13 @@ export class StationController {
     @Query('lng') lng: number,
     @Query('radiusKm') radiusKm = 10,
     @Query('limit')    limit    = 20,
+    @Query('status')   status?: string,
   ) {
     return this.handleDomainErrors(() =>
-      this.getNearbyStations.execute(Number(lat), Number(lng), Number(radiusKm), Number(limit)),
+      this.getNearbyStations.execute(
+        Number(lat), Number(lng), Number(radiusKm), Number(limit),
+        status as StationStatus | undefined,
+      ),
     );
   }
 
@@ -332,6 +348,150 @@ export class StationController {
   @Roles('admin')
   async deactivateRuleEndpoint(@Param('ruleId', ParseUUIDPipe) ruleId: string) {
     await this.deactivateRule.execute(ruleId);
+  }
+
+  /**
+   * GET /api/v1/stations/incidents
+   * Admin/Staff only: List station incidents.
+   */
+  @Get('incidents')
+  @Roles('admin', 'staff')
+  async listIncidents(
+    @Query('stationId') stationId?: string,
+    @Query('severity') severity?: string,
+    @Query('status') status?: string,
+    @Query('limit') limit?: number,
+  ) {
+    const where: any = {};
+    if (stationId) where.stationId = stationId;
+    if (severity) where.severity = severity.toLowerCase();
+    if (status) where.status = status.toLowerCase();
+
+    return this.incidentRepo.find({
+      where,
+      take: limit ? Number(limit) : 20,
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  /**
+   * POST /api/v1/stations/incidents
+   * Staff/User: Report a new incident.
+   */
+  @Post('incidents')
+  @HttpCode(HttpStatus.CREATED)
+  async reportIncident(
+    @Body() body: {
+      stationId: string;
+      chargerId?: string;
+      description: string;
+      severity: string;
+      reportedBy?: string;
+    },
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (!body.stationId) {
+      throw new BadRequestException('stationId is required');
+    }
+    const incident = this.incidentRepo.create({
+      id: uuidv4(),
+      stationId: body.stationId,
+      pointId: body.chargerId ?? null,
+      description: body.description ?? '',
+      severity: body.severity ? body.severity.toLowerCase() : 'medium',
+      status: 'pending_confirmation',
+      reportedBy: body.reportedBy ?? user.id,
+    });
+    return this.incidentRepo.save(incident);
+  }
+
+  /**
+   * PATCH /api/v1/stations/incidents/:id
+   * Admin/Staff only: Resolve/update incident status.
+   */
+  @Patch('incidents/:id')
+  @Roles('admin', 'staff')
+  async resolveIncident(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: {
+      status: string;
+      resolutionNote?: string;
+    },
+  ) {
+    if (!body.status) {
+      throw new BadRequestException('status is required');
+    }
+    const incident = await this.incidentRepo.findOne({ where: { id } });
+    if (!incident) {
+      throw new NotFoundException('Incident not found');
+    }
+    incident.status = body.status.toLowerCase();
+    if (incident.status === 'resolved') {
+      incident.resolvedAt = new Date();
+    }
+    return this.incidentRepo.save(incident);
+  }
+
+  /**
+   * GET /api/v1/stations/maintenance
+   * Admin/Staff only: List scheduled maintenance records.
+   */
+  @Get('maintenance')
+  @Roles('admin', 'staff')
+  async listMaintenance(
+    @Query('stationId') stationId?: string,
+    @Query('status') status?: string,
+  ) {
+    const query = this.maintenanceRepo.createQueryBuilder('maint');
+    if (stationId) {
+      query.andWhere('maint.stationId = :stationId', { stationId });
+    }
+    const now = new Date();
+    if (status === 'SCHEDULED') {
+      query.andWhere('maint.startTime > :now', { now });
+    } else if (status === 'IN_PROGRESS') {
+      query.andWhere('maint.startTime <= :now AND maint.endTime >= :now', { now });
+    } else if (status === 'COMPLETED') {
+      query.andWhere('maint.endTime < :now', { now });
+    }
+    query.orderBy('maint.startTime', 'DESC');
+    return query.getMany();
+  }
+
+  /**
+   * POST /api/v1/stations/maintenance
+   * Admin only: Schedule maintenance.
+   */
+  @Post('maintenance')
+  @Roles('admin')
+  @HttpCode(HttpStatus.CREATED)
+  async scheduleMaintenance(
+    @Body() body: {
+      stationId: string;
+      scheduledStartTime: string;
+      scheduledEndTime: string;
+      reason: string;
+      technicianId: string;
+    },
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (!body.stationId || !body.scheduledStartTime || !body.scheduledEndTime) {
+      throw new BadRequestException('stationId, scheduledStartTime, and scheduledEndTime are required');
+    }
+    const start = new Date(body.scheduledStartTime);
+    const end = new Date(body.scheduledEndTime);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      throw new BadRequestException('Invalid scheduledStartTime or scheduledEndTime format');
+    }
+    const maint = this.maintenanceRepo.create({
+      id: uuidv4(),
+      stationId: body.stationId,
+      startTime: start,
+      endTime: end,
+      reason: body.reason ?? '',
+      scheduledBy: body.technicianId ?? user.id,
+    });
+    return this.maintenanceRepo.save(maint);
   }
 
   private async handleDomainErrors<T>(fn: () => Promise<T>): Promise<T> {

@@ -6,6 +6,7 @@ export const STATION_REPOSITORY = Symbol('STATION_REPOSITORY');
 export interface StationFilter {
   cityId?: string;
   status?: StationStatus;
+  statusNotIn?: StationStatus[]; // Exclude stations with these statuses (e.g. hide 'inactive' from map)
   ownerId?: string;
   nearLat?: number;
   nearLng?: number;
