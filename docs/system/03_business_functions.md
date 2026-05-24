@@ -12,7 +12,7 @@
   2. Hash mật khẩu bcrypt
   3. Tạo User aggregate với status=active
   4. Persist vào DB
-  5. Publish event `user.registered_v1` qua Outbox → RabbitMQ
+  5. Publish event `user.registered` qua Outbox → RabbitMQ
   6. Trả về user profile
 
 ## [02] Đăng nhập
@@ -27,7 +27,7 @@
   4. Nếu MFA enabled → yêu cầu TOTP token
   5. Tạo auth_session với refresh_token_hash
   6. Phát hành JWT accessToken (15m) + refreshToken (7d)
-  7. Publish `user.logged_in_v1`
+  7. (Optional) Log session / Emit login metrics
 
 ## [03] Làm mới Access Token
 
@@ -185,7 +185,7 @@
   2. Kiểm tra slot chưa bị đặt (tránh overlap)
   3. Gọi infra-service lấy báo giá → tính depositAmount
   4. Tạo Booking aggregate: status=PENDING_PAYMENT
-  5. Publish `session.booking_created_v1` + `session.deposit_requested_v1`
+  5. Publish `booking.created` + `booking.deposit_requested`
   6. billing-service nhận event → trừ tiền cọc từ ví
   7. Sau khi billing ACK → Booking chuyển CONFIRMED + sinh QR Token
 
@@ -197,7 +197,7 @@
 - **Flow:**
   1. Kiểm tra booking thuộc về user
   2. Booking FSM: PENDING_PAYMENT|CONFIRMED → CANCELLED
-  3. Publish `session.booking_cancelled_v1`
+  3. Publish `booking.cancelled`
   4. billing-service nhận event → hoàn 100% tiền cọc vào ví
 
 ## [18] Xem lịch đặt
@@ -257,7 +257,7 @@
   1. Flow Walk-in: chỉ cần {chargerId} từ JWT
   2. Kiểm tra charger AVAILABLE
   3. Kiểm tra user không có active session khác
-  4. Tạo Session, publish `session.started_v1`
+  4. Tạo Session, publish `session.started`
   5. OCPP Gateway nhận event → RemoteStartTransaction tới charger
 
 ## [21] Bắt đầu phiên sạc (Có booking)
@@ -270,7 +270,7 @@
   2. Verify qrToken (JWT 15 phút): bookingId + userId khớp
   3. Kiểm tra booking CONFIRMED, đúng charger, đúng thời gian
   4. Tạo Session, Booking chuyển CHECKED_IN
-  5. Publish `session.started_v1`
+  5. Publish `session.started`
 
 ## [22] Dừng phiên sạc
 
@@ -281,7 +281,7 @@
   1. User: kiểm tra ownership (sessionId phải thuộc user hiện tại)
   2. Admin: force stop không cần ownership
   3. Session lưu endMeterWh, tính kwhConsumed
-  4. Publish `session.completed_v1` {kwhConsumed, idleMinutes}
+  4. Publish `session.completed` {kwhConsumed, idleMinutes}
   5. billing-service: gọi infra tính phí → deduct từ ví hoặc yêu cầu thanh toán thêm
   6. Charger status → AVAILABLE
 
@@ -311,7 +311,7 @@
   4. Callback verify HMAC-SHA512 checksum
   5. Nếu hợp lệ: update Transaction status=completed
   6. Cộng tiền vào Wallet, ghi wallet_ledger
-  7. Publish `billing.wallet_topup_v1`
+  7. Publish `wallet.topup.completed`
 
 ## [25] Thanh toán bằng Ví
 
@@ -342,34 +342,34 @@
 - **Flow:**
   1. Tạo transaction: type=refund, linked to original
   2. Cộng tiền vào ví người dùng
-  3. Publish `billing.refunded_v1`
+  3. Publish `payment.refund.completed`
   4. notification-service gửi thông báo hoàn tiền
 
 ## [28] Tính phí Idle Fee (Event-driven)
 
 - **Actor:** System
 - **Objective:** Tự động tính phí đỗ quá giờ
-- **Trigger:** `Event: session.completed_v1`
+- **Trigger:** `Event: session.completed`
 - **Flow:**
-  1. Consumer nhận `session.completed_v1` với idleMinutes
+  1. Consumer nhận `session.completed` với idleMinutes
   2. Gọi infra-service API: POST .../calculate-session-fee
   3. idleFee = max(0, idleMinutes - graceMinutes) × idleFeePerMinute
   4. Nếu idleFee > 0: tạo Transaction type=idle_fee
   5. Deduct từ ví, nếu ví không đủ → tạo arrears
-  6. Publish `billing.idle_fee_charged_v1`
+  6. Publish `billing.idle_fee_charged`
   7. notification-service push: 'Bạn bị phạt Xk vì đỗ quá Xph'
 
 ## [29] Quản lý Công nợ (Arrears)
 
 - **Actor:** System
 - **Objective:** Theo dõi và thu hồi nợ phát sinh
-- **Trigger:** `Event: billing.arrears_created_v1`
+- **Trigger:** `Event: wallet.arrears.created`
 - **Flow:**
   1. Khi trừ tiền thất bại → publish arrears event
   2. session-service cập nhật user_debt_read_models
   3. ArrearsGuard chặn user tạo booking mới
   4. Khi user nạp tiền đủ → auto-clear arrears
-  5. Publish `billing.arrears_cleared_v1` → mở khóa user
+  5. Publish `wallet.arrears.cleared` → mở khóa user
 
 ## [30] Đăng ký Gói dịch vụ
 
@@ -395,7 +395,7 @@
   1. BookingNotificationConsumer: booking.created → 'Đặt lịch thành công'
   2. ChargingNotificationConsumer: charging.started → 'Bắt đầu sạc'
   3. PaymentNotificationConsumer: payment.success / failed
-  4. IdleFeeConsumer: billing.idle_fee_charged_v1 → 'Cảnh báo phí đỗ'
+  4. IdleFeeConsumer: billing.idle_fee_charged → 'Cảnh báo phí đỗ'
   5. QueueNotificationConsumer: queue.updated → 'Đến lượt bạn'
   6. Gửi qua FcmPushService (stub mode khi không có key)
   7. Ghi Notification record vào DB (in_app channel)
@@ -528,17 +528,17 @@
 # Event Flow Summary (RabbitMQ)
 
 ```
-User registered     → user.registered_v1        → iam (user_profiles, user_fcm_tokens sync)
-Booking created     → session.booking_created_v1  → billing (deduct deposit) + notification
-Booking cancelled   → session.booking_cancelled_v1 → billing (refund) + notification
-Session started     → session.started_v1          → ocpp-gw (RemoteStart) + notification + analytics
-Session completed   → session.completed_v1        → billing (final charge) + analytics
-Charger faulted     → charger.fault.detected      → infra (update status) + notification
-Payment completed   → billing.deducted_v1         → session (confirm) + analytics
-Payment failed      → billing.deduction_failed_v1 → session (mark failed)
-Arrears created     → billing.arrears_created_v1  → session (lock user) + iam (users_cache sync)
-Arrears cleared     → billing.arrears_cleared_v1  → session (unlock user) + iam (users_cache sync)
-Idle fee charged    → billing.idle_fee_charged_v1 → notification (alert user)
-Wallet topup        → billing.wallet_topup_v1     → analytics
+User registered     → user.registered             → iam (user_profiles, user_fcm_tokens sync)
+Booking created     → booking.created             → billing (deduct deposit) + notification
+Booking cancelled   → booking.cancelled           → billing (refund) + notification
+Session started     → session.started             → ocpp-gw (RemoteStart) + notification + analytics
+Session completed   → session.completed           → billing (final charge) + analytics
+Charger faulted     → charger.status.changed      → infra (update status) + notification
+Payment completed   → payment.completed           → session (confirm) + analytics
+Payment failed      → payment.failed              → session (mark failed)
+Arrears created     → wallet.arrears.created      → session (lock user) + iam (users_cache sync)
+Arrears cleared     → wallet.arrears.cleared      → session (unlock user) + iam (users_cache sync)
+Idle fee charged    → billing.idle_fee_charged    → notification (alert user)
+Wallet topup        → wallet.topup.completed      → analytics
 Telemetry ingested  → ev.telemetry (batch)        → analytics (hourly_usage_stats) [+ ClickHouse write trực tiếp]
 ```

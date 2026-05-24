@@ -1,4 +1,4 @@
-﻿# API Endpoints — EV Charging Platform
+# API Endpoints — EV Charging Platform
 
 ## SERVICE: IAM Service
 
@@ -1055,6 +1055,7 @@
 - **Response (204 No Content):** Empty
 
 ### [61] [POST] /api/v1/bookings/queue
+*Note: This endpoint is also aliased at `/api/v1/queue`.*
 
 - **Auth:** Bearer | **Roles:** User
 - **Name:** Vào hàng đợi khi trạm đầy
@@ -1075,6 +1076,7 @@
   ```
 
 ### [62] [DELETE] /api/v1/bookings/queue/:chargerId
+*Note: This endpoint is also aliased at `/api/v1/queue/:chargerId`.*
 
 - **Auth:** Bearer | **Roles:** User
 - **Name:** Rời hàng đợi
@@ -1087,6 +1089,7 @@
 - **Response (204 No Content):** Empty
 
 ### [63] [GET] /api/v1/bookings/queue/:chargerId/position
+*Note: This endpoint is also aliased at `/api/v1/queue/:chargerId/position`.*
 
 - **Auth:** Bearer | **Roles:** User
 - **Name:** Xem vị trí trong hàng đợi
@@ -1745,15 +1748,42 @@
   }
   ```
 - **Response (200 OK):**
+  *With stationId:*
   ```json
-  [
-    {
-      "stationId": "uuid",
+  {
+    "stationId": "uuid",
+    "days": 30,
+    "summary": {
       "totalSessions": "number",
       "totalKwh": "number",
-      "utilizationRate": "number (0-100)"
-    }
-  ]
+      "totalRevenueVnd": "number"
+    },
+    "daily": [
+      {
+        "id": "uuid",
+        "stationId": "uuid",
+        "metricDate": "string (YYYY-MM-DD)",
+        "totalSessions": "number",
+        "totalKwh": "number",
+        "totalRevenueVnd": "number"
+      }
+    ]
+  }
+  ```
+  *Without stationId (Top 10):*
+  ```json
+  {
+    "days": 30,
+    "topStations": [
+      {
+        "station_id": "uuid",
+        "total_sessions": "number",
+        "total_kwh": "number",
+        "total_revenue_vnd": "number",
+        "avg_session_min": "number"
+      }
+    ]
+  }
   ```
 
 ### [98] [GET] /api/v1/analytics/peak-hours
@@ -1770,13 +1800,20 @@
   ```
 - **Response (200 OK):**
   ```json
-  [
-    {
-      "hour": "number (0-23)",
-      "avgSessions": "number",
-      "demandForecast": "number (optional)"
-    }
-  ]
+  {
+    "stationId": "string ('platform' or uuid)",
+    "lookbackDays": "number",
+    "peakHours": [
+      {
+        "hourOfDay": "number (0-23)",
+        "sessionsCount": "number",
+        "avgKwh": "number",
+        "isPeak": "boolean"
+      }
+    ],
+    "topPeakHours": ["number (0-23)"],
+    "forecast": "object (optional)"
+  }
   ```
 
 ### [99] [GET] /api/v1/analytics/users/:userId
@@ -1797,10 +1834,23 @@
 - **Response (200 OK):**
   ```json
   {
-    "totalSessions": "number",
-    "totalSpentVnd": "number",
-    "favoriteStationId": "uuid",
-    "averageChargeDurationMin": "number"
+    "userId": "uuid",
+    "allTime": {
+      "totalSessions": "number",
+      "totalSpentVnd": "number",
+      "favoriteStationId": "uuid (nullable)",
+      "averageChargeDurationMin": "number"
+    },
+    "last30Days": [
+      {
+        "id": "uuid",
+        "userId": "uuid",
+        "metricDate": "string",
+        "sessionsCount": "number",
+        "kwhConsumed": "number",
+        "amountSpentVnd": "number"
+      }
+    ]
   }
   ```
 
@@ -1822,10 +1872,23 @@
 - **Response (200 OK):**
   ```json
   {
-    "revenue": "number",
-    "energyDeliveredKwh": "number",
-    "uptimePercent": "number",
-    "faultCount": "number"
+    "stationId": "uuid",
+    "days": "number",
+    "summary": {
+      "totalSessions": "number",
+      "totalKwh": "number",
+      "totalRevenueVnd": "number"
+    },
+    "daily": [
+      {
+        "id": "uuid",
+        "stationId": "uuid",
+        "metricDate": "string",
+        "totalSessions": "number",
+        "totalKwh": "number",
+        "totalRevenueVnd": "number"
+      }
+    ]
   }
   ```
 
