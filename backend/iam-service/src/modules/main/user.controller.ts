@@ -1,6 +1,6 @@
 import {
   Controller, Get, Patch, Post, Delete, Body, Param, HttpCode, HttpStatus,
-  UseGuards, NotFoundException, BadRequestException, ParseUUIDPipe, Query,
+  UseGuards, NotFoundException, BadRequestException, ParseUUIDPipe, Query, Header,
 } from '@nestjs/common';
 import {
   GetMyProfileUseCase, UpdateMyProfileUseCase,
@@ -41,6 +41,7 @@ export class UserController {
 
 
   @Get('me')
+  @Header('Cache-Control', 'no-store, no-cache, must-revalidate')
   async me(@CurrentUser() user: AuthenticatedUser) {
     try {
       return await this.getProfileUC.execute(user.id);

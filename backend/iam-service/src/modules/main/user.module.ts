@@ -19,6 +19,7 @@ import {
   SetupAutochargeUseCase,
 } from '../../application/use-cases/user.use-cases';
 import { UserController } from './user.controller';
+import { StaffController } from './staff.controller';
 import {
   USER_PROFILE_REPOSITORY, USERS_CACHE_REPOSITORY,
 } from '../../domain/repositories/user-profile.repository.interface';
@@ -41,7 +42,7 @@ import {
       UserArrearsOrmEntity,       // Records detailed debt entries
     ]),
   ],
-  controllers: [UserController],
+  controllers: [UserController, StaffController],
   providers: [
     // Repositories
     { provide: USER_PROFILE_REPOSITORY, useClass: UserProfileRepository },

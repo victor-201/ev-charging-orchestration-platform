@@ -69,23 +69,30 @@ export class UsersCacheRepository implements IUsersCacheRepository {
       roleName: e.roleName,
       status: e.status,
       emailVerified: e.emailVerified,
+      hasOutstandingDebt: e.hasOutstandingDebt,
+      arrearsAmount: Number(e.arrearsAmount),
       syncedAt: e.syncedAt,
     };
   }
 
   async upsert(record: UserCacheRecord): Promise<void> {
-    await this.repo.upsert(
-      {
-        userId: record.userId,
-        email: record.email,
-        fullName: record.fullName,
-        phone: record.phone,
-        roleName: record.roleName,
-        status: record.status,
-        emailVerified: record.emailVerified,
-        syncedAt: new Date(),
-      },
-      ['userId'],
-    );
+    const updatePayload: any = {
+      userId: record.userId,
+      email: record.email,
+      fullName: record.fullName,
+      phone: record.phone,
+      roleName: record.roleName,
+      status: record.status,
+      emailVerified: record.emailVerified,
+      syncedAt: new Date(),
+    };
+    if (record.hasOutstandingDebt !== undefined) {
+      updatePayload.hasOutstandingDebt = record.hasOutstandingDebt;
+    }
+    if (record.arrearsAmount !== undefined) {
+      updatePayload.arrearsAmount = record.arrearsAmount;
+    }
+    await this.repo.upsert(updatePayload, ['userId']);
   }
 }
+

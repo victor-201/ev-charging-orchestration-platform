@@ -56,6 +56,8 @@ export class GetMyProfileUseCase {
       emailVerified: cache.emailVerified,
       avatarUrl: profile?.avatarUrl ?? null,
       address: profile?.address ?? null,
+      hasOutstandingDebt: cache.hasOutstandingDebt ?? false,
+      arrearsAmount: cache.arrearsAmount ?? 0,
     };
   }
 }
@@ -414,7 +416,7 @@ export class SyncUserCacheUseCase {
     exchange: 'ev.charging',
     routingKey: 'user.registered',
     queue: 'user-service.user.registered',
-    queueOptions: { durable: true },
+    queueOptions: { durable: true, deadLetterExchange: 'ev.charging.dlx' },
   })
   async handleUserRegistered(payload: {
     eventId: string;
@@ -459,7 +461,7 @@ export class SyncUserCacheUseCase {
     exchange: 'ev.charging',
     routingKey: 'user.deactivated',
     queue: 'user-service.user.deactivated',
-    queueOptions: { durable: true },
+    queueOptions: { durable: true, deadLetterExchange: 'ev.charging.dlx' },
   })
   async handleUserDeactivated(payload: { eventId: string; userId: string }): Promise<void> {
     const processed = await this.processedRepo.findOne({ where: { eventId: payload.eventId } });

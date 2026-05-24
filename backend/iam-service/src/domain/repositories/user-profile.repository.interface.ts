@@ -15,6 +15,8 @@ export interface UserCacheRecord {
   roleName: string;
   status: string;
   emailVerified: boolean;
+  hasOutstandingDebt?: boolean;
+  arrearsAmount?: number;
   syncedAt: Date;
 }
 
