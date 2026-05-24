@@ -11,6 +11,7 @@ import { DataSource } from 'typeorm';
 import { HandleVNPayCallbackUseCase } from '../../src/application/use-cases/payment.use-cases';
 import { VNPayService } from '../../src/infrastructure/vnpay/vnpay.service';
 import { TRANSACTION_REPOSITORY } from '../../src/domain/repositories/transaction.repository.interface';
+import { WALLET_REPOSITORY } from '../../src/domain/repositories/wallet.repository.interface';
 import { EVENT_BUS } from '../../src/infrastructure/messaging/outbox-event-bus';
 import {
   ProcessedEventOrmEntity,
@@ -77,6 +78,7 @@ describe('HandleVNPayCallbackUseCase', () => {
   let useCase: HandleVNPayCallbackUseCase;
   let vnpayService: jest.Mocked<VNPayService>;
   let txRepo: any;
+  let walletRepo: any;
   let eventBus: any;
   let processedRepo: any;
   let invoiceRepo: any;
@@ -121,6 +123,11 @@ describe('HandleVNPayCallbackUseCase', () => {
       save: jest.fn().mockResolvedValue(undefined),
     };
 
+    walletRepo = {
+      findByUserId: jest.fn(),
+      credit: jest.fn().mockResolvedValue(undefined),
+    };
+
     vnpayService = {
       buildPaymentUrl: jest.fn(),
       verifyCallback:  jest.fn(),
@@ -130,6 +137,7 @@ describe('HandleVNPayCallbackUseCase', () => {
       providers: [
         HandleVNPayCallbackUseCase,
         { provide: TRANSACTION_REPOSITORY, useValue: txRepo },
+        { provide: WALLET_REPOSITORY,      useValue: walletRepo },
         { provide: EVENT_BUS,              useValue: eventBus },
         { provide: VNPayService,           useValue: vnpayService },
         { provide: DataSource,             useValue: dataSource },
@@ -176,8 +184,38 @@ describe('HandleVNPayCallbackUseCase', () => {
     expect(result.transactionId).toBe('tx-001');
     expect(eventBus.publishAll).toHaveBeenCalledTimes(1);
     // Invoice created
-    const managerSaveCall = dataSource.transaction.mock.calls[0];
     expect(dataSource.transaction).toHaveBeenCalled();
+  });
+
+  // Test 2b: Happy path for TOPUP — credits wallet and publishes WalletTopupCompletedEvent
+  it('SUCCESS: valid topup callback — wallet credited and topup event published', async () => {
+    const tx = makePendingTransaction({ type: 'topup' });
+    const mockWallet = { id: 'wallet-001', userId: 'user-001', balance: 0, currency: 'VND' };
+    
+    vnpayService.verifyCallback.mockReturnValue({
+      isSuccess:     true,
+      responseCode:  '00',
+      transactionNo: '14345678',
+      bankCode:      'NCB',
+      amount:        100000,
+      txnRef:        'EVABCDEF12345678',
+      orderInfo:     'test',
+      payDate:       '20260412143000',
+    });
+    txRepo.findByReferenceCode.mockResolvedValue(tx);
+    walletRepo.findByUserId.mockResolvedValue(mockWallet);
+
+    const result = await useCase.execute(makeValidReturnParams() as any);
+
+    expect(result.status).toBe('success');
+    expect(result.transactionId).toBe('tx-001');
+    expect(walletRepo.findByUserId).toHaveBeenCalledWith('user-001');
+    expect(walletRepo.credit).toHaveBeenCalledWith('wallet-001', 'tx-001', 100000, expect.anything());
+    expect(eventBus.publishAll).toHaveBeenCalledTimes(1);
+    const [events] = eventBus.publishAll.mock.calls[0];
+    expect(events).toHaveLength(2); // PaymentCompletedEvent and WalletTopupCompletedEvent
+    expect(events[0].eventType).toBe('payment.completed');
+    expect(events[1].eventType).toBe('wallet.topup.completed');
   });
 
   // Test 3: Payment failed (VNPay response != '00')
