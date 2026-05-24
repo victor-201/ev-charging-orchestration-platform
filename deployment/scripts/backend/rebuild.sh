@@ -25,8 +25,20 @@ COMPOSE_DIR="$(cd "$SCRIPT_DIR/../../docker" && pwd)"
 COMPOSE_FILE="$COMPOSE_DIR/docker-compose.yml"
 ENV_FILE="$COMPOSE_DIR/.env"
 
-# ── Service map: friendly-name → docker-compose service name ──
+# ── Service map: friendly-name → actual container_name (from docker-compose.yml) ──
 declare -A SVC_MAP=(
+  ["iam-service"]="ev-iam"
+  ["ev-infrastructure-service"]="ev-infrastructure"
+  ["session-service"]="ev-session"
+  ["billing-service"]="ev-billing"
+  ["analytics-service"]="ev-analytics"
+  ["notification-service"]="ev-notify"
+  ["telemetry-ingestion-service"]="ev-telemetry"
+  ["ocpp-gateway-service"]="ev-ocpp-gw"
+)
+
+# ── Service map: friendly-name → docker-compose service name (for build/up) ──
+declare -A COMPOSE_SVC_MAP=(
   ["iam-service"]="iam-service"
   ["ev-infrastructure-service"]="ev-infrastructure-service"
   ["session-service"]="session-service"
@@ -38,14 +50,14 @@ declare -A SVC_MAP=(
 )
 
 SERVICES_ORDER=(
-  "iam-service"
-  "ev-infrastructure-service"
-  "session-service"
-  "billing-service"
   "analytics-service"
+  "billing-service"
+  "ev-infrastructure-service"
+  "iam-service"
   "notification-service"
-  "telemetry-ingestion-service"
   "ocpp-gateway-service"
+  "session-service"
+  "telemetry-ingestion-service"
 )
 
 echo -e "${CYAN}======================================================================"
@@ -55,6 +67,7 @@ echo -e "======================================================================$
 rebuild_service() {
   local svc_name="$1"
   local container="${SVC_MAP[$svc_name]:-}"
+  local compose_svc="${COMPOSE_SVC_MAP[$svc_name]:-}"
 
   if [[ -z "$container" ]]; then
     echo -e "${RED}[ERROR] Unknown service: $svc_name${NC}"
@@ -64,15 +77,15 @@ rebuild_service() {
 
   echo -e "\n${YELLOW}[BUILD] Building image: ${BOLD}$svc_name${NC} ${YELLOW}→ container: $container ...${NC}"
   docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" \
-    build --no-cache "$container"
+    build --no-cache "$compose_svc"
 
   echo -e "${YELLOW}[RESTART] Stopping old container: $container ...${NC}"
   docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" \
-    stop "$container" 2>/dev/null || true
+    stop "$compose_svc" 2>/dev/null || true
 
   echo -e "${YELLOW}[START] Starting new container: $container ...${NC}"
   docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" \
-    up -d --force-recreate "$container"
+    up -d --force-recreate "$compose_svc"
 
   echo -e "${GREEN}[OK] $svc_name rebuilt and restarted successfully.${NC}"
 
@@ -96,17 +109,17 @@ rebuild_service() {
 
 rebuild_all() {
   echo -e "${YELLOW}[BUILD] Rebuilding ALL services in parallel...${NC}"
-  local containers=()
+  local compose_services=()
   for svc in "${SERVICES_ORDER[@]}"; do
-    containers+=("${SVC_MAP[$svc]}")
+    compose_services+=("${COMPOSE_SVC_MAP[$svc]}")
   done
 
   docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" \
-    build --parallel "${containers[@]}"
+    build --parallel "${compose_services[@]}"
 
   echo -e "${YELLOW}[RESTART] Restarting all rebuilt services...${NC}"
   docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" \
-    up -d --force-recreate "${containers[@]}"
+    up -d --force-recreate "${compose_services[@]}"
 
   echo -e "${GREEN}[OK] All services rebuilt and restarted.${NC}"
 }
@@ -117,7 +130,7 @@ interactive_selector() {
   echo -e "  Select service to rebuild:\n"
   local i=1
   for svc in "${SERVICES_ORDER[@]}"; do
-    echo -e "  [${CYAN}$i${NC}] $svc  ${YELLOW}(${SVC_MAP[$svc]})${NC}"
+    echo -e "  [${CYAN}$i${NC}] $svc  ${YELLOW}(container: ${SVC_MAP[$svc]})${NC}"
     ((i++))
   done
   echo -e "  [${CYAN}A${NC}] Rebuild ALL services"
@@ -148,10 +161,10 @@ case "$ARG" in
   "")        interactive_selector ;;
   "all")     rebuild_all ;;
   *)
-    # Accept both "iam-service" and "ev-iam" format
+    # Accept friendly name, container name (ev-billing), or compose svc name (billing-service)
     found=false
     for svc in "${SERVICES_ORDER[@]}"; do
-      if [[ "$ARG" == "$svc" || "$ARG" == "${SVC_MAP[$svc]}" ]]; then
+      if [[ "$ARG" == "$svc" || "$ARG" == "${SVC_MAP[$svc]}" || "$ARG" == "${COMPOSE_SVC_MAP[$svc]}" ]]; then
         rebuild_service "$svc"
         found=true
         break
@@ -161,7 +174,7 @@ case "$ARG" in
       echo -e "${RED}[ERROR] Unknown service: $ARG${NC}"
       echo -e "  Available services:"
       for svc in "${SERVICES_ORDER[@]}"; do
-        echo -e "    $svc  (${SVC_MAP[$svc]})"
+        echo -e "    $svc  (container: ${SVC_MAP[$svc]})"
       done
       exit 1
     fi

@@ -20,6 +20,9 @@ Write-Host "  App dir : $AppDir"
 
 Set-Location $AppDir
 
+# Pre-warm dependencies silently (suppresses "N packages have newer versions" noise)
+flutter pub get --suppress-analytics 2>$null | Out-Null
+
 if ($Device -eq 'auto') {
     Write-Host "[INFO] Scanning connected devices..." -ForegroundColor Cyan
     $devices = flutter devices --machine | ConvertFrom-Json
@@ -38,10 +41,10 @@ if ($Device -eq 'auto') {
 
 if ($Device -match 'chrome|web') {
     Write-Host "[RUN] Chrome (--disable-web-security bypasses CORS for local dev)" -ForegroundColor Green
-    flutter run -d chrome --web-browser-flag "--disable-web-security" --flavor dev --dart-define=FLAVOR=dev
+    flutter run -d chrome --web-browser-flag "--disable-web-security" --dart-define=FLAVOR=dev
 } elseif ($Device -eq 'windows') {
     Write-Host "[RUN] Windows Desktop" -ForegroundColor Green
-    flutter run -d windows --flavor dev --dart-define=FLAVOR=dev
+    flutter run -d windows --dart-define=FLAVOR=dev
 } else {
     Write-Host "[RUN] Device: $Device" -ForegroundColor Green
     flutter run -d $Device --flavor dev --dart-define-from-file=dart-defines.json

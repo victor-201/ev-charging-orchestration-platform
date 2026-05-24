@@ -353,6 +353,7 @@ services:
       JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public.pem
       JWT_ISSUER:          ev-iam-service
       JWT_AUDIENCE:        ev-platform
+      STATION_SERVICE_URL: http://ev-infrastructure:3003
     depends_on:
       postgres-session:
         condition: service_healthy

@@ -31,12 +31,16 @@ echo -e "\n${YELLOW}[2/4] Docker Containers...${NC}"
 
 # Names must match container_name fields in docker-compose.yml.
 CONTAINERS=(
-    "ev-pg-iam"       "ev-pg-infra"     "ev-pg-session"
-    "ev-pg-billing"   "ev-pg-analytics" "ev-pg-notify"
-    "ev-redis"        "ev-rabbitmq"     "ev-clickhouse"
-    "ev-iam"          "ev-infrastructure" "ev-session"
-    "ev-billing"      "ev-analytics"    "ev-notify"
-    "ev-telemetry"    "ev-ocpp-gw"      "ev-kong"
+    # Services
+    "ev-analytics"      "ev-billing"        "ev-iam"
+    "ev-infrastructure" "ev-notify"         "ev-ocpp-gw"
+    "ev-session"        "ev-telemetry"
+    # Databases
+    "ev-clickhouse"     "ev-pg-analytics"   "ev-pg-billing"
+    "ev-pg-iam"         "ev-pg-infra"       "ev-pg-notify"
+    "ev-pg-session"
+    # Tools
+    "ev-kong"           "ev-rabbitmq"       "ev-redis"
 )
 
 declare -A health_map
