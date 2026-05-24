@@ -17,6 +17,7 @@ import '../../../../features/map/domain/entities/station_entity.dart';
 import '../../../../features/map/domain/repositories/i_station_repository.dart';
 import '../widgets/booking_station_card.dart';
 import '../widgets/booking_info_row.dart';
+import '../widgets/payment_bottom_sheet.dart';
 
 /// Detailed Reservation Information Screen
 ///
@@ -41,6 +42,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
   PricingEntity? _pricing;
   bool _loadingStation = false;
   String? _stationError;
+  bool _didShowPayment = false;
+  bool _isBottomSheetOpen = false;
 
   @override
   void initState() {
@@ -195,7 +198,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios),
-          onPressed: () => context.pop(),
+          onPressed: () => context.pop(true),
         ),
       ),
       child: SafeArea(
@@ -204,11 +207,77 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
             if (state is BookingDetailLoaded) {
               _startCountdown(state.booking);
               _loadStationDetails(state.booking);
+              if (state.booking.isPendingPayment && !_didShowPayment) {
+                _didShowPayment = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) async {
+                  _isBottomSheetOpen = true;
+                  await PaymentBottomSheet.show(context, booking: state.booking);
+                  if (mounted) _isBottomSheetOpen = false;
+                });
+              }
             }
             if (state is BookingCancelled) {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  content: Text('Đã hủy'), backgroundColor: AppColors.primary));
-              context.go('/bookings');
+                  content: Text('Đã hủy thành công!'), backgroundColor: AppColors.primary));
+              // Capture router before async gap to avoid lint warning
+              final router = GoRouter.of(context);
+              // Introduce a tiny delay so backend event bus can process cancellation state
+              Future.delayed(const Duration(milliseconds: 800), () {
+                if (mounted) {
+                  if (router.canPop()) {
+                    router.pop(true);
+                  } else {
+                    router.go('/bookings');
+                  }
+                }
+              });
+            }
+            if (state is BookingError) {
+              if (_isBottomSheetOpen) {
+                _isBottomSheetOpen = false;
+                if (Navigator.canPop(context)) Navigator.pop(context);
+              }
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(state.message),
+                backgroundColor: AppColors.error,
+              ));
+            }
+            if (state is BookingPaymentInitiated) {
+              if (_isBottomSheetOpen) {
+                _isBottomSheetOpen = false;
+                if (Navigator.canPop(context)) Navigator.pop(context);
+              }
+              if (state.paymentResult.method == 'gateway' && state.paymentResult.paymentUrl != null) {
+                // Capture the bloc reference before the async gap to avoid
+                // use_build_context_synchronously lint warning.
+                final bloc = context.read<BookingBloc>();
+                launchUrl(Uri.parse(state.paymentResult.paymentUrl!), mode: LaunchMode.externalApplication).then((_) {
+                  // After returning from browser, reload booking detail to check status after a short delay
+                  Future.delayed(const Duration(milliseconds: 1000), () {
+                    bloc.add(BookingLoadDetail(id: widget.bookingId));
+                  });
+                });
+              } else {
+                if (state.paymentResult.status == 'completed') {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Thanh toán thành công!'),
+                    backgroundColor: AppColors.primary,
+                  ));
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Thanh toán thất bại, vui lòng thử lại.'),
+                    backgroundColor: AppColors.error,
+                  ));
+                }
+                // Capture the bloc reference before the async gap to avoid lint warning
+                final bloc = context.read<BookingBloc>();
+                // Introduce a tiny delay so backend event bus can process booking state
+                Future.delayed(const Duration(milliseconds: 800), () {
+                  if (mounted) {
+                    bloc.add(BookingLoadDetail(id: widget.bookingId));
+                  }
+                });
+              }
             }
           },
           builder: (context, state) {
@@ -255,9 +324,14 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
     final from = b.startTime.subtract(const Duration(minutes: 15));
     final isNotYet = now.isBefore(from);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      child: Column(children: [
+    return RefreshIndicator(
+      onRefresh: () async {
+        context.read<BookingBloc>().add(BookingLoadDetail(id: widget.bookingId));
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: AppLayout.paddingWithHeaderAndNavbar(context),
+        child: Column(children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
           decoration: BoxDecoration(
@@ -341,6 +415,19 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
         ),
         const SizedBox(height: AppSpacing.xl),
 
+        if (b.isPendingPayment) ...[
+          EVButton(
+            label: 'Thanh toán ngay',
+            icon: Icons.payment,
+            onPressed: () async {
+              _isBottomSheetOpen = true;
+              await PaymentBottomSheet.show(context, booking: b);
+              if (mounted) _isBottomSheetOpen = false;
+            },
+          ),
+          const SizedBox(height: AppSpacing.md),
+        ],
+
         if (b.isCancellable) ...[
           EVButton(
             label: 'Hủy đặt lịch (hoàn 100%)',
@@ -355,7 +442,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                   TextButton(onPressed: () => Navigator.pop(context), child: const Text('Không')),
                   TextButton(
                     onPressed: () { Navigator.pop(context); context.read<BookingBloc>().add(BookingCancel(id: b.id)); },
-                    child: Text('Hủy', style: TextStyle(color: AppColors.error)),
+                    child: Text('Hủy', style: const TextStyle(color: AppColors.error)),
                   ),
                 ],
               ),
@@ -368,9 +455,10 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
           label: 'Quay lại',
           variant: EVButtonVariant.secondary,
           icon: Icons.arrow_back,
-          onPressed: () => context.pop(),
+          onPressed: () => context.pop(true),
         ),
       ]),
+      ),
     );
   }
 }

@@ -29,7 +29,9 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
     on<QueueJoin>(_onQueueJoin);
     on<QueueLeave>(_onQueueLeave);
     on<QueueLoadPosition>(_onQueueLoadPosition);
+    on<BookingPay>(_onPay);
   }
+
 
   Future<void> _onLoadHistory(
       BookingLoadHistory event, Emitter<BookingState> emit) async {
@@ -140,6 +142,20 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
         position: pos.position,
         estimatedWaitMinutes: pos.estimatedWaitMinutes,
       )),
+    );
+  }
+
+  Future<void> _onPay(
+      BookingPay event, Emitter<BookingState> emit) async {
+    emit(const BookingLoading());
+    final result = await _repository.payForBooking(
+      bookingId: event.bookingId,
+      amount: event.amount,
+      method: event.method,
+    );
+    result.fold(
+      (f) => emit(BookingError(message: f.message)),
+      (res) => emit(BookingPaymentInitiated(paymentResult: res)),
     );
   }
 

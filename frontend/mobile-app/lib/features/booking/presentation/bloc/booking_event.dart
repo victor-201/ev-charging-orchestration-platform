@@ -61,6 +61,16 @@ final class BookingStopPolling extends BookingEvent {
   const BookingStopPolling();
 }
 
+final class BookingPay extends BookingEvent {
+  final String bookingId;
+  final double amount;
+  final String method; // 'wallet' or 'gateway'
+  const BookingPay({required this.bookingId, required this.amount, required this.method});
+  @override
+  List<Object?> get props => [bookingId, amount, method];
+}
+
+
 final class QueueJoin extends BookingEvent {
   final String chargerId;
   const QueueJoin({required this.chargerId});

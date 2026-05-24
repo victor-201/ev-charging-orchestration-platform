@@ -219,4 +219,55 @@ class BookingRepositoryImpl implements IBookingRepository {
       return Left(ErrorMapper.fromDioException(e));
     }
   }
+
+  @override
+  Future<Either<Failure, PaymentResultEntity>> payForBooking({
+    required String bookingId,
+    required double amount,
+    String method = 'wallet', // 'wallet' or 'gateway'
+  }) async {
+    try {
+      if (method == 'gateway') {
+        final response = await _client.post(
+          ApiPaths.paymentsCreate,
+          data: {
+            'bookingId': bookingId,
+            'amount': amount,
+          },
+          withIdempotency: true,
+        );
+        final raw = response.data;
+        final data = raw is Map<String, dynamic> ? raw : <String, dynamic>{};
+        return Right(PaymentResultEntity(
+          method: 'gateway',
+          transactionId: data['transactionId']?.toString() ?? '',
+          paymentUrl: data['paymentUrl']?.toString(),
+          status: 'pending',
+        ));
+      } else {
+        // Wallet explicit
+        final response = await _client.post(
+          ApiPaths.walletPay,
+          data: {
+            'bookingId': bookingId,
+            'amount': amount,
+          },
+          withIdempotency: true,
+        );
+        final raw = response.data;
+        final data = raw is Map<String, dynamic> ? raw : <String, dynamic>{};
+        // Backend returns { transactionId, balanceAfter } on success
+        final txId = data['transactionId']?.toString() ?? '';
+        return Right(PaymentResultEntity(
+          method: 'wallet',
+          transactionId: txId,
+          paymentUrl: null,
+          status: txId.isNotEmpty ? 'completed' : 'failed',
+        ));
+      }
+    } on DioException catch (e) {
+      return Left(ErrorMapper.fromDioException(e));
+    }
+  }
 }
+

@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../bloc/auth_bloc.dart';
-import '../bloc/auth_bloc.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
+import '../widgets/auth_layout.dart';
 
 class VerifyEmailPendingScreen extends StatefulWidget {
   final String email;
@@ -73,11 +73,9 @@ class _VerifyEmailPendingScreenState extends State<VerifyEmailPendingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Xác nhận Email'),
-      ),
-      body: BlocConsumer<AuthBloc, AuthState>(
+    return AuthLayout(
+      onBackPressed: () => context.go('/auth/register'),
+      child: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthAuthenticated) {
             context.go('/map');
@@ -91,12 +89,10 @@ class _VerifyEmailPendingScreenState extends State<VerifyEmailPendingScreen> {
           }
         },
         builder: (context, state) {
-          return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
                   const SizedBox(height: 40),
                   const Icon(Icons.mark_email_unread_outlined, size: 80, color: AppColors.primary),
                   const SizedBox(height: 24),
@@ -154,17 +150,22 @@ class _VerifyEmailPendingScreenState extends State<VerifyEmailPendingScreen> {
                       ),
                     ],
                   ),
-                  const Spacer(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
                   TextButton(
                     onPressed: () {
                       context.read<AuthBloc>().add(const AuthLogoutRequested());
                       context.go('/auth/login');
                     },
-                    child: const Text('Quay lại đăng nhập'),
+                    child: Text(
+                      'Quay lại đăng nhập',
+                      style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
+                    ),
                   ),
                 ],
               ),
-            ),
+            ],
           );
         },
       ),

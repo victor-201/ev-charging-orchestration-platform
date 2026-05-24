@@ -49,6 +49,9 @@ class _BookingNewScreenState extends State<BookingNewScreen>
     with SingleTickerProviderStateMixin {
   DateTime _selectedDate = DateTime.now();
 
+  final ScrollController _gridScrollController = ScrollController();
+  final GlobalKey _gridKey = GlobalKey();
+
   // Quick-mode range selection
   AvailabilitySlotEntity? _rangeStart;
   AvailabilitySlotEntity? _rangeEnd;
@@ -69,6 +72,48 @@ class _BookingNewScreenState extends State<BookingNewScreen>
     if (widget.chargerId.isNotEmpty) {
       _loadSlots();
     }
+  }
+
+  @override
+  void dispose() {
+    _gridScrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToFirstAvailableSlot(List<AvailabilitySlotEntity> slots) {
+    if (!_gridScrollController.hasClients || slots.isEmpty) return;
+
+    final now = DateTime.now();
+    final firstAvailIdx = slots.indexWhere((s) => s.isAvailable && !s.startTime.isBefore(now));
+    if (firstAvailIdx == -1) return;
+
+    // Scroll to the row just above the first available slot for better context
+    final targetRow = (firstAvailIdx ~/ 3) - 1;
+    final rowIdx = targetRow > 0 ? targetRow : 0;
+
+    final RenderBox? renderBox = _gridKey.currentContext?.findRenderObject() as RenderBox?;
+    final double gridWidth;
+    if (renderBox != null && renderBox.hasSize) {
+      gridWidth = renderBox.size.width;
+    } else {
+      gridWidth = MediaQuery.of(context).size.width;
+    }
+
+    const padding = 24.0 * 2; // AppSpacing.lg is 24.0
+    const spacing = 8.0 * 2; // crossAxisSpacing is 8
+    final itemWidth = (gridWidth - padding - spacing) / 3;
+    final itemHeight = itemWidth / 1.7; // childAspectRatio is 1.7
+    final rowHeight = itemHeight + 8.0; // mainAxisSpacing is 8
+
+    final targetOffset = rowIdx * rowHeight;
+    final maxScroll = _gridScrollController.position.maxScrollExtent;
+    final offset = targetOffset.clamp(0.0, maxScroll);
+
+    _gridScrollController.animateTo(
+      offset,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   // ── Data loading ─────────────────────────────────────────────────────────
@@ -385,12 +430,16 @@ class _BookingNewScreenState extends State<BookingNewScreen>
                 content: Text('Đặt lịch thành công! Vui lòng thanh toán.'),
                 backgroundColor: AppColors.primary,
               ));
-              context.go('/bookings/${state.booking.id}');
+              context.pushReplacement('/bookings/${state.booking.id}');
             } else if (state is BookingError) {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                 content: Text(state.message),
                 backgroundColor: AppColors.error,
               ));
+            } else if (state is BookingAvailabilityLoaded) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _scrollToFirstAvailableSlot(state.slots);
+              });
             }
           },
           builder: (context, state) {
@@ -534,6 +583,8 @@ class _BookingNewScreenState extends State<BookingNewScreen>
       final isDark = Theme.of(context).brightness == Brightness.dark;
 
       return GridView.builder(
+        key: _gridKey,
+        controller: _gridScrollController,
         padding: EdgeInsets.fromLTRB(
             AppSpacing.lg,
             AppSpacing.xs,

@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import '../bloc/auth_bloc.dart';
+import 'package:hydrated_bloc/hydrated_bloc.dart';
 import '../bloc/auth_bloc.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
-import '../../../../core/design_system/theme/app_theme.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
 
@@ -58,7 +57,12 @@ class _MFAVerifyScreenState extends State<MFAVerifyScreen> {
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthAuthenticated) {
-            context.go('/map');
+            final savedRoute = HydratedBloc.storage.read('last_visited_route') as String?;
+            if (savedRoute != null && savedRoute.isNotEmpty) {
+              context.go(savedRoute);
+            } else {
+              context.go('/map');
+            }
           } else if (state is AuthError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -84,7 +88,7 @@ class _MFAVerifyScreenState extends State<MFAVerifyScreen> {
                   width: 72,
                   height: 72,
                   decoration: BoxDecoration(
-                    color: AppColors.secondary.withOpacity(0.12),
+                    color: AppColors.secondary.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(

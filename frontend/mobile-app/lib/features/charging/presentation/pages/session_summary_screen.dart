@@ -1,9 +1,8 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../domain/entities/charging_session_entity.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
-import '../../../../core/design_system/widgets/liquid_glass_scaffold.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
 import '../../../../core/utils/vnd_formatter.dart';
@@ -57,7 +56,7 @@ class _SessionSummaryScreenState extends State<SessionSummaryScreen>
 
               Container(
                 width: 88, height: 88,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: AppColors.primaryGradient,
                 ),

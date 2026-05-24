@@ -27,13 +27,13 @@ class TimePickerCard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasTime = time != null;
 
-    final startGradient = const LinearGradient(
+    const startGradient = LinearGradient(
       colors: [Color(0xFF0ED2FA), Color(0xFF0EC97A)],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     );
 
-    final endGradient = const LinearGradient(
+    const endGradient = LinearGradient(
       colors: [Color(0xFF7AD3FF), Color(0xFF4B86FF)],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,

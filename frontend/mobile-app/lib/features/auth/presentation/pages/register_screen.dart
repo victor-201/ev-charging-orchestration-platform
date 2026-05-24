@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../bloc/auth_bloc.dart';
-import '../bloc/auth_bloc.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
-import '../../../../core/design_system/theme/app_theme.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
 import '../../../../core/utils/date_utils.dart' as ev_date;
+import '../widgets/auth_layout.dart';
 
 /// High-Fidelity User Registration Screen
 /// APIs: [01] POST /auth/register
@@ -75,17 +74,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios),
-          onPressed: () => context.go('/map'),
-        ),
-      ),
-      body: BlocConsumer<AuthBloc, AuthState>(
+    return AuthLayout(
+      onBackPressed: () => context.go('/welcome'),
+      child: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthEmailVerificationRequired) {
             context.go('/auth/verify-email?email=${Uri.encodeComponent(state.email)}');
@@ -96,33 +87,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
           }
         },
         builder: (context, state) {
-          return SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(AppSpacing.xl),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Logo
-                      Container(
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(
-                        Icons.electric_bolt,
-                        color: AppColors.white,
-                        size: 30,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
+          return Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
                     Text(
-                      'Tạo tài khoản mới',
+                      'Bắt đầu hành trình',
                       style: AppTypography.displayMd.copyWith(
                         color: Theme.of(context).colorScheme.onSurface,
                         fontWeight: FontWeight.w700,
@@ -130,7 +102,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     Text(
-                      'Đăng ký để sử dụng đầy đủ các tính năng.',
+                      'Đăng ký ngay để trải nghiệm mạng lưới sạc thông minh.',
                       style: AppTypography.bodyMd.copyWith(
                         color: AppColors.grey600,
                       ),
@@ -239,40 +211,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: AppSpacing.lg),
 
-                  Wrap(
-                    alignment: WrapAlignment.center,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Text(
-                        'Đã có tài khoản? ',
-                        style: AppTypography.bodyMd.copyWith(
-                          color: AppColors.grey600,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () => context.go('/auth/login'),
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: Text(
-                          'Đăng nhập',
+                  Center(
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          'Đã có tài khoản? ',
                           style: AppTypography.bodyMd.copyWith(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w600,
+                            color: AppColors.grey600,
                           ),
                         ),
-                      ),
-                    ],
+                        TextButton(
+                          onPressed: () => context.push('/auth/login'),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: Text(
+                            'Đăng nhập',
+                            style: AppTypography.bodyMd.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
-              ),
             ),
-            ),
-          ),
-        );
-      },
+          );
+        },
       ),
     );
   }

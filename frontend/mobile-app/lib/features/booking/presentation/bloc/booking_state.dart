@@ -47,6 +47,14 @@ final class BookingCancelled extends BookingState {
   const BookingCancelled();
 }
 
+final class BookingPaymentInitiated extends BookingState {
+  final PaymentResultEntity paymentResult;
+  const BookingPaymentInitiated({required this.paymentResult});
+  @override
+  List<Object?> get props => [paymentResult];
+}
+
+
 final class QueuePositionState extends BookingState {
   final int? position;
   final int? estimatedWaitMinutes;

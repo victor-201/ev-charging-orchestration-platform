@@ -39,3 +39,20 @@ class BookingEntity extends Equatable {
   @override
   List<Object?> get props => [id, status, startTime, endTime];
 }
+
+class PaymentResultEntity extends Equatable {
+  final String method; // 'wallet' or 'gateway'
+  final String transactionId;
+  final String? paymentUrl;
+  final String status;
+
+  const PaymentResultEntity({
+    required this.method,
+    required this.transactionId,
+    this.paymentUrl,
+    required this.status,
+  });
+
+  @override
+  List<Object?> get props => [method, transactionId, paymentUrl, status];
+}

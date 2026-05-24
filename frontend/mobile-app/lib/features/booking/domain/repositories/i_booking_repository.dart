@@ -39,4 +39,11 @@ abstract class IBookingRepository {
 
   /// Resolves the customer's current index and estimated wait duration in the queue.
   Future<Either<Failure, QueuePositionEntity>> getQueuePosition(String chargerId);
+
+  /// Submits payment for a pending booking. Returns method ('wallet' or 'gateway') and paymentUrl if gateway.
+  Future<Either<Failure, PaymentResultEntity>> payForBooking({
+    required String bookingId,
+    required double amount,
+    String method = 'wallet',
+  });
 }

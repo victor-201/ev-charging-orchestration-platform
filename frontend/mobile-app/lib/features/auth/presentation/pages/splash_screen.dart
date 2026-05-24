@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hydrated_bloc/hydrated_bloc.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
+import '../../../../core/utils/session_helper.dart';
 
 /// Startup Splash Screen — Liquid Glass animated brand reveal
 class SplashScreen extends StatefulWidget {
@@ -32,7 +34,18 @@ class _SplashScreenState extends State<SplashScreen>
     );
     _controller.forward().then((_) {
       Future.delayed(const Duration(milliseconds: 600), () {
-        if (mounted) context.go('/map');
+        if (mounted) {
+          if (isAppReload()) {
+            final savedRoute = HydratedBloc.storage.read('last_visited_route') as String?;
+            if (savedRoute != null && savedRoute.isNotEmpty) {
+              context.go(savedRoute);
+              return;
+            }
+          }
+          // Newly entering the app — strictly open map screen and mark session active
+          setSessionActive();
+          context.go('/map');
+        }
       });
     });
   }
@@ -89,7 +102,6 @@ class _SplashScreenState extends State<SplashScreen>
                       width: 88,
                       height: 88,
                       decoration: BoxDecoration(
-                        gradient: AppColors.cyanLimeGradient,
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
@@ -99,10 +111,24 @@ class _SplashScreenState extends State<SplashScreen>
                           ),
                         ],
                       ),
-                      child: const Icon(
-                        Icons.electric_bolt,
-                        color: Colors.white,
-                        size: 50,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: Image.asset(
+                          'assets/images/EVoltSync.png',
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              decoration: BoxDecoration(
+                                gradient: AppColors.cyanLimeGradient,
+                              ),
+                              child: const Icon(
+                                Icons.electric_bolt,
+                                color: Colors.white,
+                                size: 50,
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ),
                     const SizedBox(height: 28),

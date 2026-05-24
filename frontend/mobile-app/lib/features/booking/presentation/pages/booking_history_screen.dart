@@ -81,8 +81,6 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                     children: [
                       Text('Đặt lịch',
                           style: AppTypography.headingLg.copyWith(fontWeight: FontWeight.w700)),
-                      Text('Booking History',
-                          style: AppTypography.bodyMd.copyWith(color: AppColors.textMuted)),
                     ],
                   ),
                    GestureDetector(
@@ -264,8 +262,12 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                       });
                     },
                     child: ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.xxxl),
+                      padding: EdgeInsets.fromLTRB(
+                        AppLayout.sidePadding,
+                        0,
+                        AppLayout.sidePadding,
+                        AppLayout.bottomPadding(context),
+                      ),
                       itemCount: filtered.length,
                       separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
                       itemBuilder: (_, i) {

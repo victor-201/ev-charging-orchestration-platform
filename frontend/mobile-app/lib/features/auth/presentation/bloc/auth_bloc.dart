@@ -166,6 +166,7 @@ class AuthBloc extends HydratedBloc<AuthEvent, AuthState> {
   Future<void> _onLogoutRequested(
       AuthLogoutRequested event, Emitter<AuthState> emit) async {
     await _repository.logout();
+    HydratedBloc.storage.delete('last_visited_route');
     emit(const AuthUnauthenticated());
   }
 

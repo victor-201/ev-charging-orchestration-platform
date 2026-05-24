@@ -6,6 +6,7 @@ import '../bloc/auth_bloc.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
+import '../widgets/auth_layout.dart';
 
 /// Email Verification Code Screen
 /// Displayed immediately post user registration to trigger token checks
@@ -80,9 +81,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: BlocConsumer<AuthBloc, AuthState>(
+    return AuthLayout(
+      onBackPressed: () => context.go('/auth/register'),
+      child: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthAuthenticated) {
             context.go('/map');
@@ -120,15 +121,11 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
         },
         builder: (context, state) {
           final isLoading = state is AuthLoading;
-          return SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(AppSpacing.xl),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const SizedBox(height: AppSpacing.xxxl),
-
-                  // Icon animation
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon animation
                   ScaleTransition(
                     scale: _pulseAnimation,
                     child: Container(
@@ -283,20 +280,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                       ),
                     ],
                   ),
-                  const SizedBox(height: AppSpacing.lg),
-
-                  // Back to login
-                  TextButton.icon(
-                    onPressed: () => context.go('/auth/login'),
-                    icon: const Icon(Icons.arrow_back_ios, size: 14),
-                    label: const Text('Quay lại đăng nhập'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.grey600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            ],
           );
         },
       ),

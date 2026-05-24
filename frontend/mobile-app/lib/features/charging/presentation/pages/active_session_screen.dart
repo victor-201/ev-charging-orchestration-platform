@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../bloc/charging_session_bloc.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
-import '../../../../core/design_system/widgets/liquid_glass_scaffold.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/live_meter_widget.dart';
 import '../../../../core/design_system/widgets/alert_banner.dart';
@@ -136,9 +135,9 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
           children: [
             _MetricTile(label: 'Công suất', value: '${(s.powerW / 1000).toStringAsFixed(1)} kW', icon: Icons.bolt_outlined, color: AppColors.secondary),
             _MetricTile(label: 'Điện năng', value: '${s.energyKwh.toStringAsFixed(2)} kWh', icon: Icons.battery_charging_full_outlined, color: AppColors.primary),
-            _MetricTile(label: 'Điện áp', value: '-- V', icon: Icons.electric_meter_outlined, color: AppColors.amber),
-            _MetricTile(label: 'Dòng điện', value: '-- A', icon: Icons.cable_outlined, color: AppColors.chargerReserved),
-            _MetricTile(label: 'Nhiệt độ', value: '-- °C', icon: Icons.thermostat_outlined, color: AppColors.error),
+            const _MetricTile(label: 'Điện áp', value: '-- V', icon: Icons.electric_meter_outlined, color: AppColors.amber),
+            const _MetricTile(label: 'Dòng điện', value: '-- A', icon: Icons.cable_outlined, color: AppColors.chargerReserved),
+            const _MetricTile(label: 'Nhiệt độ', value: '-- °C', icon: Icons.thermostat_outlined, color: AppColors.error),
             _MetricTile(label: 'Chi phí', value: VndFormatter.format(s.amountDue), icon: Icons.monetization_on_outlined, color: AppColors.chargerAvailable),
           ],
         ),

@@ -33,7 +33,7 @@ class UserModel extends UserEntity {
           : null,
       role: json['role']?.toString() ?? 'user',
       mfaEnabled: json['mfaEnabled'] == true,
-      hasArrears: json['hasArrears'] == true,
+      hasArrears: json['hasArrears'] == true || json['hasOutstandingDebt'] == true,
     );
   }
 }
@@ -182,7 +182,7 @@ class AuthRepositoryImpl implements IAuthRepository {
   @override
   Future<Either<Failure, UserEntity>> getMe() async {
     try {
-      final response = await _client.get(ApiPaths.me);
+      final response = await _client.get(ApiPaths.userProfile);
       final data = _extractData(response.data);
       return Right(UserModel.fromJson(data));
     } on DioException catch (e) {

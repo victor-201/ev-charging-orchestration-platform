@@ -43,10 +43,6 @@ class _ChargingHubScreenState extends State<ChargingHubScreen> {
                         'Sạc điện',
                         style: AppTypography.headingLg.copyWith(fontWeight: FontWeight.w700),
                       ),
-                      Text(
-                        'EV Charging Hub',
-                        style: AppTypography.bodyMd.copyWith(color: AppColors.textMuted),
-                      ),
                     ],
                   ),
                   GestureDetector(
@@ -113,7 +109,7 @@ class _ChargingHubScreenState extends State<ChargingHubScreen> {
             // ── Content ──────────────────────────────────────────
             Expanded(
               child: _tab == 0
-                  ? _QuickChargeTab(key: const ValueKey('qr'))
+                  ? const _QuickChargeTab(key: ValueKey('qr'))
                   : const _ChargingHistoryTab(key: ValueKey('history')),
             ),
           ],
@@ -137,8 +133,12 @@ class _QuickChargeTab extends StatelessWidget {
 
         // Idle state — show stat tiles + CTA
         return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.xxxl),
+          padding: EdgeInsets.fromLTRB(
+            AppLayout.sidePadding,
+            0,
+            AppLayout.sidePadding,
+            AppLayout.bottomPadding(context),
+          ),
           child: Column(
             children: [
               // ── 4 GlassSquare stat tiles ───────────────────
@@ -247,7 +247,7 @@ class _ActiveSessionCard extends StatelessWidget {
                 shadowColor: AppColors.blue.withValues(alpha: 0.4),
                 children: [
                   Text(
-                    '${(session.powerW / 1000).toStringAsFixed(1)}',
+                    (session.powerW / 1000).toStringAsFixed(1),
                     style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: Colors.white),
                   ),
                   const Text('kW', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),

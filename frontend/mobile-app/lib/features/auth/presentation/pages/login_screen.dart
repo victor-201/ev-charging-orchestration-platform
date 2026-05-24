@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hydrated_bloc/hydrated_bloc.dart';
 import '../bloc/auth_bloc.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
-import '../../../../core/design_system/widgets/liquid_glass_card.dart';
-import '../../../../core/design_system/widgets/liquid_glass_scaffold.dart';
 import '../../../../core/utils/date_utils.dart' as ev_date;
-
+import '../widgets/auth_layout.dart';
 /// User Identity Portal Login Screen
 /// APIs: [02] POST /auth/login
 class LoginScreen extends StatefulWidget {
@@ -48,7 +47,8 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return LiquidGlassScaffold(
+    return AuthLayout(
+      onBackPressed: () => context.go('/welcome'),
       child: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is! AuthLoading) {
@@ -56,8 +56,11 @@ class _LoginScreenState extends State<LoginScreen> {
             if (_isSubmitting) setState(() => _isSubmitting = false);
           }
           if (state is AuthAuthenticated) {
+            final savedRoute = HydratedBloc.storage.read('last_visited_route') as String?;
             if (widget.redirectUrl != null && widget.redirectUrl!.isNotEmpty) {
               context.go(widget.redirectUrl!);
+            } else if (savedRoute != null && savedRoute.isNotEmpty) {
+              context.go(savedRoute);
             } else {
               context.go('/map');
             }
@@ -68,64 +71,28 @@ class _LoginScreenState extends State<LoginScreen> {
           }
         },
         builder: (context, state) {
-          return SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: LiquidGlassCard(
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Logo + brand
-                        Row(
-                          children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                gradient: AppColors.cyanLimeGradient,
-                                borderRadius: BorderRadius.circular(14),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.cyan.withValues(alpha: 0.4),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 8),
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                Icons.electric_bolt,
-                                color: Colors.white,
-                                size: 26,
-                              ),
-                            ),
-                            const SizedBox(width: AppSpacing.md),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'EVoltSync',
-                                  style: AppTypography.headingMd.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                    color: isDark ? AppColors.textLight : AppColors.textDark,
-                                  ),
-                                ),
-                                Text(
-                                  'EV Charging Platform',
-                                  style: AppTypography.caption.copyWith(
-                                    color: AppColors.textMuted,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: AppSpacing.xl),
-
-                        // Error banners
+          return Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Đăng nhập',
+                  style: AppTypography.displayMd.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'Chào mừng trở lại! Đăng nhập để tiếp tục hành trình.',
+                  style: AppTypography.bodyMd.copyWith(
+                    color: AppColors.textMuted,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                // Error banners
                         if (state is AuthError && state.lockedUntil != null)
                           _buildLockoutBanner(state),
                         if (state is AuthError && state.lockedUntil == null)
@@ -186,7 +153,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
-                            onPressed: () {},
+                            onPressed: () => context.push('/auth/forgot-password'),
                             style: TextButton.styleFrom(
                               padding: EdgeInsets.zero,
                               minimumSize: Size.zero,
@@ -224,7 +191,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ),
                               TextButton(
-                                onPressed: () => context.go('/auth/register'),
+                                onPressed: () => context.push('/auth/register'),
                                 style: TextButton.styleFrom(
                                   padding: EdgeInsets.zero,
                                   minimumSize: Size.zero,
@@ -241,11 +208,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+              ],
             ),
           );
         },
