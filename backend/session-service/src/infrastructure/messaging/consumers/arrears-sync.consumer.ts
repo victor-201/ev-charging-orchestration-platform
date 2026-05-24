@@ -2,11 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
-import {
-  ProcessedEventOrmEntity,
-  UserDebtReadModelOrmEntity,
-} from '../../persistence/typeorm/entities/booking.orm-entities';
-
+import { ProcessedEventOrmEntity } from '../../persistence/typeorm/entities/booking.orm-entities';
+import { UserDebtReadModelOrmEntity } from '../../persistence/typeorm/entities/session.orm-entities';
 // WalletArrearsCreatedConsumer
 
 /**

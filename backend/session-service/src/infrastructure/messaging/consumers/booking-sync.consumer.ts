@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 import {
   BookingReadModelOrmEntity,
+  ProcessedEventOrmEntity,
 } from '../../persistence/typeorm/entities/session.orm-entities';
 
 /**
@@ -26,6 +27,8 @@ export class BookingConfirmedSyncConsumer {
   constructor(
     @InjectRepository(BookingReadModelOrmEntity)
     private readonly repo: Repository<BookingReadModelOrmEntity>,
+    @InjectRepository(ProcessedEventOrmEntity)
+    private readonly peRepo: Repository<ProcessedEventOrmEntity>,
   ) {}
 
   @RabbitSubscribe({
@@ -44,7 +47,11 @@ export class BookingConfirmedSyncConsumer {
     startTime:          string;
     endTime:            string;
     connectorType?:     string;
+    eventId?:           string;
   }): Promise<void> {
+    const eventId = payload.eventId ?? `booking.confirmed.sync:${payload.bookingId}`;
+    if (await this.peRepo.existsBy({ eventId })) return;
+
     await this.repo.upsert(
       {
         bookingId:           payload.bookingId,
@@ -65,6 +72,8 @@ export class BookingConfirmedSyncConsumer {
       `BookingReadModel synced: booking=${payload.bookingId} ` +
       `charger=${payload.chargerId} window=${payload.startTime}~${payload.endTime}`,
     );
+
+    await this.peRepo.save({ eventId, eventType: 'booking.confirmed' });
   }
 }
 
@@ -81,6 +90,8 @@ export class BookingCancelledSyncConsumer {
   constructor(
     @InjectRepository(BookingReadModelOrmEntity)
     private readonly repo: Repository<BookingReadModelOrmEntity>,
+    @InjectRepository(ProcessedEventOrmEntity)
+    private readonly peRepo: Repository<ProcessedEventOrmEntity>,
   ) {}
 
   @RabbitSubscribe({
@@ -89,9 +100,13 @@ export class BookingCancelledSyncConsumer {
     queue:        'charging-svc.booking.cancelled.sync',
     queueOptions: { durable: true, deadLetterExchange: 'ev.charging.dlx' },
   })
-  async handleCancelled(payload: { bookingId: string }): Promise<void> {
+  async handleCancelled(payload: { bookingId: string; eventId?: string }): Promise<void> {
+    const eventId = payload.eventId ?? `booking.cancelled.sync:${payload.bookingId}`;
+    if (await this.peRepo.existsBy({ eventId })) return;
+
     await this.repo.delete({ bookingId: payload.bookingId });
     this.logger.log(`BookingReadModel removed (cancelled): ${payload.bookingId}`);
+    await this.peRepo.save({ eventId, eventType: 'booking.cancelled' });
   }
 
   @RabbitSubscribe({
@@ -100,8 +115,12 @@ export class BookingCancelledSyncConsumer {
     queue:        'charging-svc.booking.expired.sync',
     queueOptions: { durable: true, deadLetterExchange: 'ev.charging.dlx' },
   })
-  async handleExpired(payload: { bookingId: string }): Promise<void> {
+  async handleExpired(payload: { bookingId: string; eventId?: string }): Promise<void> {
+    const eventId = payload.eventId ?? `booking.expired.sync:${payload.bookingId}`;
+    if (await this.peRepo.existsBy({ eventId })) return;
+
     await this.repo.delete({ bookingId: payload.bookingId });
     this.logger.log(`BookingReadModel removed (expired): ${payload.bookingId}`);
+    await this.peRepo.save({ eventId, eventType: 'booking.expired' });
   }
 }

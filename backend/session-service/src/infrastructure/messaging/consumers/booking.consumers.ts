@@ -19,8 +19,8 @@ export class BillingDeductedConsumer {
 
   @RabbitSubscribe({
     exchange:     'ev.charging',
-    routingKey: 'billing.deducted_v1',
-    queue: 'session-svc.billing.deducted_v1',
+    routingKey: 'billing.deducted',
+    queue: 'session-svc.billing.deducted',
     queueOptions: { durable: true, deadLetterExchange: 'ev.charging.dlx' },
   })
   async handle(payload: {
@@ -36,13 +36,56 @@ export class BillingDeductedConsumer {
       this.logger.debug("Duplicate event, skipping");
       return;
     }
-    await this.peRepo.save({ eventId, eventType: 'billing.deducted_v1' });
+    await this.peRepo.save({ eventId, eventType: 'billing.deducted' });
 
     try {
       await this.autoConfirm.execute({ bookingId: payload.bookingId, transactionId: payload.transactionId });
       this.logger.log("Confirmed booking automatically");
     } catch (err: any) {
       this.logger.error("Failed to auto-confirm booking: " + err.message);
+    }
+  }
+}
+
+@Injectable()
+export class BookingPaymentCompletedConsumer {
+  private readonly logger = new Logger(BookingPaymentCompletedConsumer.name);
+
+  constructor(
+    @InjectRepository(ProcessedEventOrmEntity)
+    private readonly peRepo: Repository<ProcessedEventOrmEntity>,
+    private readonly autoConfirm: AutoConfirmBookingUseCase,
+  ) {}
+
+  @RabbitSubscribe({
+    exchange:     'ev.charging',
+    routingKey: 'payment.completed',
+    queue: 'session-svc.payment.completed',
+    queueOptions: { durable: true, deadLetterExchange: 'ev.charging.dlx' },
+  })
+  async handle(payload: {
+    eventId?: string;
+    transactionId: string;
+    userId: string;
+    amount: number;
+    relatedId: string | null;
+    relatedType: string | null;
+  }): Promise<void> {
+    if (payload.relatedType !== 'booking' || !payload.relatedId) return;
+    
+    const eventId = payload.eventId ?? "payment.completed:" + payload.relatedId;
+    const exists  = await this.peRepo.existsBy({ eventId });
+    if (exists) {
+      this.logger.debug("Duplicate event, skipping");
+      return;
+    }
+    await this.peRepo.save({ eventId, eventType: 'payment.completed' });
+
+    try {
+      await this.autoConfirm.execute({ bookingId: payload.relatedId, transactionId: payload.transactionId });
+      this.logger.log(`Confirmed booking ${payload.relatedId} manually via VNPay/Wallet`);
+    } catch (err: any) {
+      this.logger.error("Failed to confirm booking via payment: " + err.message);
     }
   }
 }
@@ -59,8 +102,8 @@ export class BillingDeductionFailedConsumer {
 
   @RabbitSubscribe({
     exchange:     'ev.charging',
-    routingKey: 'billing.deduction_failed_v1',
-    queue: 'session-svc.billing.deduction_failed_v1',
+    routingKey: 'billing.deduction_failed',
+    queue: 'session-svc.billing.deduction_failed',
     queueOptions: { durable: true, deadLetterExchange: 'ev.charging.dlx' },
   })
   async handle(payload: {
@@ -75,7 +118,7 @@ export class BillingDeductionFailedConsumer {
       this.logger.debug("Duplicate event " + eventId + ", skipping");
       return;
     }
-    await this.peRepo.save({ eventId, eventType: 'billing.deduction_failed_v1' });
+    await this.peRepo.save({ eventId, eventType: 'billing.deduction_failed' });
 
     this.logger.error("Deduction failed for booking " + payload.bookingId + ": " + payload.reason + " - Compensating transaction triggered.");
     await this.cancelBooking.execute({ bookingId: payload.bookingId, userId: payload.userId, reason: 'SAGA_COMPENSATION_INSUFFICIENT_FUNDS' });
@@ -109,8 +152,8 @@ export class SessionStartedConsumer {
 }
 
 @Injectable()
-export class ChargerStatusConsumer {
-  private readonly logger = new Logger(ChargerStatusConsumer.name);
+export class BookingChargerStatusConsumer {
+  private readonly logger = new Logger(BookingChargerStatusConsumer.name);
 
   constructor(
     @InjectRepository(ProcessedEventOrmEntity)
