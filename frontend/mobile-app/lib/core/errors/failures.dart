@@ -20,22 +20,22 @@ class ValidationFailure extends Failure {
 
 /// 401 — Unauthorized (interceptor handles auto-refresh)
 class UnauthorizedFailure extends Failure {
-  const UnauthorizedFailure([super.message = 'Session expired']);
+  const UnauthorizedFailure([super.message = 'Email hoặc mật khẩu không chính xác hoặc phiên làm việc hết hạn']);
 }
 
 /// 403 - Email not verified
 class EmailNotVerifiedFailure extends Failure {
-  const EmailNotVerifiedFailure([super.message = 'Please verify your email address']);
+  const EmailNotVerifiedFailure([super.message = 'Vui lòng xác thực địa chỉ email của bạn']);
 }
 
 /// 403 — Forbidden access
 class PermissionFailure extends Failure {
-  const PermissionFailure([super.message = 'Access denied']);
+  const PermissionFailure([super.message = 'Không có quyền truy cập']);
 }
 
 /// 404 — Data not found
 class NotFoundFailure extends Failure {
-  const NotFoundFailure([super.message = 'Data not found']);
+  const NotFoundFailure([super.message = 'Không tìm thấy dữ liệu']);
 }
 
 /// 409 — Data conflict (e.g., email already exists)
@@ -68,21 +68,21 @@ class RateLimitFailure extends Failure {
 
 /// 500 — Server failure
 class ServerFailure extends Failure {
-  const ServerFailure([super.message = 'Server error. Please try again later.']);
+  const ServerFailure([super.message = 'Lỗi máy chủ. Vui lòng thử lại sau.']);
 }
 
 /// Network connectivity error
 class NetworkFailure extends Failure {
-  const NetworkFailure([super.message = 'No network connection']);
+  const NetworkFailure([super.message = 'Không có kết nối mạng']);
 }
 
 /// Permanent wallet closure error
 class WalletClosedFailure extends Failure {
   const WalletClosedFailure(
-      [super.message = 'Wallet has been permanently closed']);
+      [super.message = 'Ví điện tử đã bị đóng vĩnh viễn']);
 }
 
 /// Unknown error
 class UnknownFailure extends Failure {
-  const UnknownFailure([super.message = 'An unknown error occurred']);
+  const UnknownFailure([super.message = 'Đã xảy ra lỗi không xác định']);
 }

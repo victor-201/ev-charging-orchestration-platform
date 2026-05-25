@@ -231,10 +231,7 @@ abstract class AppLayout {
 
   /// Dynamically calculates the perfect bottom padding to clear the floating glass navbar completely
   static double bottomPadding(BuildContext context) {
-    final bottom = MediaQuery.of(context).padding.bottom;
-    final bottomPadding = bottom > 0 ? bottom + 6 : 16.0;
-    // We add 16.0 pixels of extra breathing room so the list items never touch the navbar too closely!
-    return barHeight + bottomPadding + 16.0;
+    return barHeight * 1.5;
   }
 
   /// Dynamic padding for pages WITH transparent AppBar and NO persistent bottom navbar

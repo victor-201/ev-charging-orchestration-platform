@@ -58,9 +58,9 @@ class AppRouter {
         HydratedBloc.storage.write('last_visited_route', routeStr);
       }
 
-      if (isAuth && isAuthRoute) {
+      if (isAuth && (isAuthRoute || state.matchedLocation == '/welcome')) {
         final savedRoute = HydratedBloc.storage.read('last_visited_route') as String?;
-        if (savedRoute != null && savedRoute.isNotEmpty) {
+        if (savedRoute != null && savedRoute.isNotEmpty && savedRoute != '/welcome') {
           return savedRoute;
         }
         return '/map';

@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import '../theme/app_colors.dart';
@@ -41,8 +42,8 @@ class BookingCardShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
+    return const Padding(
+      padding: EdgeInsets.symmetric(
         horizontal: AppSpacing.lg,
         vertical: AppSpacing.sm,
       ),
@@ -50,9 +51,9 @@ class BookingCardShimmer extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ShimmerLoader(width: double.infinity, height: 24),
-          const SizedBox(height: AppSpacing.sm),
+          SizedBox(height: AppSpacing.sm),
           ShimmerLoader(width: 200, height: 16),
-          const SizedBox(height: AppSpacing.sm),
+          SizedBox(height: AppSpacing.sm),
           ShimmerLoader(width: 120, height: 28, borderRadius: AppRadius.full),
         ],
       ),
@@ -70,13 +71,13 @@ class StationListShimmer extends StatelessWidget {
     return ListView.builder(
       padding: const EdgeInsets.all(AppSpacing.lg),
       itemCount: count,
-      itemBuilder: (_, __) => Padding(
-        padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      itemBuilder: (_, __) => const Padding(
+        padding: EdgeInsets.only(bottom: AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ShimmerLoader(width: double.infinity, height: 20),
-            const SizedBox(height: AppSpacing.xs),
+            SizedBox(height: AppSpacing.xs),
             ShimmerLoader(width: 180, height: 14),
           ],
         ),
@@ -100,59 +101,73 @@ class NotificationBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: onTap,
       child: Material(
         color: Colors.transparent,
         child: Container(
           margin: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.lg,
+            horizontal: AppLayout.sidePadding,
             vertical: AppSpacing.sm,
           ),
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            color: const Color(0xFF212121),
+          child: ClipRRect(
             borderRadius: BorderRadius.circular(AppRadius.md),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.25),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.notifications_outlined,
-                color: AppColors.primary,
-                size: 24,
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      style: AppTypography.bodyMd.copyWith(
-                        color: AppColors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: isDark ? 0.16 : 0.08),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: isDark ? 0.35 : 0.25),
+                    width: 1.0,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: isDark ? 0.15 : 0.05),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
                     ),
-                    Text(
-                      body,
-                      style: AppTypography.caption.copyWith(
-                        color: AppColors.grey400,
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.notifications_outlined,
+                      color: AppColors.primary,
+                      size: 24,
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            title,
+                            style: AppTypography.bodyMd.copyWith(
+                              color: isDark ? AppColors.white : AppColors.textDark,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            body,
+                            style: AppTypography.caption.copyWith(
+                              color: isDark ? AppColors.textMuted : AppColors.textFaded,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -173,38 +188,71 @@ class ArrearsAlertBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // Smart text formatting to avoid repeating 'Nợ tồn đọng' if passed from parent
+    final displayText = amount.startsWith('Nợ tồn đọng')
+        ? '$amount. Nhấn để thanh toán.'
+        : 'Nợ tồn đọng: $amount. Nhấn để thanh toán.';
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.md,
+        margin: const EdgeInsets.symmetric(
+          horizontal: AppLayout.sidePadding,
+          vertical: AppSpacing.sm,
         ),
-        color: AppColors.error,
-        child: Row(
-          children: [
-            const Icon(
-              Icons.warning_amber_rounded,
-              color: AppColors.white,
-              size: 20,
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Text(
-                'Nợ tồn đọng: $amount. Nhấn để thanh toán.',
-                style: AppTypography.bodyMd.copyWith(
-                  color: AppColors.white,
-                  fontWeight: FontWeight.w600,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.md,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: isDark ? 0.16 : 0.08),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(
+                  color: AppColors.error.withValues(alpha: isDark ? 0.35 : 0.25),
+                  width: 1.0,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.error.withValues(alpha: isDark ? 0.15 : 0.05),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    color: AppColors.error,
+                    size: 20,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      displayText,
+                      style: AppTypography.bodyMd.copyWith(
+                        color: isDark ? AppColors.white : AppColors.textDark,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.error,
+                    size: 20,
+                  ),
+                ],
               ),
             ),
-            const Icon(
-              Icons.chevron_right,
-              color: AppColors.white,
-              size: 20,
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -224,48 +272,75 @@ class IdleFeeCountdownBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final minutes = remaining.inMinutes.remainder(60).toString().padLeft(2, '0');
     final seconds = remaining.inSeconds.remainder(60).toString().padLeft(2, '0');
 
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
+      margin: const EdgeInsets.symmetric(
+        horizontal: AppLayout.sidePadding,
+        vertical: AppSpacing.sm,
       ),
-      color: AppColors.amber,
-      child: Row(
-        children: [
-          const Icon(
-            Icons.timer_outlined,
-            color: Color(0xFF5D4037),
-            size: 20,
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '$minutes:$seconds ân hạn còn lại',
-                  style: AppTypography.bodyMd.copyWith(
-                    color: const Color(0xFF5D4037),
-                    fontWeight: FontWeight.w700,
-                  ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.md,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.warning.withValues(alpha: isDark ? 0.16 : 0.08),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border.all(
+                color: AppColors.warning.withValues(alpha: isDark ? 0.35 : 0.25),
+                width: 1.0,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.warning.withValues(alpha: isDark ? 0.15 : 0.05),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
                 ),
-                Text(
-                  projectedFeVnd > 0
-                      ? 'Rút súng sạc. Phí dự kiến: ${_formatVnd(projectedFeVnd)}'
-                      : 'Rút súng sạc để tránh phí 2.000₫/phút',
-                  style: AppTypography.caption.copyWith(
-                    color: const Color(0xFF795548),
+              ],
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.timer_outlined,
+                  color: AppColors.warning,
+                  size: 20,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$minutes:$seconds ân hạn còn lại',
+                        style: AppTypography.bodyMd.copyWith(
+                          color: isDark ? AppColors.white : AppColors.textDark,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        projectedFeVnd > 0
+                            ? 'Rút súng sạc. Phí dự kiến: ${_formatVnd(projectedFeVnd)}'
+                            : 'Rút súng sạc để tránh phí 2.000₫/phút',
+                        style: AppTypography.caption.copyWith(
+                          color: isDark ? AppColors.textMuted : AppColors.textFaded,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }

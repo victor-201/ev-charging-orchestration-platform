@@ -30,9 +30,18 @@ class DioAuthInterceptor extends QueuedInterceptor {
   @override
   void onError(
       DioException err, ErrorInterceptorHandler handler) async {
-    // Only handle 401 and not the refresh endpoint itself
+    final authHeader = err.requestOptions.headers['Authorization']?.toString();
+    final isAuthRequest = authHeader != null && authHeader.startsWith('Bearer ');
+    final isUnauthenticatedPath = err.requestOptions.path.contains('/auth/login') ||
+        err.requestOptions.path.contains('/auth/register') ||
+        err.requestOptions.path.contains('/auth/verify-email') ||
+        err.requestOptions.path.contains('/auth/resend-verification') ||
+        err.requestOptions.path.contains('/auth/refresh');
+
+    // Only handle 401 on authenticated requests and not the refresh/auth endpoints themselves
     if (err.response?.statusCode == 401 &&
-        !err.requestOptions.path.contains('/auth/refresh')) {
+        isAuthRequest &&
+        !isUnauthenticatedPath) {
       // Skip refresh attempt when there is no (or empty) refresh token stored.
       // Avoids an extra round-trip on first app launch before login.
       final refreshToken =
@@ -68,7 +77,21 @@ class DioAuthInterceptor extends QueuedInterceptor {
         await _secureStorage.read(key: StorageKeys.refreshToken);
     if (refreshToken == null || refreshToken.isEmpty) return null;
 
-    final response = await _dio.post(
+    // Use a separate Dio instance to avoid deadlocks in QueuedInterceptor
+    final refreshDio = Dio(BaseOptions(
+      baseUrl: _dio.options.baseUrl,
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 30),
+      sendTimeout: const Duration(seconds: 30),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        // Ngrok free tier — bypass the interstitial warning page
+        'ngrok-skip-browser-warning': 'true',
+      },
+    ));
+
+    final response = await refreshDio.post(
       '/auth/refresh',
       data: {'refreshToken': refreshToken},
     );

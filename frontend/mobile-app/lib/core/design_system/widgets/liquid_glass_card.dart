@@ -15,6 +15,7 @@ class LiquidGlassCard extends StatelessWidget {
   final double? width;
   final double? height;
   final EdgeInsetsGeometry? padding;
+  final bool showMarkers;
 
   const LiquidGlassCard({
     super.key,
@@ -22,12 +23,22 @@ class LiquidGlassCard extends StatelessWidget {
     this.width,
     this.height,
     this.padding,
+    this.showMarkers = true,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final markerColor = isDark ? AppColors.markerDark : AppColors.markerLight;
+
+    // Automatically hide markers if padding is too small (< 30) to prevent content overlap
+    bool shouldShowMarkers = showMarkers;
+    final pad = padding;
+    if (pad is EdgeInsets) {
+      if (pad.left < 30 || pad.right < 30 || pad.top < 30 || pad.bottom < 30) {
+        shouldShowMarkers = false;
+      }
+    }
 
     return Container(
       width: width,
@@ -83,10 +94,12 @@ class LiquidGlassCard extends StatelessWidget {
                   padding: padding ?? const EdgeInsets.all(40),
                   child: child,
                 ),
-                _marker(top: 20, left: 20, color: markerColor),
-                _marker(top: 20, right: 20, color: markerColor),
-                _marker(bottom: 20, left: 20, color: markerColor),
-                _marker(bottom: 20, right: 20, color: markerColor),
+                if (shouldShowMarkers) ...[
+                  _marker(top: 20, left: 20, color: markerColor),
+                  _marker(top: 20, right: 20, color: markerColor),
+                  _marker(bottom: 20, left: 20, color: markerColor),
+                  _marker(bottom: 20, right: 20, color: markerColor),
+                ],
               ],
             ),
           ),
