@@ -1,7 +1,11 @@
 import {
   Controller, Get, Patch, Post, Delete, Body, Param, HttpCode, HttpStatus,
-  UseGuards, NotFoundException, BadRequestException, ParseUUIDPipe, Query, Header,
+  UseGuards, NotFoundException, BadRequestException, ConflictException,
+  ParseUUIDPipe, Query, Header, UseInterceptors, UploadedFile,
+  UnsupportedMediaTypeException, PayloadTooLargeException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Express } from 'express';
 import {
   GetMyProfileUseCase, UpdateMyProfileUseCase,
   GetVehiclesUseCase, AddVehicleUseCase, UpdateVehicleUseCase,
@@ -9,12 +13,14 @@ import {
   SoftDeleteUserUseCase, GetProfileAuditLogUseCase, GetVehicleAuditLogUseCase,
   SetupAutochargeUseCase,
 } from '../../application/use-cases/user.use-cases';
+import { UploadAvatarUseCase } from '../../application/use-cases/avatar.use-cases';
 import { UpdateProfileDto } from '../../application/dtos/profile.dto';
 import { AddVehicleDto, UpdateVehicleDto, AutoChargeSetupDto } from '../../application/dtos/vehicle.dto';
 import {
   UserProfileNotFoundException, VehicleNotFoundException,
   DuplicatePlateNumberException, MaxVehiclesExceededException,
   VehicleOwnershipException, DomainException,
+  DuplicateMacAddressException, DuplicateVinNumberException,
 } from '../../domain/exceptions/user.exceptions';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard }   from '../../shared/guards/roles.guard';
@@ -60,6 +66,8 @@ export class UserController {
     return this.updateProfileUC.execute(user.id, {
       avatarUrl: dto.avatarUrl,
       address: dto.address,
+      phone: dto.phone,
+      dateOfBirth: dto.dateOfBirth,
     });
   }
 

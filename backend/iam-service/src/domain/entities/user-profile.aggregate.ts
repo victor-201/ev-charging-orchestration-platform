@@ -53,8 +53,8 @@ export class UserProfile {
 
   update(fields: { avatarUrl?: string | null; address?: string | null }): void {
     const changed: string[] = [];
-    if ('avatarUrl' in fields) { this._avatarUrl = fields.avatarUrl ?? null; changed.push('avatarUrl'); }
-    if ('address' in fields) { this._address = fields.address ?? null; changed.push('address'); }
+    if (fields.avatarUrl !== undefined) { this._avatarUrl = fields.avatarUrl; changed.push('avatarUrl'); }
+    if (fields.address !== undefined) { this._address = fields.address; changed.push('address'); }
     if (changed.length > 0) {
       this._updatedAt = new Date();
       this._domainEvents.push(new UserProfileUpdatedEvent(this.userId, changed));

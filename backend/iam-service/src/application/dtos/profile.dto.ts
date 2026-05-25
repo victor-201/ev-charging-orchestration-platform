@@ -14,4 +14,15 @@ export class UpdateProfileDto {
   @MaxLength(500)
   @Transform(({ value }) => value?.trim() ?? null)
   address?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  @Transform(({ value }) => value?.trim() ?? null)
+  phone?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => value?.trim() ?? null)
+  dateOfBirth?: string | null;
 }

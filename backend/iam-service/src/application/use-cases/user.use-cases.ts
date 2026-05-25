@@ -73,12 +73,19 @@ export class GetMyProfileUseCase {
 export class UpdateMyProfileUseCase {
   constructor(
     @Inject(USER_PROFILE_REPOSITORY) private readonly profileRepo: IUserProfileRepository,
+    @Inject(USER_REPOSITORY) private readonly userRepo: IUserRepository,
+    @Inject(USERS_CACHE_REPOSITORY) private readonly cacheRepo: IUsersCacheRepository,
     @Inject(EVENT_BUS) private readonly eventBus: IEventBus,
     @InjectRepository(ProfileAuditLogOrmEntity)
     private readonly profileAuditRepo: Repository<ProfileAuditLogOrmEntity>,
   ) {}
 
-  async execute(userId: string, data: { avatarUrl?: string | null; address?: string | null }) {
+  async execute(userId: string, data: {
+    avatarUrl?: string | null;
+    address?: string | null;
+    phone?: string | null;
+    dateOfBirth?: string | Date | null;
+  }) {
     let profile = await this.profileRepo.findByUserId(userId);
     if (!profile) {
       profile = UserProfile.create(userId);
@@ -89,9 +96,38 @@ export class UpdateMyProfileUseCase {
     if ('avatarUrl' in data) before.avatarUrl = profile.avatarUrl;
     if ('address' in data) before.address = profile.address;
 
-    profile.update(data);
+    profile.update({
+      avatarUrl: data.avatarUrl,
+      address: data.address,
+    });
 
     await this.profileRepo.upsert(profile);
+
+    const user = await this.userRepo.findById(userId);
+    if (user) {
+      if ('phone' in data) {
+        before.phone = user.phone;
+        user.phone = data.phone ?? null;
+      }
+      if ('dateOfBirth' in data && data.dateOfBirth !== undefined) {
+        before.dateOfBirth = user.dateOfBirth;
+        if (data.dateOfBirth instanceof Date) {
+          user.dateOfBirth = data.dateOfBirth;
+        } else if (data.dateOfBirth !== null) {
+          user.dateOfBirth = new Date(data.dateOfBirth);
+        }
+      }
+      await this.userRepo.save(user);
+
+      const cache = await this.cacheRepo.findByUserId(userId);
+      if (cache) {
+        cache.phone = user.phone;
+        cache.fullName = user.fullName;
+        cache.syncedAt = new Date();
+        await this.cacheRepo.upsert(cache);
+      }
+    }
+
     await this.eventBus.publishAll(profile.domainEvents);
     profile.clearDomainEvents();
 
@@ -108,6 +144,8 @@ export class UpdateMyProfileUseCase {
       userId: profile.userId,
       avatarUrl: profile.avatarUrl,
       address: profile.address,
+      phone: user?.phone ?? null,
+      dateOfBirth: user?.dateOfBirth ?? null,
       updatedAt: profile.updatedAt,
     };
   }
