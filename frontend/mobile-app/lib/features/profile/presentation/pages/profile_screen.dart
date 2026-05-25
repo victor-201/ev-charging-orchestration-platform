@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -13,6 +14,8 @@ import '../../../../core/design_system/widgets/ev_toast.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../../core/utils/vnd_formatter.dart';
 import 'audit_log_screen.dart';
+import '../../../../core/di/injection.dart';
+import '../../../../core/services/cloudinary_service.dart';
 
 /// Main Profile Screen — Liquid Glass Design
 class ProfileScreen extends StatefulWidget {
@@ -22,10 +25,69 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  bool _isUploading = false;
+
   @override
   void initState() {
     super.initState();
     context.read<ProfileBloc>().add(const ProfileLoad());
+  }
+
+  Future<void> _pickAndUploadAvatar() async {
+    final cloudinaryService = getIt<CloudinaryService>();
+    final xFile = await cloudinaryService.pickAvatarImage();
+    if (xFile == null) return;
+
+    final bytes = await xFile.readAsBytes();
+    if (!mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Theme.of(context).brightness == Brightness.dark ? AppColors.bgDark : AppColors.bgLight,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: EdgeInsets.zero,
+        content: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Center(
+                    child: Text('Xác nhận ảnh đại diện', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  ),
+                  const SizedBox(height: 16),
+                  ClipOval(
+                    child: Image.memory(bytes, width: 200, height: 200, fit: BoxFit.cover),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              top: 0,
+              right: 0,
+              child: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(ctx, false),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          EVButton(
+            label: 'Xác nhận',
+            onPressed: () => Navigator.pop(ctx, true),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      setState(() => _isUploading = true);
+      context.read<ProfileBloc>().add(ProfileUploadAvatar(bytes: bytes, filename: xFile.name));
+      setState(() => _isUploading = false);
+    }
   }
 
   @override
@@ -72,59 +134,105 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         children: [
                           const SizedBox(height: AppSpacing.xl),
                           // Avatar — show network image if available, else initials
-                          Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white.withValues(alpha: 0.25),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.6),
-                                width: 2.5,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.15),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 8),
+                          GestureDetector(
+                            onTap: _isUploading ? null : _pickAndUploadAvatar,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              clipBehavior: Clip.none,
+                              children: [
+                                Container(
+                                  width: 80,
+                                  height: 80,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.white.withValues(alpha: 0.25),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.6),
+                                      width: 2.5,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.15),
+                                        blurRadius: 20,
+                                        offset: const Offset(0, 8),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ClipOval(
+                                    child: profile?.avatarUrl != null && profile!.avatarUrl!.isNotEmpty
+                                        ? CachedNetworkImage(
+                                            imageUrl: profile.avatarUrl!,
+                                            fit: BoxFit.cover,
+                                            placeholder: (_, __) => Center(
+                                              child: Text(
+                                                profile.fullName.isNotEmpty ? profile.fullName[0].toUpperCase() : 'U',
+                                                style: AppTypography.displayMd.copyWith(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w800,
+                                                ),
+                                              ),
+                                            ),
+                                            errorWidget: (_, __, ___) => Center(
+                                              child: Text(
+                                                profile.fullName.isNotEmpty ? profile.fullName[0].toUpperCase() : 'U',
+                                                style: AppTypography.displayMd.copyWith(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w800,
+                                                ),
+                                              ),
+                                            ),
+                                          )
+                                        : Center(
+                                            child: Text(
+                                              profile?.fullName.isNotEmpty == true
+                                                  ? profile!.fullName[0].toUpperCase()
+                                                  : 'U',
+                                              style: AppTypography.displayMd.copyWith(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                          ),
+                                  ),
                                 ),
-                              ],
-                            ),
-                            child: ClipOval(
-                              child: profile?.avatarUrl != null && profile!.avatarUrl!.isNotEmpty
-                                  ? CachedNetworkImage(
-                                      imageUrl: profile.avatarUrl!,
-                                      fit: BoxFit.cover,
-                                      placeholder: (_, __) => Center(
-                                        child: Text(
-                                          profile.fullName.isNotEmpty ? profile.fullName[0].toUpperCase() : 'U',
-                                          style: AppTypography.displayMd.copyWith(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                      ),
-                                      errorWidget: (_, __, ___) => Center(
-                                        child: Text(
-                                          profile.fullName.isNotEmpty ? profile.fullName[0].toUpperCase() : 'U',
-                                          style: AppTypography.displayMd.copyWith(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                      ),
-                                    )
-                                  : Center(
-                                      child: Text(
-                                        profile?.fullName.isNotEmpty == true
-                                            ? profile!.fullName[0].toUpperCase()
-                                            : 'U',
-                                        style: AppTypography.displayMd.copyWith(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w800,
+                                // Edit camera icon badge at bottom-right
+                                Positioned(
+                                  right: -2,
+                                  bottom: -2,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: AppColors.cyan,
+                                    ),
+                                    child: const Icon(
+                                      Icons.camera_alt,
+                                      color: Colors.white,
+                                      size: 14,
+                                    ),
+                                  ),
+                                ),
+                                // Loading overlay spinner
+                                if (_isUploading)
+                                  Container(
+                                    width: 80,
+                                    height: 80,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Colors.black.withValues(alpha: 0.5),
+                                    ),
+                                    child: const Center(
+                                      child: SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.5,
+                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                         ),
                                       ),
                                     ),
+                                  ),
+                              ],
                             ),
                           ),
                           const SizedBox(height: AppSpacing.md),
@@ -235,7 +343,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12),
                               ),
                             ],
-                            onTap: () => context.push('/profile/security'),
+                            onTap: () => context.push('/profile/security', extra: 1),
                           ),
                           GlassSquare(
                             size: 100,
@@ -278,7 +386,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _MenuPill(
                         label: 'Đổi mật khẩu',
                         trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
-                        onTap: () => context.push('/profile/security'),
+                        onTap: () => context.push('/profile/security', extra: 0),
                       ),
                       const SizedBox(height: AppSpacing.md),
                       _MenuPill(
@@ -286,7 +394,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         trailing: isMfaEnabled
                             ? const Icon(Icons.check_circle, color: AppColors.cyan)
                             : const Icon(Icons.warning_amber_outlined, color: AppColors.yellow),
-                        onTap: () => context.push('/profile/security'),
+                        onTap: () => context.push('/profile/security', extra: 1),
                       ),
                       const SizedBox(height: AppSpacing.md),
                       _MenuPill(
@@ -325,7 +433,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _MenuPill(
                         label: 'Thiết bị đang đăng nhập',
                         trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
-                        onTap: () => context.push('/profile/security'),
+                        onTap: () => context.push('/profile/security', extra: 2),
                       ),
                       const SizedBox(height: AppSpacing.md),
                       _MenuPill(
@@ -360,60 +468,195 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _showEditProfileDialog(BuildContext context, ProfileState state) {
     final profile = state is ProfileLoaded ? state.profile : null;
     if (profile == null) return;
-    // API PATCH /users/me only accepts avatarUrl and address
+
     final avatarCtrl  = TextEditingController(text: profile.avatarUrl ?? '');
     final addressCtrl = TextEditingController(text: profile.address ?? '');
+    final phoneCtrl   = TextEditingController(text: profile.phone ?? '');
+
+    String dobStr = '';
+    if (profile.dateOfBirth != null) {
+      dobStr = "${profile.dateOfBirth!.year.toString().padLeft(4, '0')}-${profile.dateOfBirth!.month.toString().padLeft(2, '0')}-${profile.dateOfBirth!.day.toString().padLeft(2, '0')}";
+    }
+    final dobCtrl = TextEditingController(text: dobStr);
+
+    String currentAvatarUrl = avatarCtrl.text;
+    Uint8List? pendingAvatarBytes;
+    String? pendingAvatarFilename;
+    DateTime? selectedDate = profile.dateOfBirth;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        margin: const EdgeInsets.all(AppSpacing.md),
-        child: LiquidGlassCard(
-          padding: EdgeInsets.only(
-            left: AppSpacing.lg,
-            right: AppSpacing.lg,
-            top: AppSpacing.lg,
-            bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.lg,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Chỉnh sửa hồ sơ', style: AppTypography.headingMd),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'Tên và số điện thoại được đặt khi đăng ký và không thể thay đổi.',
-                style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (ctx, setModalState) => Container(
+          margin: const EdgeInsets.all(AppSpacing.md),
+          child: LiquidGlassCard(
+            padding: EdgeInsets.only(
+              left: AppSpacing.lg,
+              right: AppSpacing.lg,
+              top: AppSpacing.lg,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom > 0
+                  ? (MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.lg)
+                  : (AppLayout.bottomPadding(ctx) + AppSpacing.lg),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Chỉnh sửa hồ sơ', style: AppTypography.headingMd),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Họ tên và Email được đặt cố định lúc đăng ký.',
+                    style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  
+                  // Beautiful Avatar Picker Row
+                  Row(
+                    children: [
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.cyan.withValues(alpha: 0.5), width: 2),
+                          color: Colors.white.withValues(alpha: 0.1),
+                        ),
+                        child: ClipOval(
+                          child: pendingAvatarBytes != null
+                              ? Image.memory(pendingAvatarBytes!, fit: BoxFit.cover)
+                              : currentAvatarUrl.isNotEmpty
+                                  ? CachedNetworkImage(
+                                      imageUrl: currentAvatarUrl,
+                                      fit: BoxFit.cover,
+                                      placeholder: (_, __) => const Center(
+                                        child: SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(AppColors.cyan)),
+                                        ),
+                                      ),
+                                      errorWidget: (_, __, ___) => const Icon(Icons.person, color: AppColors.textMuted, size: 30),
+                                    )
+                                  : const Icon(Icons.person, color: AppColors.textMuted, size: 30),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Ảnh đại diện', style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 4),
+                            GestureDetector(
+                              onTap: () async {
+                                final xFile = await getIt<CloudinaryService>().pickAvatarImage();
+                                if (xFile == null) return;
+                                final bytes = await xFile.readAsBytes();
+                                setModalState(() {
+                                  pendingAvatarBytes = bytes;
+                                  pendingAvatarFilename = xFile.name;
+                                  currentAvatarUrl = '';
+                                });
+                              },
+                              child: Text(
+                                'Thay đổi ảnh đại diện',
+                                style: TextStyle(
+                                  color: AppColors.cyan,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  
+                  // Phone Number Field
+                  TextField(
+                    controller: phoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      labelText: 'Số điện thoại',
+                      prefixIcon: Icon(Icons.phone_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Date of Birth Field (Read-only click triggers datepicker)
+                  TextField(
+                    controller: dobCtrl,
+                    readOnly: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Ngày sinh',
+                      prefixIcon: Icon(Icons.cake_outlined),
+                      suffixIcon: Icon(Icons.calendar_today_outlined),
+                    ),
+                    onTap: () async {
+                      final now = DateTime.now();
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate ?? DateTime(2000, 1, 1),
+                        firstDate: DateTime(1900),
+                        lastDate: DateTime(now.year - 18, now.month, now.day), // minimum age 18
+                        builder: (context, child) {
+                          return Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: ColorScheme.dark(
+                                primary: AppColors.primary,
+                                onPrimary: Colors.white,
+                                surface: Theme.of(context).brightness == Brightness.dark
+                                    ? AppColors.bgDark
+                                    : AppColors.bgLight,
+                                onSurface: Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white
+                                    : Colors.black,
+                              ),
+                            ),
+                            child: child!,
+                          );
+                        },
+                      );
+                      if (picked != null) {
+                        setModalState(() {
+                          selectedDate = picked;
+                          dobCtrl.text = "${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Address Field
+                  TextField(
+                    controller: addressCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Địa chỉ',
+                      prefixIcon: Icon(Icons.location_on_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  EVButton(
+                    label: 'Lưu thay đổi',
+                    onPressed: () {
+                      Navigator.pop(sheetContext);
+                      context.read<ProfileBloc>().add(ProfileUpdate(
+                        address: addressCtrl.text.isNotEmpty ? addressCtrl.text : null,
+                        phone: phoneCtrl.text.isNotEmpty ? phoneCtrl.text : null,
+                        dateOfBirth: dobCtrl.text.isNotEmpty ? dobCtrl.text : null,
+                        avatarBytes: pendingAvatarBytes,
+                        avatarFilename: pendingAvatarFilename,
+                      ));
+                    },
+                  ),
+                ],
               ),
-              const SizedBox(height: AppSpacing.lg),
-              TextField(
-                controller: avatarCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'URL ảnh đại diện',
-                  prefixIcon: Icon(Icons.image_outlined),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              TextField(
-                controller: addressCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Địa chỉ',
-                  prefixIcon: Icon(Icons.location_on_outlined),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              EVButton(
-                label: 'Lưu thay đổi',
-                onPressed: () {
-                  Navigator.pop(context);
-                  context.read<ProfileBloc>().add(ProfileUpdate(
-                    avatarUrl: avatarCtrl.text.isNotEmpty ? avatarCtrl.text : null,
-                    address: addressCtrl.text.isNotEmpty ? addressCtrl.text : null,
-                  ));
-                },
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -423,17 +666,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _confirmLogout(BuildContext context) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Đăng xuất?'),
         content: const Text('Bạn có chắc muốn đăng xuất khỏi ứng dụng?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Huỷ'),
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               context.read<AuthBloc>().add(const AuthLogoutRequested());
             },
             child: const Text('Đăng xuất', style: TextStyle(color: AppColors.error)),
