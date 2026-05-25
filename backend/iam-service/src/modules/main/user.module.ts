@@ -18,6 +18,8 @@ import {
   SoftDeleteUserUseCase, GetProfileAuditLogUseCase, GetVehicleAuditLogUseCase,
   SetupAutochargeUseCase,
 } from '../../application/use-cases/user.use-cases';
+import { UploadAvatarUseCase } from '../../application/use-cases/avatar.use-cases';
+import { CloudinaryModule } from '../../infrastructure/cloudinary/cloudinary.module';
 import { UserController } from './user.controller';
 import { StaffController } from './staff.controller';
 import {
@@ -30,10 +32,13 @@ import {
   WalletArrearsCreatedConsumer,
   WalletArrearsClearedConsumer,
 } from '../../infrastructure/messaging/consumers/arrears.consumer';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
     ConfigModule,
+    AuthModule,
+    CloudinaryModule,
     TypeOrmModule.forFeature([
       UsersCacheOrmEntity, UserProfileOrmEntity, VehicleOrmEntity, VehicleModelOrmEntity,
       StaffProfileOrmEntity, AttendanceOrmEntity, SubscriptionOrmEntity,
@@ -58,7 +63,7 @@ import {
     AddVehicleUseCase, UpdateVehicleUseCase, DeleteVehicleUseCase,
     SetPrimaryVehicleUseCase, SyncUserCacheUseCase,
     SoftDeleteUserUseCase, GetProfileAuditLogUseCase, GetVehicleAuditLogUseCase,
-    SetupAutochargeUseCase,
+    SetupAutochargeUseCase, UploadAvatarUseCase,
     // Arrears management consumers
     WalletArrearsCreatedConsumer, // wallet.arrears.created -> sets debt flag + records arrears entry
     WalletArrearsClearedConsumer, // wallet.arrears.cleared -> clears debt flag
