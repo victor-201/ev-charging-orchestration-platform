@@ -6,6 +6,7 @@ import '../bloc/auth_bloc.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
+import '../../../../core/design_system/widgets/ev_toast.dart';
 
 /// High-Fidelity 6-Digit MFA Verification Screen
 /// Integrated 6-box OTP verification fields with auto-focus shifting
@@ -64,12 +65,7 @@ class _MFAVerifyScreenState extends State<MFAVerifyScreen> {
               context.go('/map');
             }
           } else if (state is AuthError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: AppColors.error,
-              ),
-            );
+            EVToast.show(context, message: state.message, isError: true);
             // Discard OTP input buffers on failure
             for (final c in _controllers) {
               c.clear();

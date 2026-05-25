@@ -5,6 +5,7 @@ import '../bloc/auth_bloc.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
+import '../../../../core/design_system/widgets/ev_toast.dart';
 import '../../../../core/utils/date_utils.dart' as ev_date;
 import '../widgets/auth_layout.dart';
 
@@ -50,17 +51,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void _submit() {
     if (_formKey.currentState?.validate() ?? false) {
       if (_dateOfBirth == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Vui lòng chọn ngày sinh')),
-        );
+        EVToast.show(context, message: 'Vui lòng chọn ngày sinh', isError: true);
         return;
       }
       if (!ev_date.DateUtils.isAtLeast18(_dateOfBirth!)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Bạn phải đủ 18 tuổi để đăng ký')),
-        );
+        EVToast.show(context, message: 'Bạn phải đủ 18 tuổi để đăng ký', isError: true);
         return;
       }
       context.read<AuthBloc>().add(AuthRegisterRequested(
@@ -81,9 +76,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           if (state is AuthEmailVerificationRequired) {
             context.go('/auth/verify-email?email=${Uri.encodeComponent(state.email)}');
           } else if (state is AuthError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message), backgroundColor: AppColors.error),
-            );
+            EVToast.show(context, message: state.message, isError: true);
           }
         },
         builder: (context, state) {

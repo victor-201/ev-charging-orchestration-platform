@@ -6,6 +6,7 @@ import '../bloc/auth_bloc.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
+import '../../../../core/design_system/widgets/ev_toast.dart';
 import '../widgets/auth_layout.dart';
 
 class VerifyEmailPendingScreen extends StatefulWidget {
@@ -57,18 +58,14 @@ class _VerifyEmailPendingScreenState extends State<VerifyEmailPendingScreen> {
     if (code.length == 6) {
       context.read<AuthBloc>().add(AuthVerifyEmailCodeRequested(code: code));
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập đủ 6 chữ số')),
-      );
+      EVToast.show(context, message: 'Vui lòng nhập đủ 6 chữ số', isError: true);
     }
   }
 
   void _resend() {
     context.read<AuthBloc>().add(AuthResendVerificationRequested(email: widget.email));
     _startCountdown();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đã gửi lại email xác nhận!')),
-    );
+    EVToast.show(context, message: 'Đã gửi lại email xác nhận!', isError: false);
   }
 
   @override
@@ -83,9 +80,7 @@ class _VerifyEmailPendingScreenState extends State<VerifyEmailPendingScreen> {
             // Need to login again since we don't have tokens for manual verification flow?
             // Actually _onVerifyEmailCode dispatches AuthCheckRequested on success, leading to AuthAuthenticated
           } else if (state is AuthError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)),
-            );
+            EVToast.show(context, message: state.message, isError: true);
           }
         },
         builder: (context, state) {

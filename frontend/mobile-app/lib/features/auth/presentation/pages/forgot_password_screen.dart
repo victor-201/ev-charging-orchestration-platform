@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
+import '../../../../core/design_system/widgets/ev_toast.dart';
 import '../widgets/auth_layout.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -30,12 +31,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       Future.delayed(const Duration(seconds: 2), () {
         if (mounted) {
           setState(() => _isSubmitting = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Yêu cầu khôi phục mật khẩu đã được gửi, vui lòng kiểm tra email.'),
-              backgroundColor: AppColors.success,
-            ),
-          );
+          EVToast.show(context, message: 'Yêu cầu khôi phục mật khẩu đã được gửi, vui lòng kiểm tra email.', isError: false);
           context.go('/auth/login');
         }
       });

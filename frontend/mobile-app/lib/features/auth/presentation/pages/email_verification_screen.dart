@@ -6,6 +6,7 @@ import '../bloc/auth_bloc.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
+import '../../../../core/design_system/widgets/ev_toast.dart';
 import '../widgets/auth_layout.dart';
 
 /// Email Verification Code Screen
@@ -88,35 +89,16 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
           if (state is AuthAuthenticated) {
             context.go('/map');
           } else if (state is AuthEmailVerified) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(children: [
-                  const Icon(Icons.check_circle, color: Colors.white, size: 18),
-                  const SizedBox(width: 8),
-                  const Text('Email đã được xác thực thành công!'),
-                ]),
-                backgroundColor: AppColors.success,
-                duration: const Duration(seconds: 2),
-              ),
-            );
+            EVToast.show(context, message: 'Email đã được xác thực thành công!', isError: false);
+            final router = GoRouter.of(context);
             Future.delayed(const Duration(seconds: 1), () {
-              if (mounted) context.go('/auth/login');
+              if (mounted) router.go('/auth/login');
             });
           }
           else if (state is AuthEmailVerificationRequired) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Đã gửi lại email xác thực!'),
-                backgroundColor: AppColors.secondary,
-              ),
-            );
+            EVToast.show(context, message: 'Đã gửi lại email xác thực!', isError: false);
           } else if (state is AuthError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: AppColors.error,
-              ),
-            );
+            EVToast.show(context, message: state.message, isError: true);
           }
         },
         builder: (context, state) {

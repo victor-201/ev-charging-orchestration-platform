@@ -50,36 +50,40 @@ class AuthBloc extends HydratedBloc<AuthEvent, AuthState> {
   Future<void> _onLoginRequested(
       AuthLoginRequested event, Emitter<AuthState> emit) async {
     emit(const AuthLoading());
-    final result = await _repository.login(
-      email: event.email,
-      password: event.password,
-    );
-    result.fold(
-      (failure) {
-        if (failure is AccountLockedFailure) {
-          emit(AuthError(
-            message: failure.message,
-            lockedUntil: failure.lockedUntil,
-          ));
-        } else if (failure is EmailNotVerifiedFailure) {
-          emit(AuthEmailVerificationRequired(email: event.email));
-        } else {
-          emit(AuthError(message: failure.message));
-        }
-      },
-      (loginResult) {
-        if (loginResult.mfaRequired) {
-          emit(AuthMfaRequired(email: event.email));
-        } else if (loginResult.user != null) {
-          emit(AuthAuthenticated(
-            user: loginResult.user!,
-            hasArrears: loginResult.user!.hasArrears,
-          ));
-        } else {
-          emit(const AuthError(message: 'Login failed'));
-        }
-      },
-    );
+    try {
+      final result = await _repository.login(
+        email: event.email,
+        password: event.password,
+      );
+      result.fold(
+        (failure) {
+          if (failure is AccountLockedFailure) {
+            emit(AuthError(
+              message: failure.message,
+              lockedUntil: failure.lockedUntil,
+            ));
+          } else if (failure is EmailNotVerifiedFailure) {
+            emit(AuthEmailVerificationRequired(email: event.email));
+          } else {
+            emit(AuthError(message: failure.message));
+          }
+        },
+        (loginResult) {
+          if (loginResult.mfaRequired) {
+            emit(AuthMfaRequired(email: event.email));
+          } else if (loginResult.user != null) {
+            emit(AuthAuthenticated(
+              user: loginResult.user!,
+              hasArrears: loginResult.user!.hasArrears,
+            ));
+          } else {
+            emit(const AuthError(message: 'Đăng nhập không thành công'));
+          }
+        },
+      );
+    } catch (e) {
+      emit(AuthError(message: 'Lỗi hệ thống: ${e.toString()}'));
+    }
   }
 
   Future<void> _onRegisterRequested(
