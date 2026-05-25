@@ -235,9 +235,19 @@ export class User {
 
   // MFA
 
-  enableMfa(secret: string): void {
-    this._mfaEnabled = true;
+  setMfaSecret(secret: string): void {
     this._mfaSecret = secret;
+    this._mfaEnabled = false;
+    this._updatedAt = new Date();
+  }
+
+  enableMfa(backupCodes: string[]): void {
+    if (!this._mfaSecret) {
+      throw new Error('MFA secret not set');
+    }
+    const baseSecret = this._mfaSecret.split(':')[0];
+    this._mfaEnabled = true;
+    this._mfaSecret = `${baseSecret}:${backupCodes.join(',')}`;
     this._updatedAt = new Date();
   }
 

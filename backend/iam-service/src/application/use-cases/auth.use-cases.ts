@@ -221,12 +221,33 @@ export class LoginUseCase {
       if (!cmd.mfaToken) {
         throw new MfaRequiredException();
       }
-      const verified = speakeasy.totp.verify({
-        secret: user.mfaSecret!,
-        encoding: 'base32',
-        token: cmd.mfaToken,
-        window: 1,
-      });
+
+      const mfaSecretValue = user.mfaSecret || '';
+      const colonIndex = mfaSecretValue.indexOf(':');
+      const secret = colonIndex !== -1 ? mfaSecretValue.substring(0, colonIndex) : mfaSecretValue;
+      const backupCodesString = colonIndex !== -1 ? mfaSecretValue.substring(colonIndex + 1) : '';
+      const backupCodes = backupCodesString ? backupCodesString.split(',') : [];
+
+      let verified = false;
+
+      // Check if provided token is a valid backup code
+      const codeIndex = backupCodes.indexOf(cmd.mfaToken);
+      if (codeIndex !== -1) {
+        verified = true;
+        // Consume the matched backup code
+        backupCodes.splice(codeIndex, 1);
+        user.enableMfa(backupCodes);
+        await this.userRepo.save(user);
+      } else {
+        // Fall back to verifying via standard TOTP
+        verified = speakeasy.totp.verify({
+          secret,
+          encoding: 'base32',
+          token: cmd.mfaToken,
+          window: 3, // Drift-resilient window
+        });
+      }
+
       if (!verified) throw new InvalidMfaTokenException();
     }
 
@@ -465,7 +486,7 @@ export class SetupMfaUseCase {
     });
 
     // Save secret temporarily (not yet enabled — enabled only after verification)
-    user.enableMfa(secret.base32);
+    user.setMfaSecret(secret.base32);
     await this.userRepo.save(user);
 
     return {
@@ -482,20 +503,31 @@ export class VerifyMfaUseCase {
     @Inject(USER_REPOSITORY) private readonly userRepo: IUserRepository,
   ) {}
 
-  async execute(userId: string, token: string): Promise<{ verified: boolean }> {
+  async execute(userId: string, token: string): Promise<{ verified: boolean; backupCodes: string[] }> {
     const user = await this.userRepo.findById(userId);
     if (!user || !user.mfaSecret) throw new InvalidCredentialsException();
 
+    const rawSecret = user.mfaSecret.split(':')[0];
+
     const verified = speakeasy.totp.verify({
-      secret: user.mfaSecret,
+      secret: rawSecret,
       encoding: 'base32',
       token,
-      window: 1,
+      window: 3, // Drift-resilient window
     });
 
     if (!verified) throw new InvalidMfaTokenException();
 
-    return { verified: true };
+    const backupCodes: string[] = [];
+    for (let i = 0; i < 10; i++) {
+      const code = Math.floor(10000000 + Math.random() * 90000000).toString();
+      backupCodes.push(code);
+    }
+
+    user.enableMfa(backupCodes);
+    await this.userRepo.save(user);
+
+    return { verified: true, backupCodes };
   }
 }
 

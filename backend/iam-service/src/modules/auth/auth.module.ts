@@ -90,11 +90,13 @@ import { RiskScoringService } from '../../domain/services/risk-scoring.service';
       }),
       inject: [ConfigService],
     },
-    // Use cases
     RegisterUseCase, LoginUseCase, RefreshTokenUseCase, LogoutUseCase,
     ChangePasswordUseCase, AssignRoleUseCase, RevokeRoleUseCase,
     GetUserSessionsUseCase, SetupMfaUseCase, VerifyMfaUseCase, DisableMfaUseCase,
     VerifyEmailUseCase, ResendVerificationEmailUseCase,
+  ],
+  exports: [
+    USER_REPOSITORY,
   ],
 })
 export class AuthModule {}
