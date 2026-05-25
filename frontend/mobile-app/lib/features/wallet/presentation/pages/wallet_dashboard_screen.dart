@@ -11,6 +11,8 @@ import '../../../../core/design_system/widgets/glass_pill.dart';
 import '../../../../core/design_system/widgets/glass_square.dart';
 import '../../../../core/design_system/widgets/liquid_glass_card.dart';
 import '../../../../core/design_system/widgets/liquid_glass_scaffold.dart';
+import '../../../../core/design_system/widgets/ev_header.dart';
+import '../../../../core/design_system/widgets/ev_toast.dart';
 import '../../../../core/utils/vnd_formatter.dart';
 import '../../../../core/utils/date_utils.dart' as ev_date;
 
@@ -41,9 +43,7 @@ class _WalletDashboardScreenState extends State<WalletDashboardScreen> {
             if (state is WalletTopUpInitiated) {
               _openVNPayUrl(state.vnpayUrl);
             } else if (state is WalletError) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(state.message), backgroundColor: AppColors.error),
-              );
+              EVToast.show(context, message: state.message, isError: true);
             }
           },
           builder: (context, state) {
@@ -72,87 +72,76 @@ class _WalletDashboardScreenState extends State<WalletDashboardScreen> {
         slivers: [
           // ── Premium Header ──────────────────────────────────────
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: EVHeader(
+              title: 'Ví điện tử',
+              action: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Ví điện tử',
-                          style: AppTypography.headingLg.copyWith(fontWeight: FontWeight.w700)),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () => context.push('/profile/arrears'),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: state.wallet.hasArrears
-                                ? AppColors.error.withValues(alpha: 0.15)
-                                : Colors.white.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: state.wallet.hasArrears
-                                  ? AppColors.error.withValues(alpha: 0.3)
-                                  : Colors.white.withValues(alpha: 0.2),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
+                  GestureDetector(
+                    onTap: () => context.push('/profile/arrears'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: state.wallet.hasArrears
+                            ? AppColors.error.withValues(alpha: 0.15)
+                            : Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: state.wallet.hasArrears
+                              ? AppColors.error.withValues(alpha: 0.3)
+                              : Colors.white.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Stack(
+                            clipBehavior: Clip.none,
                             children: [
-                              Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  Icon(
-                                    Icons.receipt_long_outlined,
-                                    size: 16,
-                                    color: state.wallet.hasArrears ? AppColors.error : Colors.white,
-                                  ),
-                                  if (state.wallet.hasArrears)
-                                    Positioned(
-                                      right: -2,
-                                      top: -2,
-                                      child: Container(
-                                        width: 6,
-                                        height: 6,
-                                        decoration: const BoxDecoration(
-                                          color: AppColors.error,
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
+                              Icon(
+                                Icons.receipt_long_outlined,
+                                size: 16,
+                                color: state.wallet.hasArrears ? AppColors.error : Colors.white,
+                              ),
+                              if (state.wallet.hasArrears)
+                                Positioned(
+                                  right: -2,
+                                  top: -2,
+                                  child: Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: const BoxDecoration(
+                                      color: AppColors.error,
+                                      shape: BoxShape.circle,
                                     ),
-                                ],
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Công nợ',
-                                style: AppTypography.labelMd.copyWith(
-                                  color: state.wallet.hasArrears ? AppColors.error : Colors.white,
-                                  fontWeight: FontWeight.w700,
+                                  ),
                                 ),
-                              ),
                             ],
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      GestureDetector(
-                        onTap: () => context.read<WalletBloc>().add(const WalletLoad()),
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Công nợ',
+                            style: AppTypography.labelMd.copyWith(
+                              color: state.wallet.hasArrears ? AppColors.error : Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                          child: const Icon(Icons.refresh_outlined, size: 20),
-                        ),
+                        ],
                       ),
-                    ],
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  GestureDetector(
+                    onTap: () => context.read<WalletBloc>().add(const WalletLoad()),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                      ),
+                      child: const Icon(Icons.refresh_outlined, size: 20),
+                    ),
                   ),
                 ],
               ),
@@ -162,7 +151,7 @@ class _WalletDashboardScreenState extends State<WalletDashboardScreen> {
           // ── Cyberpunk EVolt Credit Card & Arrears ───────────────
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.lg),
+              padding: const EdgeInsets.all(AppLayout.sidePadding),
               child: Column(
                 children: [
                   // Futuristic EVolt Credit Card layout
@@ -417,7 +406,7 @@ class _WalletDashboardScreenState extends State<WalletDashboardScreen> {
           // ── Transaction Filter Pills ─────────────────────────────
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              padding: const EdgeInsets.symmetric(horizontal: AppLayout.sidePadding),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -447,7 +436,7 @@ class _WalletDashboardScreenState extends State<WalletDashboardScreen> {
           if (txList.isEmpty)
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                padding: const EdgeInsets.symmetric(horizontal: AppLayout.sidePadding),
                 child: Column(
                   children: [
                     LiquidGlassCard(
@@ -468,7 +457,7 @@ class _WalletDashboardScreenState extends State<WalletDashboardScreen> {
             )
           else ...[
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, 0),
+              padding: const EdgeInsets.fromLTRB(AppLayout.sidePadding, 0, AppLayout.sidePadding, 0),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (_, i) => Padding(

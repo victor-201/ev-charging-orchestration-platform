@@ -5,6 +5,8 @@ import '../bloc/wallet_bloc.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
+import '../../../../core/design_system/widgets/liquid_glass_scaffold.dart';
+import '../../../../core/design_system/widgets/ev_header.dart';
 
 /// VNPay Payment Processing Screen
 ///
@@ -66,51 +68,56 @@ class _VNPayProcessingScreenState extends State<VNPayProcessingScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Xử lý thanh toán'),
+    return LiquidGlassScaffold(
+      extendBodyBehindAppBar: true,
+      appBar: EVHeader(
+        title: 'Xử lý thanh toán',
+        showBackButton: _uiState != _VNPayState.processing,
         automaticallyImplyLeading: _uiState != _VNPayState.processing,
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.xl),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            if (_uiState == _VNPayState.processing)
-              RotationTransition(
-                turns: _spinController,
-                child: const Icon(Icons.sync, size: 72, color: AppColors.primary),
-              )
-            else if (_uiState == _VNPayState.success)
-              Container(
-                width: 80, height: 80,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.chargerAvailable,
+      child: SafeArea(
+        bottom: false,
+        child: Center(
+          child: SingleChildScrollView(
+            padding: AppLayout.paddingWithHeaderAndNavbar(context),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              if (_uiState == _VNPayState.processing)
+                RotationTransition(
+                  turns: _spinController,
+                  child: const Icon(Icons.sync, size: 72, color: AppColors.primary),
+                )
+              else if (_uiState == _VNPayState.success)
+                Container(
+                  width: 80, height: 80,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.chargerAvailable,
+                  ),
+                  child: const Icon(Icons.check_rounded, color: Colors.white, size: 40),
+                )
+              else
+                Container(
+                  width: 80, height: 80,
+                  decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.error),
+                  child: const Icon(Icons.close_rounded, color: Colors.white, size: 40),
                 ),
-                child: const Icon(Icons.check_rounded, color: Colors.white, size: 40),
-              )
-            else
-              Container(
-                width: 80, height: 80,
-                decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.error),
-                child: const Icon(Icons.close_rounded, color: Colors.white, size: 40),
-              ),
-            const SizedBox(height: AppSpacing.xl),
-            Text(_message, style: AppTypography.headingMd, textAlign: TextAlign.center),
-            if (widget.txnRef != null) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Text('Mã giao dịch: ${widget.txnRef}',
-                  style: AppTypography.caption.copyWith(color: AppColors.grey600)),
-            ],
-            if (_uiState != _VNPayState.processing) ...[
-              const SizedBox(height: AppSpacing.xxxl),
-              EVButton(
-                label: 'Về ví điện tử',
-                icon: Icons.account_balance_wallet_outlined,
-                onPressed: () => context.go('/wallet'),
-              ),
-            ],
-          ]),
+              const SizedBox(height: AppSpacing.xl),
+              Text(_message, style: AppTypography.headingMd, textAlign: TextAlign.center),
+              if (widget.txnRef != null) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text('Mã giao dịch: ${widget.txnRef}',
+                    style: AppTypography.caption.copyWith(color: AppColors.grey600)),
+              ],
+              if (_uiState != _VNPayState.processing) ...[
+                const SizedBox(height: AppSpacing.xxxl),
+                EVButton(
+                  label: 'Về ví điện tử',
+                  icon: Icons.account_balance_wallet_outlined,
+                  onPressed: () => context.go('/wallet'),
+                ),
+              ],
+            ]),
+          ),
         ),
       ),
     );

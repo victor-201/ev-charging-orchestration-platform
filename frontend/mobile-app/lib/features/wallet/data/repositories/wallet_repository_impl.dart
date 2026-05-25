@@ -38,7 +38,6 @@ class WalletRepositoryImpl implements IWalletRepository {
         ApiPaths.walletTopup,
         data: {
           'amount': amount,
-          'returnUrl': 'ev://app/wallet/topup/processing',
         },
         withIdempotency: true,
       );

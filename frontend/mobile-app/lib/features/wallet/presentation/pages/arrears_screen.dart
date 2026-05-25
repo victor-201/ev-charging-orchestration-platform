@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../auth/domain/entities/user_entity.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../bloc/wallet_bloc.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
 import '../../../../core/design_system/widgets/glass_container.dart';
 import '../../../../core/design_system/widgets/liquid_glass_scaffold.dart';
+import '../../../../core/design_system/widgets/ev_header.dart';
+import '../../../../core/design_system/widgets/ev_toast.dart';
 import '../../../../core/utils/vnd_formatter.dart';
 
 /// Premium High-Fidelity Arrears Management & Payment Screen
@@ -31,28 +34,39 @@ class _ArrearsScreenState extends State<ArrearsScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return LiquidGlassScaffold(
-      appBar: AppBar(
-        title: Text(
-          'Quản lý công nợ',
-          style: AppTypography.headingMd.copyWith(fontWeight: FontWeight.w800),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, size: 20),
-          onPressed: () => context.pop(),
-        ),
+      appBar: const EVHeader(
+        title: 'Quản lý công nợ',
+        showBackButton: true,
       ),
       child: SafeArea(
+        bottom: false,
         child: BlocConsumer<WalletBloc, WalletState>(
           listener: (context, state) {
             if (state is WalletTopUpInitiated) {
               _openVNPayUrl(state.vnpayUrl);
+            } else if (state is WalletLoaded) {
+              if (!state.wallet.hasArrears) {
+                final authBloc = context.read<AuthBloc>();
+                final authState = authBloc.state;
+                if (authState is AuthAuthenticated) {
+                  final u = authState.user;
+                  authBloc.add(AuthTokensLoaded(
+                    user: UserEntity(
+                      id: u.id,
+                      email: u.email,
+                      fullName: u.fullName,
+                      phone: u.phone,
+                      dateOfBirth: u.dateOfBirth,
+                      role: u.role,
+                      mfaEnabled: u.mfaEnabled,
+                      hasArrears: false,
+                    ),
+                    hasArrears: false,
+                  ));
+                }
+              }
             } else if (state is WalletError) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(state.message), backgroundColor: AppColors.error),
-              );
+              EVToast.show(context, message: state.message, isError: true);
             }
           },
           builder: (context, state) {
