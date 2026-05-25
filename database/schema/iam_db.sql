@@ -241,3 +241,27 @@ CREATE TABLE processed_events (
     event_type VARCHAR(100) NOT NULL,
     processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE vehicle_audit_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    vehicle_id UUID NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    action VARCHAR(30) NOT NULL,
+    changes JSONB,
+    changed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_vehicle_audit_logs_vehicle_id ON vehicle_audit_logs (vehicle_id);
+CREATE INDEX idx_vehicle_audit_logs_user_id ON vehicle_audit_logs (user_id);
+
+CREATE TABLE profile_audit_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    action VARCHAR(30) NOT NULL,
+    changes JSONB,
+    changed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_profile_audit_logs_user_id ON profile_audit_logs (user_id);
