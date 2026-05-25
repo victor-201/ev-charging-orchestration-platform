@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../domain/entities/booking_entity.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/utils/date_utils.dart' as ev_date;
 import '../../../../features/map/domain/entities/station_entity.dart';
-import '../bloc/booking_bloc.dart';
+
 
 class BookingCard extends StatelessWidget {
   final BookingEntity booking;
@@ -39,9 +38,6 @@ class BookingCard extends StatelessWidget {
     return GestureDetector(
       onTap: () async {
         await context.push('/bookings/${booking.id}');
-        if (context.mounted) {
-          context.read<BookingBloc>().add(const BookingLoadHistory());
-        }
       },
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.lg),

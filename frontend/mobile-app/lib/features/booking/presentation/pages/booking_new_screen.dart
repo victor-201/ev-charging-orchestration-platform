@@ -569,7 +569,7 @@ class _BookingNewScreenState extends State<BookingNewScreen>
             AppLayout.sidePadding,
             AppSpacing.xs,
             AppLayout.sidePadding,
-            showSummary ? 260.0 : AppLayout.sidePadding),
+            showSummary ? 260.0 : AppLayout.bottomPadding(context)),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
           childAspectRatio: 1.7,
@@ -733,7 +733,7 @@ class _BookingNewScreenState extends State<BookingNewScreen>
           AppLayout.sidePadding,
           AppSpacing.xs,
           AppLayout.sidePadding,
-          showSummary ? 260.0 : AppLayout.sidePadding),
+          showSummary ? 260.0 : AppLayout.bottomPadding(context)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

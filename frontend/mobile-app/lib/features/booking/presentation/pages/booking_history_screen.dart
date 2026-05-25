@@ -31,11 +31,27 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
   final Map<String, StationEntity> _stationCache = {};
   final Set<String> _loadingChargerIds = {};
   final Set<String> _failedChargerIds = {}; // Track failed charger IDs to prevent infinite loop
+  bool _isInitial = true;
+  bool _wasCurrent = false;
 
   @override
   void initState() {
     super.initState();
     context.read<BookingBloc>().add(const BookingLoadHistory());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final isCurrent = ModalRoute.of(context)?.isCurrent ?? false;
+    if (isCurrent && !_wasCurrent) {
+      if (_isInitial) {
+        _isInitial = false;
+      } else {
+        context.read<BookingBloc>().add(const BookingLoadHistory());
+      }
+    }
+    _wasCurrent = isCurrent;
   }
 
   void _loadStationsForBookings(List<BookingEntity> bookings) {
@@ -79,9 +95,6 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
               action: GestureDetector(
                 onTap: () async {
                   await context.push('/bookings/new');
-                  if (context.mounted) {
-                    context.read<BookingBloc>().add(const BookingLoadHistory());
-                  }
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -137,7 +150,32 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
 
             // ── Content ──────────────────────────────────────────
             Expanded(
-              child: BlocBuilder<BookingBloc, BookingState>(
+              child: BlocConsumer<BookingBloc, BookingState>(
+                listener: (context, state) {
+                  if (state is BookingCreated) {
+                    final newBooking = state.booking;
+                    final index = _bookings.indexWhere((b) => b.id == newBooking.id);
+                    if (index == -1) {
+                      setState(() {
+                        _bookings.insert(0, newBooking);
+                      });
+                    }
+                  } else if (state is BookingDetailLoaded) {
+                    final updatedBooking = state.booking;
+                    final index = _bookings.indexWhere((b) => b.id == updatedBooking.id);
+                    if (index != -1) {
+                      setState(() {
+                        _bookings[index] = updatedBooking;
+                      });
+                    } else {
+                      setState(() {
+                        _bookings.insert(0, updatedBooking);
+                      });
+                    }
+                  } else if (state is BookingCancelled) {
+                    context.read<BookingBloc>().add(const BookingLoadHistory());
+                  }
+                },
                 builder: (context, state) {
                   if (state is BookingHistoryLoaded) {
                     _bookings = state.bookings;
@@ -231,9 +269,6 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                                   label: 'Đặt lịch ngay',
                                   onPressed: () async {
                                     await context.push('/bookings/new');
-                                    if (context.mounted) {
-                                      context.read<BookingBloc>().add(const BookingLoadHistory());
-                                    }
                                   },
                               ),
                             ],
