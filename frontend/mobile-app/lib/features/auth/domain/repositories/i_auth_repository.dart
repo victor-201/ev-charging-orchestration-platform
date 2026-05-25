@@ -30,6 +30,8 @@ abstract class IAuthRepository {
 
   /// Validates a multi-factor authentication (MFA) time-based one-time password (TOTP).
   Future<Either<Failure, LoginResult>> verifyMfa({
+    required String email,
+    required String password,
     required String otpCode,
   });
 

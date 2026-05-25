@@ -11,6 +11,8 @@ part 'auth_state.dart';
 /// HydratedBloc — persists state across application restarts.
 class AuthBloc extends HydratedBloc<AuthEvent, AuthState> {
   final IAuthRepository _repository;
+  String? _mfaEmail;
+  String? _mfaPassword;
 
   AuthBloc({required IAuthRepository repository})
       : _repository = repository,
@@ -70,7 +72,9 @@ class AuthBloc extends HydratedBloc<AuthEvent, AuthState> {
         },
         (loginResult) {
           if (loginResult.mfaRequired) {
-            emit(AuthMfaRequired(email: event.email));
+            _mfaEmail = event.email;
+            _mfaPassword = event.password;
+            emit(AuthMfaRequired(email: event.email, password: event.password));
           } else if (loginResult.user != null) {
             emit(AuthAuthenticated(
               user: loginResult.user!,
@@ -149,19 +153,38 @@ class AuthBloc extends HydratedBloc<AuthEvent, AuthState> {
 
   Future<void> _onMfaVerify(
       AuthMfaVerifyRequested event, Emitter<AuthState> emit) async {
+    final currentState = state;
+    if (currentState is AuthMfaRequired) {
+      _mfaEmail = currentState.email;
+      _mfaPassword = currentState.password;
+    }
+
+    final email = _mfaEmail;
+    final password = _mfaPassword;
+
+    if (email == null || password == null) {
+      emit(const AuthError(message: 'Yêu cầu xác thực hai lớp không hợp lệ'));
+      return;
+    }
+
     emit(const AuthLoading());
-    final result =
-        await _repository.verifyMfa(otpCode: event.otpCode);
+    final result = await _repository.verifyMfa(
+      email: email,
+      password: password,
+      otpCode: event.otpCode,
+    );
     result.fold(
       (failure) => emit(AuthError(message: failure.message)),
       (loginResult) {
         if (loginResult.user != null) {
+          _mfaEmail = null;
+          _mfaPassword = null;
           emit(AuthAuthenticated(
             user: loginResult.user!,
             hasArrears: loginResult.user!.hasArrears,
           ));
         } else {
-          emit(const AuthError(message: 'MFA verification failed'));
+          emit(const AuthError(message: 'Xác minh MFA không thành công'));
         }
       },
     );
@@ -170,6 +193,8 @@ class AuthBloc extends HydratedBloc<AuthEvent, AuthState> {
   Future<void> _onLogoutRequested(
       AuthLogoutRequested event, Emitter<AuthState> emit) async {
     await _repository.logout();
+    _mfaEmail = null;
+    _mfaPassword = null;
     HydratedBloc.storage.delete('last_visited_route');
     emit(const AuthUnauthenticated());
   }

@@ -89,18 +89,29 @@ class AuthRepositoryImpl implements IAuthRepository {
         user: UserModel.fromJson(userData),
       ));
     } on DioException catch (e) {
+      final statusCode = e.response?.statusCode;
+      final data = e.response?.data;
+      if (statusCode == 403 && data is Map<String, dynamic> && data['code'] == 'MFA_REQUIRED') {
+        return Right(const LoginResult(mfaRequired: true));
+      }
       return Left(ErrorMapper.fromDioException(e));
     }
   }
 
   @override
   Future<Either<Failure, LoginResult>> verifyMfa({
+    required String email,
+    required String password,
     required String otpCode,
   }) async {
     try {
       final response = await _client.post(
-        ApiPaths.mfaVerify,
-        data: {'token': otpCode},
+        ApiPaths.login,
+        data: {
+          'email': email,
+          'password': password,
+          'mfaToken': otpCode,
+        },
       );
       final data = _extractData(response.data);
       final accessToken = data['accessToken']?.toString() ?? '';

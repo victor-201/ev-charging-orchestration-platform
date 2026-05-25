@@ -47,9 +47,10 @@ final class AuthEmailVerified extends AuthState {
 /// Guard state prompting for 6-digit MFA confirmation
 final class AuthMfaRequired extends AuthState {
   final String email;
-  const AuthMfaRequired({required this.email});
+  final String password;
+  const AuthMfaRequired({required this.email, required this.password});
   @override
-  List<Object?> get props => [email];
+  List<Object?> get props => [email, password];
 }
 
 /// Faulted auth state containing the mapped failure
