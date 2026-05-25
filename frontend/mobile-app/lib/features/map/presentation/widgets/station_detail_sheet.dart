@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
+import '../../../../core/design_system/widgets/ev_toast.dart';
 import '../../domain/entities/station_entity.dart';
 import '../bloc/map_bloc.dart';
 import 'pricing_dialog.dart';
@@ -117,9 +118,7 @@ class StationDetailSheet extends StatelessWidget {
                                         }
                                       }
                                       if (userLat == 0.0 || userLng == 0.0) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Không xác định được vị trí của bạn. Vui lòng bật GPS.')),
-                                        );
+                                        EVToast.show(context, message: 'Không xác định được vị trí của bạn. Vui lòng bật GPS.', isError: true);
                                         return;
                                       }
                                       context.push(
@@ -387,9 +386,7 @@ class StationDetailSheet extends StatelessWidget {
                                                 InkWell(
                                                   onTap: () {
                                                     if (!isAvailable) {
-                                                      ScaffoldMessenger.of(context).showSnackBar(
-                                                        const SnackBar(content: Text('Trụ sạc này hiện không khả dụng để đặt lịch.')),
-                                                      );
+                                                      EVToast.show(context, message: 'Trụ sạc này hiện không khả dụng để đặt lịch.', isError: true);
                                                       return;
                                                     }
                                                     Navigator.pop(context);

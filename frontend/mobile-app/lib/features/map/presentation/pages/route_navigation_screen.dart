@@ -8,8 +8,10 @@ import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 import '../../../../core/design_system/widgets/liquid_glass_scaffold.dart';
+import '../../../../core/design_system/widgets/ev_header.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
+import '../../../../core/design_system/widgets/ev_toast.dart';
 import '../widgets/user_location_marker.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/map_bloc.dart';
@@ -184,14 +186,9 @@ class _RouteNavigationScreenState
     final topPadding = MediaQuery.of(context).padding.top + kToolbarHeight;
 
     return LiquidGlassScaffold(
-      appBar: AppBar(
-        title: const Text('Chỉ đường'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios),
-          onPressed: () => context.pop(),
-        ),
+      appBar: const EVHeader(
+        title: 'Chỉ đường',
+        showBackButton: true,
       ),
       child: Padding(
         padding: EdgeInsets.only(top: topPadding),
@@ -268,8 +265,8 @@ class _RouteNavigationScreenState
 
           Positioned(
             top: AppSpacing.sm,
-            left: AppSpacing.lg,
-            right: AppSpacing.lg,
+            left: AppLayout.sidePadding,
+            right: AppLayout.sidePadding,
             child: Container(
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
@@ -288,9 +285,7 @@ class _RouteNavigationScreenState
                 children: [
                   InkWell(
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Chạm vào bản đồ trên trang chủ để chọn vị trí mới.')),
-                      );
+                      EVToast.show(context, message: 'Chạm vào bản đồ trên trang chủ để chọn vị trí mới.', isError: false);
                       context.pop();
                     },
                     child: Row(
@@ -311,9 +306,7 @@ class _RouteNavigationScreenState
                   const Divider(height: AppSpacing.xl),
                   InkWell(
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Vui lòng chọn trạm khác trên bản đồ để đổi điểm đến.')),
-                      );
+                      EVToast.show(context, message: 'Vui lòng chọn trạm khác trên bản đồ để đổi điểm đến.', isError: false);
                       context.pop();
                     },
                     child: Row(
@@ -339,15 +332,14 @@ class _RouteNavigationScreenState
           if (!_isLoading && _error == null)
             Positioned(
               bottom: 0,
-              left: 0,
-              right: 0,
+              left: AppLayout.sidePadding,
+              right: AppLayout.sidePadding,
               child: Container(
                 padding: EdgeInsets.fromLTRB(
-                  AppSpacing.lg,
-                  AppSpacing.lg,
-                  AppSpacing.lg,
-                  AppSpacing.lg +
-                      MediaQuery.of(context).padding.bottom,
+                  AppLayout.sidePadding,
+                  AppLayout.sidePadding,
+                  AppLayout.sidePadding,
+                  AppLayout.bottomPadding(context),
                 ),
                 decoration: BoxDecoration(
                   color: Theme.of(context).cardColor,

@@ -21,6 +21,7 @@ import '../widgets/map_filter_bar.dart';
 import '../widgets/map_cluster_layer.dart';
 import '../widgets/map_search_bar.dart';
 import '../widgets/ai_suggestion_sheet.dart';
+import '../../../../core/design_system/widgets/ev_toast.dart';
 
 /// Main Geospatial Charging Stations Map Screen
 ///
@@ -328,12 +329,7 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
     result.fold(
       (failure) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(failure.message),
-              backgroundColor: AppColors.error,
-            ),
-          );
+          EVToast.show(context, message: failure.message, isError: true);
         }
       },
       (station) {
@@ -540,8 +536,8 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
               if (state is MapError) {
                 return Positioned(
                   bottom: 140,
-                  left: 24,
-                  right: 24,
+                  left: AppLayout.sidePadding,
+                  right: AppLayout.sidePadding,
                   child: Card(
                     color: Theme.of(context).colorScheme.errorContainer,
                     child: Padding(
@@ -580,8 +576,8 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
 
           Positioned(
             top: 40,
-            left: AppSpacing.lg,
-            right: AppSpacing.lg,
+            left: AppLayout.sidePadding,
+            right: AppLayout.sidePadding,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -635,7 +631,7 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
 
           Positioned(
             bottom: 176,
-            right: AppSpacing.lg,
+            right: AppLayout.sidePadding,
             child: GestureDetector(
               key: const ValueKey('ai_optimizer_btn'),
               onTap: _getAiSuggestion,
@@ -662,7 +658,7 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
 
           Positioned(
             bottom: 120,
-            right: AppSpacing.lg,
+            right: AppLayout.sidePadding,
             child: GestureDetector(
               key: const ValueKey('recenter_btn'),
               onTap: _recenterMap,

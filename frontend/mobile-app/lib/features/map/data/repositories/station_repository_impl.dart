@@ -208,8 +208,8 @@ class StationRepositoryImpl implements IStationRepository {
         ApiPaths.chargerPricing(stationId, chargerId),
         queryParameters: {
           'connectorType': connectorType,
-          'startTime': startTime.toIso8601String(),
-          'endTime': endTime.toIso8601String(),
+          'startTime': startTime.toUtc().toIso8601String(),
+          'endTime': endTime.toUtc().toIso8601String(),
         },
       );
       final data = response.data is Map<String, dynamic>
