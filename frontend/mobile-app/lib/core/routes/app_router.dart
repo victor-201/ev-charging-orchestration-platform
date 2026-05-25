@@ -264,7 +264,7 @@ class AppRouter {
               builder: (_, __) => const ProfileScreen(),
               routes: [
                 GoRoute(path: 'vehicles', name: 'vehicles', builder: (_, __) => const VehiclesScreen()),
-                GoRoute(path: 'security', name: 'security-settings', builder: (_, __) => const SecuritySettingsScreen()),
+                GoRoute(path: 'security', name: 'security-settings', builder: (_, state) => SecuritySettingsScreen(initialIndex: state.extra as int? ?? 0)),
                 GoRoute(path: 'arrears', name: 'arrears', builder: (_, __) => const ArrearsScreen()),
               ],
             ),
