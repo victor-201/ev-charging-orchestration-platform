@@ -43,6 +43,7 @@ export class UserController {
     private readonly getProfileAuditUC: GetProfileAuditLogUseCase,
     private readonly getVehicleAuditUC: GetVehicleAuditLogUseCase,
     private readonly setupAutochargeUC: SetupAutochargeUseCase,
+    private readonly uploadAvatarUC: UploadAvatarUseCase,
   ) {}
 
 
@@ -69,6 +70,30 @@ export class UserController {
       phone: dto.phone,
       dateOfBirth: dto.dateOfBirth,
     });
+  }
+
+
+  @Post('me/avatar')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 2 * 1024 * 1024 }, // 2 MB
+      fileFilter: (_req, file, cb) => {
+        if (!file.mimetype.match(/^image\/(jpeg|png|webp|gif)$/)) {
+          cb(new UnsupportedMediaTypeException('Only JPEG, PNG, WebP, and GIF images are allowed'), false);
+          return;
+        }
+        cb(null, true);
+      },
+    }),
+  )
+  async uploadAvatar(
+    @CurrentUser() user: AuthenticatedUser,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<{ avatarUrl: string }> {
+    if (!file) throw new BadRequestException('File is required');
+    const avatarUrl = await this.uploadAvatarUC.execute(user.id, file.buffer, file.mimetype);
+    return { avatarUrl };
   }
 
 
