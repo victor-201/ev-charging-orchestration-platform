@@ -185,6 +185,7 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
           color: AppColors.grey600,
         );
       case 'profile_update':
+      case 'updated':
         return const _ActionData(
           title: 'Cập nhật thông tin hồ sơ',
           icon: Icons.person_outline,
@@ -243,22 +244,52 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
 
   String _formatDetails(Map<String, dynamic> details) {
     final buffer = StringBuffer();
-    details.forEach((key, value) {
-      if (key == 'ip') {
-        buffer.write('IP: $value  ·  ');
-      } else if (key == 'device') {
-        buffer.write('Thiết bị: $value  ·  ');
-      } else if (key == 'modelName') {
-        buffer.write('Mẫu xe: $value  ·  ');
-      } else if (key == 'plateNumber') {
-        buffer.write('Biển số: $value  ·  ');
+
+    // Format: { "after": {...}, "before": {...} }
+    if (details.containsKey('after') || details.containsKey('before')) {
+      final after = details['after'] as Map<String, dynamic>? ?? {};
+      final before = details['before'] as Map<String, dynamic>? ?? {};
+      final changedFields = <String>{...after.keys}..addAll(before.keys);
+      for (final field in changedFields) {
+        final oldVal = _fmt(before[field]);
+        final newVal = _fmt(after[field]);
+        if (oldVal == newVal) continue;
+        buffer.writeln('• ${_fieldLabel(field)}:');
+        buffer.writeln('  $oldVal → $newVal');
       }
-    });
-    final result = buffer.toString();
-    if (result.endsWith('  ·  ')) {
-      return result.substring(0, result.length - 5);
+      return buffer.toString().trim();
     }
-    return details.toString();
+
+    // Format simple key-value changes
+    for (final entry in details.entries) {
+      buffer.writeln('• ${_fieldLabel(entry.key)}: ${_fmt(entry.value)}');
+    }
+    return buffer.toString().trim();
+  }
+
+  String _fmt(dynamic value) {
+    if (value == null) return '(trống)';
+    final s = value.toString();
+    return s.length > 60 ? '${s.substring(0, 60)}...' : s;
+  }
+
+  String _fieldLabel(String field) {
+    switch (field) {
+      case 'avatarUrl': return 'Ảnh đại diện';
+      case 'phone': return 'Số điện thoại';
+      case 'address': return 'Địa chỉ';
+      case 'dateOfBirth': return 'Ngày sinh';
+      case 'email': return 'Email';
+      case 'fullName': return 'Họ tên';
+      case 'modelName': return 'Mẫu xe';
+      case 'plateNumber': return 'Biển số';
+      case 'brand': return 'Hãng xe';
+      case 'color': return 'Màu sắc';
+      case 'year': return 'Năm sản xuất';
+      case 'ip': return 'IP';
+      case 'device': return 'Thiết bị';
+      default: return field;
+    }
   }
 }
 

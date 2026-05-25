@@ -296,12 +296,13 @@ class ProfileRepositoryImpl implements IProfileRepository {
         final d = e as Map<String, dynamic>;
         return AuditLogEntity(
           action: d['action']?.toString() ?? '',
-          changedAt: d['changedAt'] != null
-              ? DateTime.parse(d['changedAt'].toString())
-              : (d['createdAt'] != null ? DateTime.parse(d['createdAt'].toString()) : DateTime.now()),
-          details: d['details'] is Map<String, dynamic>
-              ? d['details'] as Map<String, dynamic>
+          changedAt: d['createdAt'] != null
+              ? DateTime.parse(d['createdAt'].toString())
+              : DateTime.now(),
+          details: d['changes'] is Map<String, dynamic>
+              ? d['changes'] as Map<String, dynamic>
               : <String, dynamic>{},
+          changedBy: d['changedBy']?.toString(),
         );
       }).toList());
     } on DioException catch (e) { return Left(ErrorMapper.fromDioException(e)); }

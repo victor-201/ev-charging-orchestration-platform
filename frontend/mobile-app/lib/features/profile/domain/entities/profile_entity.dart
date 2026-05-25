@@ -111,13 +111,15 @@ class AuditLogEntity extends Equatable {
   final String action;
   final DateTime changedAt;
   final Map<String, dynamic> details;
+  final String? changedBy;
 
   const AuditLogEntity({
     required this.action,
     required this.changedAt,
     required this.details,
+    this.changedBy,
   });
 
   @override
-  List<Object?> get props => [action, changedAt, details];
+  List<Object?> get props => [action, changedAt, details, changedBy];
 }
