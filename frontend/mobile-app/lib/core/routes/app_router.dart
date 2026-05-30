@@ -45,6 +45,7 @@ class AppRouter {
     redirect: (context, state) {
       final authState = authBloc.state;
       final isAuth      = authState is AuthAuthenticated;
+      final isLoading   = authState is AuthInitial || authState is AuthLoading;
       final isAuthRoute = state.matchedLocation.startsWith('/auth');
       final isPublic = state.matchedLocation == '/splash'
           || state.matchedLocation == '/welcome'
@@ -56,6 +57,12 @@ class AppRouter {
           state.matchedLocation != '/splash' &&
           state.matchedLocation != '/welcome') {
         HydratedBloc.storage.write('last_visited_route', routeStr);
+      }
+
+      if (isLoading) {
+        // While checking token or loading initial session, do not redirect.
+        // Let the current route or splash screen handle loading cleanly.
+        return null;
       }
 
       if (isAuth && (isAuthRoute || state.matchedLocation == '/welcome')) {
@@ -352,7 +359,7 @@ class _GlassNavBar extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(36),
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
                 child: Container(
                   decoration: BoxDecoration(
                     color: isDark

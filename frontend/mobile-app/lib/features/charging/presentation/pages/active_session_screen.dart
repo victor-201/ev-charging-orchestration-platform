@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../bloc/charging_session_bloc.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
+import '../../../../core/design_system/theme/app_layout.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/live_meter_widget.dart';
 import '../../../../core/design_system/widgets/alert_banner.dart';

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/booking_entity.dart';
 import '../bloc/booking_bloc.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
+import '../../../../core/design_system/theme/app_layout.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
 import '../../../../core/utils/vnd_formatter.dart';
@@ -68,12 +69,7 @@ class _PaymentBottomSheetState extends State<PaymentBottomSheet> {
           )
         ],
       ),
-      padding: EdgeInsets.only(
-        left: 24,
-        right: 24,
-        top: 16,
-        bottom: MediaQuery.of(context).padding.bottom + 24,
-      ),
+      padding: AppLayout.paddingWithNavbar(context),
       child: BlocBuilder<WalletBloc, WalletState>(
         builder: (context, walletState) {
           final WalletEntity? wallet =

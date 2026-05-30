@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../bloc/profile_bloc.dart';
 import '../../domain/repositories/i_profile_repository.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
+import '../../../../core/design_system/theme/app_layout.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
 import '../../../../core/design_system/widgets/liquid_glass_scaffold.dart';

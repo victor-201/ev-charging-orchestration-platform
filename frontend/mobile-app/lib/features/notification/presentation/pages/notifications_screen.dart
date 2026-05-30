@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../bloc/notification_bloc.dart';
 import '../../domain/entities/notification_entity.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
+import '../../../../core/design_system/theme/app_layout.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
 import '../../../../core/design_system/widgets/liquid_glass_scaffold.dart';

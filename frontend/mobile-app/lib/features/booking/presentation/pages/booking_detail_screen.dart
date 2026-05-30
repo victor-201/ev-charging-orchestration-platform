@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../bloc/booking_bloc.dart';
 import '../../domain/entities/booking_entity.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
+import '../../../../core/design_system/theme/app_layout.dart';
 import '../../../../core/design_system/widgets/liquid_glass_scaffold.dart';
 import '../../../../core/design_system/widgets/ev_header.dart';
 import '../../../../core/design_system/theme/app_typography.dart';

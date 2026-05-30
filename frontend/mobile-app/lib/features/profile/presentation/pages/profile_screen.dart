@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../bloc/profile_bloc.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
+import '../../../../core/design_system/theme/app_layout.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
 import '../../../../core/design_system/widgets/glass_square.dart';
@@ -302,13 +303,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               // ── Content ────────────────────────────────────────
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppLayout.sidePadding,
-                    vertical: AppLayout.sidePadding,
-                  ),
+                  padding: AppLayout.paddingWithNavbar(context),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      const SizedBox(height: AppSpacing.lg),
                       // Stats Row
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -453,7 +452,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         isDarkVariant: true,
                         onTap: () => _confirmLogout(context),
                       ),
-                      SizedBox(height: AppLayout.bottomPadding(context)),
                     ],
                   ),
                 ),

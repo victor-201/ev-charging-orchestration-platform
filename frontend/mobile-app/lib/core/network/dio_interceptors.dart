@@ -63,15 +63,24 @@ class DioAuthInterceptor extends QueuedInterceptor {
           final retry = await _dio.fetch(err.requestOptions);
           return handler.resolve(retry);
         }
-      } catch (_) {
-        // Refresh failed → log out
-        await _clearTokens();
-        onLogout?.call();
+      } catch (e) {
+        // Refresh failed — distinguish definitive rejection from transient
+        if (e is DioException && e.response?.statusCode == 401) {
+          // Refresh token definitively rejected by server → clear & logout
+          await _clearTokens();
+          onLogout?.call();
+        }
+        // For connection errors, timeouts, 5xx, etc., keep tokens in storage.
+        // The server may recover and the caller can retry.
       }
     }
     handler.next(err);
   }
 
+  /// Retry-friendly refresh with exponential backoff for transient failures.
+  /// Returns `null` if no refresh token exists or the response lacks an accessToken.
+  /// Throws [DioException] on definitive 401 rejection.
+  /// For transient errors (timeout, connection refused, 5xx) it retries up to 2×.
   Future<String?> _refresh() async {
     final refreshToken =
         await _secureStorage.read(key: StorageKeys.refreshToken);
@@ -91,27 +100,42 @@ class DioAuthInterceptor extends QueuedInterceptor {
       },
     ));
 
-    final response = await refreshDio.post(
-      '/auth/refresh',
-      data: {'refreshToken': refreshToken},
-    );
+    const maxAttempts = 3;
+    for (int attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        final response = await refreshDio.post(
+          '/auth/refresh',
+          data: {'refreshToken': refreshToken},
+        );
 
-    // Handle both flat { accessToken } and wrapped { data: { accessToken } }
-    final body = response.data as Map<String, dynamic>? ?? {};
-    final payload = (body['data'] is Map<String, dynamic>)
-        ? body['data'] as Map<String, dynamic>
-        : body;
+        // Handle both flat { accessToken } and wrapped { data: { accessToken } }
+        final body = response.data as Map<String, dynamic>? ?? {};
+        final payload = (body['data'] is Map<String, dynamic>)
+            ? body['data'] as Map<String, dynamic>
+            : body;
 
-    final accessToken = payload['accessToken'] as String?;
-    final newRefresh = payload['refreshToken'] as String?;
+        final accessToken = payload['accessToken'] as String?;
+        final newRefresh = payload['refreshToken'] as String?;
 
-    if (newRefresh != null && newRefresh.isNotEmpty) {
-      await _secureStorage.write(
-        key: StorageKeys.refreshToken,
-        value: newRefresh,
-      );
+        if (newRefresh != null && newRefresh.isNotEmpty) {
+          await _secureStorage.write(
+            key: StorageKeys.refreshToken,
+            value: newRefresh,
+          );
+        }
+        return (accessToken != null && accessToken.isNotEmpty) ? accessToken : null;
+      } on DioException catch (e) {
+        // Definitive 401 rejection — don't retry, rethrow immediately
+        if (e.response?.statusCode == 401) rethrow;
+        // Transient error — retry unless this was the last attempt
+        if (attempt < maxAttempts - 1) {
+          await Future.delayed(Duration(seconds: 1 << attempt));
+          continue;
+        }
+        rethrow;
+      }
     }
-    return (accessToken != null && accessToken.isNotEmpty) ? accessToken : null;
+    return null;
   }
 
   Future<void> _clearTokens() async {

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../bloc/charging_session_bloc.dart';
 import '../../domain/entities/charging_session_entity.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
+import '../../../../core/design_system/theme/app_layout.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
 import '../../../../core/design_system/widgets/glass_pill.dart';
@@ -121,12 +122,7 @@ class _QuickChargeTab extends StatelessWidget {
 
         // Idle state — show stat tiles + CTA
         return SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(
-            AppLayout.sidePadding,
-            0,
-            AppLayout.sidePadding,
-            AppLayout.bottomPadding(context),
-          ),
+          padding: AppLayout.paddingWithNavbar(context),
           child: Column(
             children: [
               // ── 4 GlassSquare stat tiles ───────────────────
@@ -209,8 +205,7 @@ class _ActiveSessionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        AppLayout.sidePadding, 0, AppLayout.sidePadding, AppLayout.bottomPadding(context)),
+      padding: AppLayout.paddingWithNavbar(context),
       child: Column(
         children: [
           // ── 4 GlassSquare tiles ──────────────────────────────

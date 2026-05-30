@@ -5,6 +5,7 @@ import '../bloc/booking_bloc.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../domain/entities/booking_entity.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
+import '../../../../core/design_system/theme/app_layout.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
 import '../../../../core/design_system/widgets/glass_pill.dart';
@@ -289,12 +290,7 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                       });
                     },
                     child: ListView.separated(
-                      padding: EdgeInsets.fromLTRB(
-                        AppLayout.sidePadding,
-                        0,
-                        AppLayout.sidePadding,
-                        AppLayout.bottomPadding(context),
-                      ),
+                      padding: AppLayout.paddingWithNavbar(context),
                       itemCount: filtered.length,
                       separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
                       itemBuilder: (_, i) {

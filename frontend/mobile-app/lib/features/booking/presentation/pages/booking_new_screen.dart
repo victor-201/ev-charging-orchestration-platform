@@ -6,6 +6,7 @@ import 'package:get_it/get_it.dart';
 import '../bloc/booking_bloc.dart';
 import '../../domain/entities/booking_entity.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
+import '../../../../core/design_system/theme/app_layout.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
 import '../../../../core/design_system/widgets/ev_toast.dart';
@@ -565,11 +566,8 @@ class _BookingNewScreenState extends State<BookingNewScreen>
       return GridView.builder(
         key: _gridKey,
         controller: _gridScrollController,
-        padding: EdgeInsets.fromLTRB(
-            AppLayout.sidePadding,
-            AppSpacing.xs,
-            AppLayout.sidePadding,
-            showSummary ? 260.0 : AppLayout.bottomPadding(context)),
+        padding: AppLayout.paddingWithHeader(context).copyWith(
+            bottom: showSummary ? 260.0 : 0.0),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
           childAspectRatio: 1.7,
@@ -729,11 +727,8 @@ class _BookingNewScreenState extends State<BookingNewScreen>
     }
 
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-          AppLayout.sidePadding,
-          AppSpacing.xs,
-          AppLayout.sidePadding,
-          showSummary ? 260.0 : AppLayout.bottomPadding(context)),
+      padding: AppLayout.paddingWithHeader(context).copyWith(
+          bottom: showSummary ? 260.0 : 0.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

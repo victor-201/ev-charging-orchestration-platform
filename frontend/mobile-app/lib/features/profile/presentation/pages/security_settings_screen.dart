@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/profile_bloc.dart';
 import '../../domain/entities/profile_entity.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
+import '../../../../core/design_system/theme/app_layout.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
 import '../../../../core/utils/date_utils.dart' as ev_date;
@@ -194,17 +195,13 @@ class _ChangePasswordTabState extends State<_ChangePasswordTab> {
     final newPass = _newCtrl.text;
 
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        AppLayout.sidePadding,
-        AppSpacing.lg,
-        AppLayout.sidePadding,
-        AppLayout.bottomPadding(context),
-      ),
+      padding: AppLayout.paddingWithNavbar(context),
       child: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const SizedBox(height: AppSpacing.lg),
             Text('Đổi mật khẩu', style: AppTypography.headingMd),
             const SizedBox(height: 8),
             Text(
@@ -401,15 +398,11 @@ class _MFATab extends StatelessWidget {
     final mfaEnabled = profile?.mfaEnabled ?? false;
 
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        AppLayout.sidePadding,
-        AppSpacing.lg,
-        AppLayout.sidePadding,
-        AppLayout.bottomPadding(context),
-      ),
+      padding: AppLayout.paddingWithNavbar(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const SizedBox(height: AppSpacing.lg),
           Text('Bảo mật 2 lớp (MFA)', style: AppTypography.headingMd),
           const SizedBox(height: 8),
           Text(
@@ -614,12 +607,7 @@ class _SessionsTabState extends State<_SessionsTab> {
           )
         else
           SliverPadding(
-            padding: EdgeInsets.fromLTRB(
-              AppLayout.sidePadding,
-              0,
-              AppLayout.sidePadding,
-              AppLayout.bottomPadding(context),
-            ),
+            padding: AppLayout.paddingWithNavbar(context),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
                 (_, i) {

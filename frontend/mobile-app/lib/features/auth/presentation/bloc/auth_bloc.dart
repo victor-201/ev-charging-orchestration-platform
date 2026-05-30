@@ -30,17 +30,17 @@ class AuthBloc extends HydratedBloc<AuthEvent, AuthState> {
 
   Future<void> _onCheckRequested(
       AuthCheckRequested event, Emitter<AuthState> emit) async {
-    // Always verify the token with the server — do not trust the HydratedBloc
-    // cache blindly, as the access token may have expired since last session.
-    emit(const AuthLoading());
-    final cachedState = state; // preserve HydratedBloc snapshot before loading
+    // Verify token with server to handle expiration independently of HydratedBloc cache.
+    final cachedState = state;
+    if (cachedState is! AuthAuthenticated) {
+      emit(const AuthLoading());
+    }
     final result = await _repository.getMe();
     result.fold(
       (failure) {
-        // Keep the user logged in if it's just a connectivity issue.
-        // Log them out only when the server explicitly rejects the token (401).
+        // Prevent accidental logout on connectivity issues.
         if (failure is NetworkFailure && cachedState is AuthAuthenticated) {
-          emit(cachedState); // restore cached
+          emit(cachedState);
         } else {
           emit(const AuthUnauthenticated());
         }

@@ -79,9 +79,21 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.3
   injectable_generator: ^2.10.0
   build_runner: ^2.15.0
   mocktail: ^1.0.5
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/EVoltSync.png"
+  adaptive_icon_background: "@drawable/ic_launcher_background"
+  adaptive_icon_foreground: "assets/images/EVoltSync.png"
+  # After running flutter_launcher_icons, re-apply dark/light mode support:
+  #   1. android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+  #   2. android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+  #   3. android/app/src/main/res/values-night/colors.xml
 
 flutter:
   uses-material-design: true
