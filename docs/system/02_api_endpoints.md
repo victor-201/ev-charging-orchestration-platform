@@ -7,7 +7,7 @@
 ### [01] [POST] /api/v1/auth/register
 
 - **Auth:** Public | **Roles:** —
-- **Name:** Đăng ký tài khoản
+- **Name:** Register account
 - **Request (Body):**
   ```json
   {
@@ -35,7 +35,7 @@
 ### [02] [POST] /api/v1/auth/verify-email
 
 - **Auth:** Public | **Roles:** —
-- **Name:** Xác thực email qua Token hoặc Code
+- **Name:** Verify email via Token or Code
 - **Request (Body):**
   ```json
   {
@@ -57,7 +57,7 @@
 ### [03] [POST] /api/v1/auth/resend-verification
 
 - **Auth:** Public | **Roles:** —
-- **Name:** Gửi lại email xác thực
+- **Name:** Resend verification email
 - **Request (Body):**
   ```json
   {
@@ -68,7 +68,7 @@
 ### [04] [POST] /api/v1/auth/login
 
 - **Auth:** Public | **Roles:** —
-- **Name:** Đăng nhập, nhận JWT
+- **Name:** Login, receive JWT
 - **Request (Body):**
   ```json
   {
@@ -89,7 +89,7 @@
 ### [05] [POST] /api/v1/auth/refresh
 
 - **Auth:** Public | **Roles:** —
-- **Name:** Làm mới Access Token
+- **Name:** Refresh Access Token
 - **Request (Body):**
   ```json
   {
@@ -107,7 +107,7 @@
 ### [06] [POST] /api/v1/auth/logout
 
 - **Auth:** Bearer | **Roles:** User/Admin
-- **Name:** Đăng xuất, thu hồi session
+- **Name:** Logout, revoke session
 - **Request (Body):**
   ```json
   {
@@ -119,7 +119,7 @@
 ### [07] [GET] /api/v1/auth/me
 
 - **Auth:** Bearer | **Roles:** User/Admin
-- **Name:** Lấy thông tin user hiện tại (từ JWT)
+- **Name:** Get current user info (from JWT)
 - **Request:** Empty
 - **Response (200 OK):**
   ```json
@@ -133,7 +133,7 @@
 ### [08] [PATCH] /api/v1/auth/change-password
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Đổi mật khẩu
+- **Name:** Change password
 - **Request (Body):**
   ```json
   {
@@ -146,7 +146,7 @@
 ### [09] [GET] /api/v1/auth/sessions
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Danh sách phiên đăng nhập
+- **Name:** List login sessions
 - **Request:** Empty
 - **Response (200 OK):**
   ```json
@@ -163,7 +163,7 @@
 ### [10] [DELETE] /api/v1/auth/sessions/:id
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Thu hồi 1 session
+- **Name:** Revoke a session
 - **Request (Path Params):**
   ```json
   {
@@ -175,14 +175,14 @@
 ### [11] [DELETE] /api/v1/auth/sessions
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Thu hồi tất cả session
+- **Name:** Revoke all sessions
 - **Request:** Empty
 - **Response (204 No Content):** Empty
 
 ### [12] [POST] /api/v1/auth/roles/assign
 
 - **Auth:** Bearer | **Roles:** Admin
-- **Name:** Gán role cho user
+- **Name:** Assign role to user
 - **Request (Body):**
   ```json
   {
@@ -196,7 +196,7 @@
 ### [13] [POST] /api/v1/auth/roles/revoke
 
 - **Auth:** Bearer | **Roles:** Admin
-- **Name:** Gỡ role khỏi user
+- **Name:** Revoke role from user
 - **Request (Body):**
   ```json
   {
@@ -209,7 +209,7 @@
 ### [14] [POST] /api/v1/auth/mfa/setup
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Khởi tạo TOTP MFA
+- **Name:** Initialize TOTP MFA
 - **Request:** Empty
 - **Response (200 OK):**
   ```json
@@ -222,7 +222,7 @@
 ### [15] [POST] /api/v1/auth/mfa/verify
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Xác minh & kích hoạt MFA
+- **Name:** Verify & activate MFA
 - **Request (Body):**
   ```json
   {
@@ -239,7 +239,7 @@
 ### [16] [POST] /api/v1/auth/mfa/disable
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Tắt MFA
+- **Name:** Disable MFA
 - **Request (Body):**
   ```json
   {
@@ -251,7 +251,7 @@
 ### [17] [GET] /api/v1/users/me
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Lấy profile đầy đủ
+- **Name:** Get full profile
 - **Request:** Empty
 - **Response (200 OK):**
   ```json
@@ -269,7 +269,7 @@
 ### [18] [PATCH] /api/v1/users/me
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Cập nhật profile
+- **Name:** Update profile
 - **Request (Body):**
   ```json
   {
@@ -282,14 +282,14 @@
 ### [19] [DELETE] /api/v1/users/me
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Xóa mềm tài khoản
+- **Name:** Soft delete account
 - **Request:** Empty
 - **Response (204 No Content):** Empty
 
 ### [20] [GET] /api/v1/users/me/audit-log
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Lịch sử thay đổi profile
+- **Name:** Profile change history
 - **Request (Query):**
   ```json
   {
@@ -310,7 +310,7 @@
 ### [21] [GET] /api/v1/users/me/vehicles
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Danh sách xe của tôi
+- **Name:** My vehicles list
 - **Request:** Empty
 - **Response (200 OK):**
   ```json
@@ -334,7 +334,7 @@
 ### [22] [POST] /api/v1/users/me/vehicles
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Thêm xe mới
+- **Name:** Add new vehicle
 - **Request (Body):**
   ```json
   {
@@ -353,7 +353,7 @@
 ### [23] [PATCH] /api/v1/users/me/vehicles/:id
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Cập nhật xe
+- **Name:** Update vehicle
 - **Request (Path Params & Body):**
   ```json
   // Path Params
@@ -370,7 +370,7 @@
 ### [24] [DELETE] /api/v1/users/me/vehicles/:id
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Xóa xe
+- **Name:** Delete vehicle
 - **Request (Path Params):**
   ```json
   {
@@ -382,7 +382,7 @@
 ### [25] [PATCH] /api/v1/users/me/vehicles/:id/primary
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Đặt xe mặc định
+- **Name:** Set default vehicle
 - **Request (Path Params):**
   ```json
   {
@@ -394,7 +394,7 @@
 ### [26] [GET] /api/v1/users/me/vehicles/:id/audit-log
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Lịch sử thay đổi xe
+- **Name:** Vehicle change history
 - **Request (Path Params & Query):**
   ```json
   // Path Params
@@ -421,7 +421,7 @@
 ### [27] [GET] /api/v1/staff
 
 - **Auth:** Bearer | **Roles:** Admin/Staff
-- **Name:** Danh sách nhân viên (phân trang)
+- **Name:** Staff list (paginated)
 - **Request (Query):**
   ```json
   {
@@ -436,7 +436,7 @@
 ### [28] [POST] /api/v1/staff
 
 - **Auth:** Bearer | **Roles:** Admin
-- **Name:** Thêm hồ sơ nhân viên mới
+- **Name:** Add new staff profile
 - **Request (Body):**
   ```json
   {
@@ -451,7 +451,7 @@
 ### [29] [PATCH] /api/v1/staff/:id
 
 - **Auth:** Bearer | **Roles:** Admin
-- **Name:** Cập nhật hồ sơ nhân viên
+- **Name:** Update staff profile
 - **Request (Path Params & Body):**
   ```json
   // Path Params
@@ -470,7 +470,7 @@
 ### [30] [POST] /api/v1/attendance/check-in
 
 - **Auth:** Bearer | **Roles:** Staff
-- **Name:** Điểm danh vào ca (Check-in)
+- **Name:** Check-in for shift
 - **Request (Body):**
   ```json
   {
@@ -484,7 +484,7 @@
 ### [31] [POST] /api/v1/attendance/check-out
 
 - **Auth:** Bearer | **Roles:** Staff
-- **Name:** Điểm danh ra ca (Check-out)
+- **Name:** Check-out from shift
 - **Request (Body):**
   ```json
   {
@@ -497,7 +497,7 @@
 ### [32] [GET] /api/v1/attendance
 
 - **Auth:** Bearer | **Roles:** Admin/Staff
-- **Name:** Xem lịch sử điểm danh (Admin view)
+- **Name:** View attendance history (Admin view)
 - **Request (Query):**
   ```json
   {
@@ -513,7 +513,7 @@
 ### [33] [PATCH] /api/v1/users/me/vehicles/:id/autocharge-setup
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Cấu hình AutoCharge
+- **Name:** Configure AutoCharge
 - **Request (Path Params & Body):**
   ```json
   // Path Params
@@ -547,7 +547,7 @@
 ### [34] [GET] /api/v1/stations
 
 - **Auth:** Public | **Roles:** —
-- **Name:** Danh sách trạm sạc (phân trang)
+- **Name:** Station list (paginated)
 - **Request (Query):**
   ```json
   {
@@ -579,7 +579,7 @@
 ### [35] [POST] /api/v1/stations
 
 - **Auth:** Bearer | **Roles:** Admin
-- **Name:** Tạo trạm sạc mới
+- **Name:** Create new station
 - **Request (Body):**
   ```json
   {
@@ -597,7 +597,7 @@
 ### [36] [GET] /api/v1/stations/nearby
 
 - **Auth:** Public | **Roles:** —
-- **Name:** Tìm trạm sạc gần đây (Geospatial)
+- **Name:** Find nearby stations (Geospatial)
 - **Request (Query):**
   ```json
   {
@@ -612,7 +612,7 @@
 ### [37] [GET] /api/v1/stations/by-charger/:chargerId
 
 - **Auth:** Public | **Roles:** —
-- **Name:** Lấy thông tin trạm theo chargerId (lookup ngược)
+- **Name:** Get station by chargerId (reverse lookup)
 - **Request (Path Params):**
   ```json
   {
@@ -624,13 +624,13 @@
 ### [38] [GET] /api/v1/stations/cities
 
 - **Auth:** Public | **Roles:** —
-- **Name:** Danh sách các thành phố có trạm sạc
+- **Name:** List cities with stations
 - **Request:** Empty
 - **Response (200 OK):** Array of CityDto { id, name, stationCount }
 ### [39] [GET] /api/v1/stations/:id
 
 - **Auth:** Public | **Roles:** —
-- **Name:** Chi tiết trạm
+- **Name:** Station details
 - **Request (Path Params):**
   ```json
   {
@@ -642,7 +642,7 @@
 ### [40] [GET] /api/v1/stations/:stationId/chargers
 
 - **Auth:** Public | **Roles:** —
-- **Name:** Danh sách charger của một trạm
+- **Name:** List chargers in a station
 - **Request (Path Params):**
   ```json
   {
@@ -654,7 +654,7 @@
 ### [41] [PATCH] /api/v1/stations/:id
 
 - **Auth:** Bearer | **Roles:** Admin
-- **Name:** Cập nhật thông tin trạm
+- **Name:** Update station info
 - **Request (Path Params & Body):**
   ```json
   // Path Params
@@ -673,7 +673,7 @@
 ### [42] [DELETE] /api/v1/stations/:id
 
 - **Auth:** Bearer | **Roles:** Admin
-- **Name:** Vô hiệu hóa trạm
+- **Name:** Deactivate station
 - **Request (Path Params):**
   ```json
   {
@@ -685,7 +685,7 @@
 ### [43] [POST] /api/v1/stations/:stationId/chargers
 
 - **Auth:** Bearer | **Roles:** Admin
-- **Name:** Thêm charger vào trạm
+- **Name:** Add charger to station
 - **Request (Path Params & Body):**
   ```json
   // Path Params
@@ -716,7 +716,7 @@
 ### [44] [PATCH] /api/v1/stations/:stationId/chargers/:chargerId/status
 
 - **Auth:** Bearer | **Roles:** Admin/Staff
-- **Name:** Cập nhật trạng thái charger
+- **Name:** Update charger status
 - **Request (Path Params & Body):**
   ```json
   // Path Params
@@ -734,7 +734,7 @@
 ### [45] [GET] /api/v1/stations/:stationId/chargers/:chargerId/pricing
 
 - **Auth:** Public | **Roles:** —
-- **Name:** Xem báo giá sạc
+- **Name:** View charging price quote
 - **Request (Path Params & Query):**
   ```json
   // Path Params
@@ -761,7 +761,7 @@
 ### [46] [POST] /api/v1/stations/:stationId/chargers/:chargerId/pricing/calculate-session-fee
 
 - **Auth:** Public | **Roles:** —
-- **Name:** Tính phí session thực tế (internal)
+- **Name:** Calculate actual session fee (internal)
 - **Request (Path Params & Body):**
   ```json
   // Path Params
@@ -789,7 +789,7 @@
 ### [47] [GET] /api/v1/stations/pricing-rules
 
 - **Auth:** Bearer | **Roles:** Admin/Staff
-- **Name:** Danh sách pricing rules
+- **Name:** List pricing rules
 - **Request (Query):**
   ```json
   {
@@ -816,7 +816,7 @@
 ### [48] [POST] /api/v1/stations/pricing-rules
 
 - **Auth:** Bearer | **Roles:** Admin
-- **Name:** Tạo pricing rule mới (TOU/Idle)
+- **Name:** Create new pricing rule (TOU/Idle)
 - **Request (Body):**
   ```json
   {
@@ -838,21 +838,21 @@
 ### [49] [PATCH] /api/v1/stations/pricing-rules/:ruleId
 
 - **Auth:** Bearer | **Roles:** Admin
-- **Name:** Cập nhật pricing rule
+- **Name:** Update pricing rule
 - **Request (Path Params & Body):**
   ```json
   // Path Params
   {
     "ruleId": "uuid"
   }
-  // Body: Các field giống POST nhưng đều optional
+  // Body: Same fields as POST but all optional
   ```
 - **Response (200 OK):** Updated Pricing Rule JSON
 
 ### [50] [PATCH] /api/v1/stations/pricing-rules/:ruleId/deactivate
 
 - **Auth:** Bearer | **Roles:** Admin
-- **Name:** Vô hiệu hóa pricing rule
+- **Name:** Deactivate pricing rule
 - **Request (Path Params):**
   ```json
   {
@@ -863,7 +863,7 @@
 ### [51] [GET] /api/v1/stations/incidents
 
 - **Auth:** Bearer | **Roles:** Admin/Staff
-- **Name:** Danh sách sự cố trạm sạc
+- **Name:** List station incidents
 - **Request (Query):**
   ```json
   {
@@ -878,7 +878,7 @@
 ### [52] [POST] /api/v1/stations/incidents
 
 - **Auth:** Bearer | **Roles:** Staff/User
-- **Name:** Báo cáo sự cố mới
+- **Name:** Report new incident
 - **Request (Body):**
   ```json
   {
@@ -894,7 +894,7 @@
 ### [53] [PATCH] /api/v1/stations/incidents/:id
 
 - **Auth:** Bearer | **Roles:** Admin/Staff
-- **Name:** Xử lý sự cố
+- **Name:** Handle incident
 - **Request (Body):**
   ```json
   {
@@ -907,7 +907,7 @@
 ### [54] [GET] /api/v1/stations/maintenance
 
 - **Auth:** Bearer | **Roles:** Admin/Staff
-- **Name:** Lịch bảo trì trạm sạc
+- **Name:** Station maintenance schedule
 - **Request (Query):**
   ```json
   {
@@ -920,7 +920,7 @@
 ### [55] [POST] /api/v1/stations/maintenance
 
 - **Auth:** Bearer | **Roles:** Admin
-- **Name:** Lên lịch bảo trì
+- **Name:** Schedule maintenance
 - **Request (Body):**
   ```json
   {
@@ -943,7 +943,7 @@
 ### [56] [GET] /api/v1/bookings/availability
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Xem lịch trống/bận theo ngày
+- **Name:** View availability by date
 - **Request (Query):**
   ```json
   {
@@ -966,7 +966,7 @@
 ### [57] [GET] /api/v1/bookings/me
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Lịch đặt của tôi
+- **Name:** My bookings
 - **Request (Query):**
   ```json
   {
@@ -998,7 +998,7 @@
 ### [58] [POST] /api/v1/bookings
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Tạo booking mới (auto trừ tiền cọc)
+- **Name:** Create new booking (auto-deduct deposit)
 - **Request (Body):**
   ```json
   {
@@ -1028,19 +1028,19 @@
 ### [59] [GET] /api/v1/bookings/:id
 
 - **Auth:** Bearer | **Roles:** User/Admin
-- **Name:** Chi tiết booking
+- **Name:** Booking details
 - **Request (Path Params):**
   ```json
   {
     "id": "uuid"
   }
   ```
-- **Response (200 OK):** Booking JSON (giống item của /bookings/me)
+- **Response (200 OK):** Booking JSON (same as item in /bookings/me)
 
 ### [60] [DELETE] /api/v1/bookings/:id
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Hủy booking (hoàn tiền cọc 100%)
+- **Name:** Cancel booking (100% deposit refund)
 - **Request (Path Params & Body):**
   ```json
   // Path Params
@@ -1058,7 +1058,7 @@
 *Note: This endpoint is also aliased at `/api/v1/queue`.*
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Vào hàng đợi khi trạm đầy
+- **Name:** Join queue when station is full
 - **Request (Body):**
   ```json
   {
@@ -1079,7 +1079,7 @@
 *Note: This endpoint is also aliased at `/api/v1/queue/:chargerId`.*
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Rời hàng đợi
+- **Name:** Leave queue
 - **Request (Path Params):**
   ```json
   {
@@ -1092,7 +1092,7 @@
 *Note: This endpoint is also aliased at `/api/v1/queue/:chargerId/position`.*
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Xem vị trí trong hàng đợi
+- **Name:** Check queue position
 - **Request (Path Params):**
   ```json
   {
@@ -1110,7 +1110,7 @@
 ### [64] [GET] /api/v1/bookings/suggest
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Đề xuất trạm sạc tối ưu (Suggest Charger & DP Optimizer)
+- **Name:** Suggest optimal charging station (Suggest Charger & DP Optimizer)
 - **Request (Query Params):**
   ```json
   {
@@ -1119,7 +1119,7 @@
     "longitude": "number (optional)",
     "startTime": "iso-date (optional)",
     "endTime": "iso-date (optional)",
-    "budgetVnd": "number (optional, mặc định: 150000)"
+    "budgetVnd": "number (optional, default: 150000)"
   }
   ```
 - **Response (200 OK):**
@@ -1138,7 +1138,7 @@
 ### [65] [POST] /api/v1/charging/start
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Bắt đầu phiên sạc (có/không booking)
+- **Name:** Start charging session (with/without booking)
 - **Request (Body):**
   ```json
   {
@@ -1165,7 +1165,7 @@
 ### [66] [POST] /api/v1/charging/stop/:id
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Dừng phiên sạc (self-service)
+- **Name:** Stop charging session (self-service)
 - **Request (Path Params & Body):**
   ```json
   // Path Params
@@ -1194,7 +1194,7 @@
 ### [67] [POST] /api/v1/charging/admin/stop/:id
 
 - **Auth:** Bearer | **Roles:** Admin/Staff
-- **Name:** Dừng phiên sạc khẩn cấp (admin)
+- **Name:** Emergency stop charging (admin)
 - **Request (Path Params & Body):**
   ```json
   // Path Params
@@ -1212,7 +1212,7 @@
 ### [68] [POST] /api/v1/charging/telemetry/:id
 
 - **Auth:** Bearer | **Roles:** Admin/Staff
-- **Name:** Nhập telemetry thủ công
+- **Name:** Manual telemetry input
 - **Request (Path Params & Body):**
   ```json
   // Path Params
@@ -1238,7 +1238,7 @@
 ### [69] [GET] /api/v1/charging/session/:id
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Chi tiết phiên sạc
+- **Name:** Charging session details
 - **Request (Path Params):**
   ```json
   {
@@ -1250,7 +1250,7 @@
 ### [70] [GET] /api/v1/charging/charger/:chargerId/active
 
 - **Auth:** Bearer | **Roles:** Admin/Staff
-- **Name:** Session đang active của charger
+- **Name:** Active session for charger
 - **Request (Path Params):**
   ```json
   {
@@ -1262,7 +1262,7 @@
 ### [71] [GET] /api/v1/charging/history
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Lịch sử sạc
+- **Name:** Charging history
 - **Request (Query):**
   ```json
   {
@@ -1281,7 +1281,7 @@
 ### [72] [POST] /api/v1/payments/create
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Tạo VNPay payment URL
+- **Name:** Create VNPay payment URL
 - **Request (Body):**
   ```json
   {
@@ -1302,7 +1302,7 @@
 ### [73] [POST] /api/v1/payments/pay
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Wallet-first orchestrator (ưu tiên ví, fallback VNPay)
+- **Name:** Wallet-first orchestrator (prefer wallet, fallback VNPay)
 - **Request (Headers & Body):**
   ```json
   // Headers
@@ -1320,7 +1320,7 @@
   {
     "status": "string (SUCCESS or REDIRECT)",
     "method": "string (WALLET or VNPAY)",
-    "paymentUrl": "string (optional, xuất hiện khi method=VNPAY)"
+    "paymentUrl": "string (optional, present when method=VNPAY)"
   }
   ```
 
@@ -1352,7 +1352,7 @@
 ### [75] [GET] /api/v1/payments/:id
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Chi tiết giao dịch
+- **Name:** Transaction details
 - **Request (Path Params):**
   ```json
   {
@@ -1376,7 +1376,7 @@
 ### [76] [POST] /api/v1/payments/:id/refund
 
 - **Auth:** Bearer | **Roles:** Admin/Staff
-- **Name:** Hoàn tiền giao dịch
+- **Name:** Refund transaction
 - **Request (Path Params & Body):**
   ```json
   // Path Params
@@ -1402,7 +1402,7 @@
 ### [77] [GET] /api/v1/wallet/balance
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Số dư ví
+- **Name:** Wallet balance
 - **Request:** Empty
 - **Response (200 OK):**
   ```json
@@ -1416,7 +1416,7 @@
 ### [78] [POST] /api/v1/wallet/topup
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Nạp tiền vào ví qua VNPay
+- **Name:** Top-up wallet via VNPay
 - **Request (Body):**
   ```json
   {
@@ -1435,7 +1435,7 @@
 ### [79] [POST] /api/v1/wallet/pay
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Thanh toán trực tiếp từ ví
+- **Name:** Pay directly from wallet
 - **Request (Body):**
   ```json
   {
@@ -1454,7 +1454,7 @@
 ### [80] [GET] /api/v1/transactions
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Lịch sử giao dịch
+- **Name:** Transaction history
 - **Request (Query):**
   ```json
   {
@@ -1482,7 +1482,7 @@
 ### [81] [GET] /api/v1/billing/arrears
 
 - **Auth:** Bearer | **Roles:** Admin
-- **Name:** Quản lý công nợ hệ thống
+- **Name:** System arrears management
 - **Request (Query):**
   ```json
   {
@@ -1495,7 +1495,7 @@
 ### [82] [POST] /api/v1/billing/arrears/:id/clear
 
 - **Auth:** Bearer | **Roles:** Admin/System
-- **Name:** Tất toán công nợ thủ công
+- **Name:** Manual arrears clearance
 - **Request (Body):**
   ```json
   {
@@ -1507,7 +1507,7 @@
 ### [83] [GET] /api/v1/billing/plans
 
 - **Auth:** Public | **Roles:** —
-- **Name:** Danh sách gói dịch vụ
+- **Name:** List service plans
 - **Request:** Empty
 - **Response (200 OK):** PlanDto Array
 
@@ -1515,7 +1515,7 @@
 ### [84] [POST] /api/v1/billing/plans
 
 - **Auth:** Bearer | **Roles:** Admin
-- **Name:** Tạo gói dịch vụ mới
+- **Name:** Create new service plan
 - **Request (Body):**
   ```json
   {
@@ -1530,7 +1530,7 @@
 ### [85] [POST] /api/v1/billing/subscriptions
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Đăng ký gói dịch vụ
+- **Name:** Subscribe to service plan
 - **Request (Body):**
   ```json
   {
@@ -1549,7 +1549,7 @@
 ### [86] [GET] /api/v1/notifications
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Danh sách thông báo (phân trang)
+- **Name:** Notification list (paginated)
 - **Request (Query):**
   ```json
   {
@@ -1575,7 +1575,7 @@
 ### [87] [GET] /api/v1/notifications/unread
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Thông báo chưa đọc
+- **Name:** Unread notifications
 - **Request (Query):**
   ```json
   {
@@ -1587,7 +1587,7 @@
 ### [88] [PATCH] /api/v1/notifications/:id/read
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Đánh dấu đã đọc 1 thông báo
+- **Name:** Mark notification as read
 - **Request (Path Params):**
   ```json
   {
@@ -1599,7 +1599,7 @@
 ### [89] [PATCH] /api/v1/notifications/read-all
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Đánh dấu tất cả đã đọc
+- **Name:** Mark all as read
 - **Request:** Empty
 - **Response (200 OK):**
   ```json
@@ -1611,7 +1611,7 @@
 ### [90] [POST] /api/v1/devices/register
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Đăng ký FCM token
+- **Name:** Register FCM token
 - **Request (Body):**
   ```json
   {
@@ -1630,7 +1630,7 @@
 ### [91] [DELETE] /api/v1/devices/:id
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Hủy đăng ký thiết bị
+- **Name:** Unregister device
 - **Request (Path Params):**
   ```json
   {
@@ -1642,7 +1642,7 @@
 ### [92] [GET] /api/v1/devices
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Danh sách thiết bị đã đăng ký
+- **Name:** List registered devices
 - **Request:** Empty
 - **Response (200 OK):**
   ```json
@@ -1659,7 +1659,7 @@
 ### [93] [GET] /api/v1/preferences
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Lấy cài đặt thông báo
+- **Name:** Get notification preferences
 - **Request:** Empty
 - **Response (200 OK):**
   ```json
@@ -1675,7 +1675,7 @@
 ### [94] [PATCH] /api/v1/preferences
 
 - **Auth:** Bearer | **Roles:** User
-- **Name:** Cập nhật cài đặt thông báo
+- **Name:** Update notification preferences
 - **Request (Body):**
   ```json
   {
@@ -1697,7 +1697,7 @@
 ### [95] [GET] /api/v1/analytics/system
 
 - **Auth:** Bearer | **Roles:** Admin
-- **Name:** KPI toàn platform (active sessions, revenue 30d, booking funnel)
+- **Name:** Platform KPIs (active sessions, revenue 30d, booking funnel)
 - **Request:** Empty
 - **Response (200 OK):**
   ```json
@@ -1717,7 +1717,7 @@
 ### [96] [GET] /api/v1/analytics/revenue
 
 - **Auth:** Bearer | **Roles:** Admin
-- **Name:** Doanh thu theo tháng/ngày
+- **Name:** Revenue by month/day
 - **Request (Query):**
   ```json
   {
@@ -1739,7 +1739,7 @@
 ### [97] [GET] /api/v1/analytics/usage
 
 - **Auth:** Bearer | **Roles:** Admin
-- **Name:** Thống kê sử dụng trạm
+- **Name:** Station usage statistics
 - **Request (Query):**
   ```json
   {
@@ -1789,7 +1789,7 @@
 ### [98] [GET] /api/v1/analytics/peak-hours
 
 - **Auth:** Bearer | **Roles:** Admin
-- **Name:** Giờ cao điểm + dự báo nhu cầu
+- **Name:** Peak hours + demand forecast
 - **Request (Query):**
   ```json
   {
@@ -1819,7 +1819,7 @@
 ### [99] [GET] /api/v1/analytics/users/:userId
 
 - **Auth:** Bearer | **Roles:** Admin
-- **Name:** Hành vi người dùng
+- **Name:** User behavior
 - **Request (Path Params & Query):**
   ```json
   // Path Params
@@ -1857,7 +1857,7 @@
 ### [100] [GET] /api/v1/analytics/stations/:stationId/metrics
 
 - **Auth:** Bearer | **Roles:** Admin
-- **Name:** Tóm tắt thống kê 1 trạm
+- **Name:** Station metrics summary
 - **Request (Path Params & Query):**
   ```json
   // Path Params
@@ -1895,7 +1895,7 @@
 ### [101] [GET] /api/v1/analytics/dashboard
 
 - **Auth:** Bearer | **Roles:** Admin
-- **Name:** Dashboard tổng hợp (composite view)
+- **Name:** Composite dashboard view
 - **Request:** Empty
 - **Response (200 OK):**
   ```json
@@ -1936,7 +1936,7 @@
 ### [102] [POST] /api/v1/telemetry/ingest
 
 - **Auth:** Public | **Roles:** —
-- **Name:** Thu thập telemetry từ charger (body)
+- **Name:** Collect telemetry from charger (body)
 - **Request (Body):**
   ```json
   {
@@ -1963,7 +1963,7 @@
 ### [103] [POST] /api/v1/telemetry/ingest/:chargerId/:sessionId
 
 - **Auth:** Public | **Roles:** —
-- **Name:** Thu thập telemetry (path params)
+- **Name:** Collect telemetry (path params)
 - **Request (Path Params & Body):**
   ```json
   // Path Params
@@ -2000,7 +2000,7 @@
 ### [104] [GET] /api/v1/ocpp/health
 
 - **Auth:** Public | **Roles:** —
-- **Name:** Trạng thái OCPP Gateway + danh sách charger kết nối
+- **Name:** OCPP Gateway status + connected chargers list
 - **Request:** Empty
 - **Response (200 OK):**
   ```json
@@ -2021,5 +2021,5 @@
 ### [WS] ws://ev-ocpp-gw:3010/ocpp/:chargerId
 
 - **Protocol:** OCPP 1.6 JSON WebSocket
-- **Auth:** Header Authorization hoặc TLS client certificate
+- **Auth:** Header Authorization or TLS client certificate
 - **Messages:** BootNotification, Heartbeat, StatusNotification, StartTransaction, StopTransaction, MeterValues
