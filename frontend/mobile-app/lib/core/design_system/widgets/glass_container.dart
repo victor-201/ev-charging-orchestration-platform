@@ -70,7 +70,7 @@ class GlassContainer extends StatelessWidget {
         child: ClipRRect(
           borderRadius: radius,
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
             child: Container(
               // Remove margin inside BackdropFilter because it's handled outside
               margin: EdgeInsets.zero,

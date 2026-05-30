@@ -58,7 +58,7 @@ class LiquidGlassCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(36),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: Container(
             decoration: BoxDecoration(
               color: isDark ? AppColors.cardDark : AppColors.cardLight,

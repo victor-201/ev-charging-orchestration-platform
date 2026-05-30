@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_layout.dart';
 import '../theme/app_typography.dart';
 
 /// Reusable shimmer loader for all async content loading
