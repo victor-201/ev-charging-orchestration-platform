@@ -5,6 +5,7 @@ import { RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 import {
   BookingReadModelOrmEntity,
   ProcessedEventOrmEntity,
+  ChargerStateOrmEntity,
 } from '../../persistence/typeorm/entities/session.orm-entities';
 
 /**
@@ -80,8 +81,8 @@ export class BookingConfirmedSyncConsumer {
 /**
  * BookingCancelledSyncConsumer
  *
- * Deletes booking_read_model when booking is cancelled/expired.
- * Ensures QR is invalidated immediately.
+ * Deletes booking_read_model when booking is cancelled/expired/no-show.
+ * Ensures QR is invalidated immediately and charger state is released.
  */
 @Injectable()
 export class BookingCancelledSyncConsumer {
@@ -92,7 +93,27 @@ export class BookingCancelledSyncConsumer {
     private readonly repo: Repository<BookingReadModelOrmEntity>,
     @InjectRepository(ProcessedEventOrmEntity)
     private readonly peRepo: Repository<ProcessedEventOrmEntity>,
+    @InjectRepository(ChargerStateOrmEntity)
+    private readonly chargerStateRepo: Repository<ChargerStateOrmEntity>,
   ) {}
+
+  private async releaseCharger(bookingId: string): Promise<void> {
+    try {
+      const booking = await this.repo.findOneBy({ bookingId });
+      if (booking) {
+        const chargerId = booking.chargerId;
+        const state = await this.chargerStateRepo.findOneBy({ chargerId });
+        if (state && state.availability === 'reserved') {
+          state.availability = 'available';
+          state.updatedAt = new Date();
+          await this.chargerStateRepo.save(state);
+          this.logger.log(`Released charger ${chargerId} -> available because booking ${bookingId} ended/cancelled/no-show`);
+        }
+      }
+    } catch (err) {
+      this.logger.error(`Error releasing charger for booking ${bookingId}: ${err.message}`);
+    }
+  }
 
   @RabbitSubscribe({
     exchange:     'ev.charging',
@@ -104,6 +125,7 @@ export class BookingCancelledSyncConsumer {
     const eventId = payload.eventId ?? `booking.cancelled.sync:${payload.bookingId}`;
     if (await this.peRepo.existsBy({ eventId })) return;
 
+    await this.releaseCharger(payload.bookingId);
     await this.repo.delete({ bookingId: payload.bookingId });
     this.logger.log(`BookingReadModel removed (cancelled): ${payload.bookingId}`);
     await this.peRepo.save({ eventId, eventType: 'booking.cancelled' });
@@ -119,8 +141,25 @@ export class BookingCancelledSyncConsumer {
     const eventId = payload.eventId ?? `booking.expired.sync:${payload.bookingId}`;
     if (await this.peRepo.existsBy({ eventId })) return;
 
+    await this.releaseCharger(payload.bookingId);
     await this.repo.delete({ bookingId: payload.bookingId });
     this.logger.log(`BookingReadModel removed (expired): ${payload.bookingId}`);
     await this.peRepo.save({ eventId, eventType: 'booking.expired' });
+  }
+
+  @RabbitSubscribe({
+    exchange:     'ev.charging',
+    routingKey:   'booking.no_show',
+    queue:        'charging-svc.booking.no_show.sync',
+    queueOptions: { durable: true, deadLetterExchange: 'ev.charging.dlx' },
+  })
+  async handleNoShow(payload: { bookingId: string; eventId?: string }): Promise<void> {
+    const eventId = payload.eventId ?? `booking.no_show.sync:${payload.bookingId}`;
+    if (await this.peRepo.existsBy({ eventId })) return;
+
+    await this.releaseCharger(payload.bookingId);
+    await this.repo.delete({ bookingId: payload.bookingId });
+    this.logger.log(`BookingReadModel removed (no_show): ${payload.bookingId}`);
+    await this.peRepo.save({ eventId, eventType: 'booking.no_show' });
   }
 }

@@ -1,7 +1,7 @@
 {
     "name": "booking-service",
     "version": "1.0.0",
-    "description": "EV Charging Ã¢â‚¬â€ Booking Engine (Core Service)",
+    "description": "EV Charging — Booking Engine (Core Service)",
     "dependencies": {
         "@golevelup/nestjs-rabbitmq": "^9.0.0",
         "@nestjs/axios": "^4.0.1",

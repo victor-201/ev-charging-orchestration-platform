@@ -1,5 +1,7 @@
-import { Inject, Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Inject, Injectable, Logger, BadRequestException, ConflictException } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { Booking } from '../../domain/aggregates/booking.aggregate';
 import { BookingTimeRange } from '../../domain/value-objects/booking-time-range.vo';
 import {
@@ -15,6 +17,7 @@ import { CreateBookingCommand } from '../commands/booking.commands';
 import { BookingConflictException } from '../../domain/exceptions/booking.exceptions';
 import { IEventBus, EVENT_BUS } from '../../infrastructure/messaging/event-bus.interface';
 import { PricingHttpClient } from '../../infrastructure/http/pricing.http-client';
+import { ChargerStateOrmEntity } from '../../infrastructure/persistence/typeorm/entities/session.orm-entities';
 
 /**
  * CreateBookingUseCase - VinFast automation standard
@@ -52,6 +55,8 @@ export class CreateBookingUseCase {
     private readonly eventBus: IEventBus,
     private readonly dataSource: DataSource,
     private readonly pricingClient: PricingHttpClient,
+    @InjectRepository(ChargerStateOrmEntity)
+    private readonly chargerStateRepo: Repository<ChargerStateOrmEntity>,
   ) {}
 
   async execute(cmd: CreateBookingCommand): Promise<Booking> {
@@ -71,6 +76,24 @@ export class CreateBookingUseCase {
 
     if (charger.status === 'offline') {
       throw new BadRequestException(`Charger ${cmd.chargerId} is offline`);
+    }
+
+    // STEP 1b: Check real-time charger state (charger_state table)
+    // Block booking if charger is currently occupied or already reserved
+    const chargerState = await this.chargerStateRepo.findOneBy({ chargerId: cmd.chargerId });
+    if (chargerState) {
+      if (chargerState.availability === 'occupied') {
+        throw new ConflictException(
+          `Charger ${cmd.chargerId} is currently in use. ` +
+          `Please join the waiting queue or try again when the charger is available.`,
+        );
+      }
+      if (chargerState.availability === 'reserved') {
+        throw new ConflictException(
+          `Charger ${cmd.chargerId} is reserved for an upcoming booking. ` +
+          `Please choose a different time slot or another charger.`,
+        );
+      }
     }
 
     const hasConnector = charger.connectors.some(
@@ -170,10 +193,15 @@ export class GetAvailabilityUseCase {
     const slots: (AvailabilitySlot & { pricePerKwhVnd?: number; isPeakHour?: boolean })[] = [];
     const slotMs = GetAvailabilityUseCase.SLOT_DURATION_MINUTES * 60_000;
 
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 30, 0, 0);
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth();
+    const day = date.getUTCDate();
+
+    // The system operates in Asia/Ho_Chi_Minh timezone (UTC+7).
+    // Generates 30-minute slots starting from 00:00 to 23:30 in Asia/Ho_Chi_Minh timezone.
+    const TIMEZONE_OFFSET_HOURS = 7;
+    const startOfDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0) - TIMEZONE_OFFSET_HOURS * 60 * 60 * 1000);
+    const endOfDay = new Date(Date.UTC(year, month, day, 23, 30, 0, 0) - TIMEZONE_OFFSET_HOURS * 60 * 60 * 1000);
 
     for (let t = startOfDay.getTime(); t <= endOfDay.getTime(); t += slotMs) {
       const slotStart = new Date(t);

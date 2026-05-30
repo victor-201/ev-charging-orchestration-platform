@@ -132,6 +132,15 @@ export class Booking {
       ),
     );
 
+    booking._domainEvents.push(
+      new SessionReservedEventV1(
+        booking.id,
+        booking.userId,
+        booking.chargerId,
+        booking.depositAmount ?? 0,
+      ),
+    );
+
 
     return booking;
   }

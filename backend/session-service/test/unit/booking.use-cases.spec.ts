@@ -3,14 +3,14 @@ import { DataSource } from 'typeorm';
 import { Booking } from '../../src/domain/aggregates/booking.aggregate';
 import { BookingTimeRange } from '../../src/domain/value-objects/booking-time-range.vo';
 import { BookingStatus } from '../../src/domain/value-objects/booking-status.vo';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import {
   InvalidBookingStateException,
   BookingConflictException,
 } from '../../src/domain/exceptions/booking.exceptions';
 import { PriorityQueueService } from '../../src/domain/services/priority-queue.service';
 import { SchedulingEngine, ChargerCandidate } from '../../src/domain/services/scheduling-engine.service';
-import { CreateBookingUseCase } from '../../src/application/use-cases/create-booking.use-case';
+import { CreateBookingUseCase, GetAvailabilityUseCase } from '../../src/application/use-cases/create-booking.use-case';
 import {
   CancelBookingUseCase,
   AutoConfirmBookingUseCase,
@@ -24,17 +24,23 @@ import { CHARGER_REPOSITORY } from '../../src/domain/repositories/charger.reposi
 import { EVENT_BUS } from '../../src/infrastructure/messaging/event-bus.interface';
 import { ConfigService } from '@nestjs/config';
 import { PricingHttpClient } from '../../src/infrastructure/http/pricing.http-client';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { VehicleReadModelOrmEntity } from '../../src/infrastructure/persistence/typeorm/entities/booking.orm-entities';
+import { ChargerStateOrmEntity } from '../../src/infrastructure/persistence/typeorm/entities/session.orm-entities';
 
 // Mocks
 
 const mockBookingRepo = {
-  save:                jest.fn(),
-  findById:            jest.fn(),
-  findByUserAndStatus: jest.fn(),
-  findByUser:          jest.fn(),
-  findActiveByCharger: jest.fn(),
-  hasOverlap:          jest.fn(),
-  findExpired:         jest.fn(),
+  save:                  jest.fn(),
+  findById:              jest.fn(),
+  findByUserAndStatus:   jest.fn(),
+  findByUser:            jest.fn(),
+  findActiveByCharger:   jest.fn(),
+  hasOverlap:            jest.fn(),
+  findExpired:           jest.fn(),
+  findByChargerAndDate:  jest.fn(),
+  findUpcomingByChargers: jest.fn(),
+  saveSchedulingSlots:   jest.fn(),
 };
 
 const mockChargerRepo = {
@@ -65,6 +71,11 @@ const mockPricingClient = {
 const mockEventBus   = { publishAll: jest.fn() };
 const mockDataSource = {
   transaction: jest.fn().mockImplementation((cb: (m: any) => any) => cb({})),
+};
+
+// Mock charger state repo - returns null by default (no state = available)
+const mockChargerStateRepo = {
+  findOneBy: jest.fn().mockResolvedValue(null),
 };
 
 // Helper factories
@@ -232,6 +243,8 @@ describe('CreateBookingUseCase', () => {
         // PricingHttpClient uses string token (not class token)
         { provide: PricingHttpClient,     useValue: mockPricingClient },
         { provide: 'PricingHttpClient',   useValue: mockPricingClient },
+        // ChargerStateOrmEntity repository - used to check realtime charger state
+        { provide: getRepositoryToken(ChargerStateOrmEntity), useValue: mockChargerStateRepo },
       ],
     }).compile();
     useCase = module.get(CreateBookingUseCase);
@@ -298,6 +311,41 @@ describe('CreateBookingUseCase', () => {
     await expect(useCase.execute(cmd)).rejects.toThrow(
       new BadRequestException('Charger charger-uuid-1 is offline'),
     );
+  });
+
+  it('throws ConflictException when charger is occupied (in_use)', async () => {
+    // charger_state shows occupied
+    mockChargerStateRepo.findOneBy.mockResolvedValueOnce({
+      chargerId: CHARGER_ID,
+      availability: 'occupied',
+    });
+
+    await expect(useCase.execute(cmd)).rejects.toThrow(ConflictException);
+  });
+
+  it('throws ConflictException when charger is reserved', async () => {
+    // charger_state shows reserved (upcoming booking already locked it)
+    mockChargerStateRepo.findOneBy.mockResolvedValueOnce({
+      chargerId: CHARGER_ID,
+      availability: 'reserved',
+    });
+
+    await expect(useCase.execute(cmd)).rejects.toThrow(ConflictException);
+  });
+
+  it('allows booking when charger state is available', async () => {
+    // charger_state is available
+    mockChargerStateRepo.findOneBy.mockResolvedValueOnce({
+      chargerId: CHARGER_ID,
+      availability: 'available',
+    });
+    mockChargerRepo.lockForUpdate.mockResolvedValue(undefined);
+    mockBookingRepo.hasOverlap.mockResolvedValue(false);
+    mockBookingRepo.save.mockResolvedValue(undefined);
+    mockEventBus.publishAll.mockResolvedValue(undefined);
+
+    const booking = await useCase.execute(cmd);
+    expect(booking.status).toBe(BookingStatus.PENDING_PAYMENT);
   });
 });
 
@@ -516,12 +564,23 @@ describe('SuggestChargerUseCase', () => {
       ]),
     };
 
+    const mockVehicleRepo = {
+      createQueryBuilder: jest.fn().mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(null),
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SuggestChargerUseCase,
         { provide: CHARGER_REPOSITORY, useValue: customChargerRepo },
         { provide: BOOKING_REPOSITORY, useValue: customBookingRepo },
         { provide: PricingHttpClient,  useValue: mockPricingClient },
+        { provide: getRepositoryToken(VehicleReadModelOrmEntity), useValue: mockVehicleRepo },
       ],
     }).compile();
 
@@ -546,5 +605,40 @@ describe('SuggestChargerUseCase', () => {
     expect(res[0].chargerId).toBe('charger-1');
     expect(res[0].rank).toBe(1);
     expect(mockSaveSlots).toHaveBeenCalled();
+  });
+});
+
+// GetAvailabilityUseCase Tests
+describe('GetAvailabilityUseCase', () => {
+  let useCase: GetAvailabilityUseCase;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        GetAvailabilityUseCase,
+        { provide: BOOKING_REPOSITORY, useValue: mockBookingRepo },
+        { provide: PricingHttpClient,  useValue: mockPricingClient },
+      ],
+    }).compile();
+
+    useCase = module.get(GetAvailabilityUseCase);
+  });
+
+  it('generates 48 availability slots shifted for UTC+7 (Asia/Ho_Chi_Minh)', async () => {
+    mockBookingRepo.findByChargerAndDate.mockResolvedValue([]);
+
+    const date = new Date('2026-05-28T00:00:00.000Z');
+    const slots = await useCase.execute('charger-1', 'station-1', 'CCS2', date);
+
+    expect(slots).toHaveLength(48);
+
+    // First slot should start at 2026-05-27T17:00:00.000Z (which is 2026-05-28 00:00:00 in UTC+7)
+    expect(slots[0].startTime.toISOString()).toBe('2026-05-27T17:00:00.000Z');
+    expect(slots[0].endTime.toISOString()).toBe('2026-05-27T17:30:00.000Z');
+
+    // Last slot should start at 2026-05-28T16:30:00.000Z (which is 2026-05-28 23:30:00 in UTC+7)
+    expect(slots[47].startTime.toISOString()).toBe('2026-05-28T16:30:00.000Z');
+    expect(slots[47].endTime.toISOString()).toBe('2026-05-28T17:00:00.000Z');
   });
 });

@@ -1,5 +1,5 @@
 /**
- * Concurrency Integration Test Ã¢â‚¬â€ CreateBookingUseCase
+ * Concurrency Integration Test — CreateBookingUseCase
  *
  * Requires a real PostgreSQL instance running.
  * Run with: npm run test:integration
@@ -31,7 +31,7 @@ const CHARGER_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const START = new Date(Date.now() + 2 * 60 * 60 * 1000);
 const END = new Date(Date.now() + 3 * 60 * 60 * 1000);
 
-describeOrSkip('[INTEGRATION] CreateBookingUseCase (needs RUN_INTEGRATION_TESTS=true) Ã¢â‚¬â€ concurrent conflict prevention', () => {
+describeOrSkip('[INTEGRATION] CreateBookingUseCase (needs RUN_INTEGRATION_TESTS=true) — concurrent conflict prevention', () => {
   let createBooking: CreateBookingUseCase;
   let dataSource: DataSource;
 

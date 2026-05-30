@@ -14,6 +14,7 @@ import {
   RecordTelemetryDto,
 } from '../../application/dtos/session.dto';
 import { JwtAuthGuard }             from '../../shared/guards/jwt-auth.guard';
+import { CompositeAuthGuard }       from '../../shared/guards/composite-auth.guard';
 import { RolesGuard }               from '../../shared/guards/roles.guard';
 import { ChargingArrearsGuard, SkipChargingArrearsCheck } from '../../shared/guards/charging-arrears.guard';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
@@ -37,7 +38,7 @@ import * as jwt from 'jsonwebtoken';
  *   GET  /history            -> @JwtAuthGuard             (user views history)
  */
 @Controller('charging')
-@UseGuards(JwtAuthGuard, RolesGuard, ChargingArrearsGuard)
+@UseGuards(CompositeAuthGuard, RolesGuard, ChargingArrearsGuard)
 export class SessionController {
   private readonly logger = new Logger(SessionController.name);
 
@@ -163,7 +164,7 @@ export class SessionController {
    * Staff views active session for a specific charger.
    */
   @Get('charger/:chargerId/active')
-  @Roles('staff', 'admin')
+  @Roles('staff', 'admin', 'kiosk')
   async getActiveByCharger(@Param('chargerId', ParseUUIDPipe) chargerId: string) {
     const session = await this.getSession.getActiveByCharger(chargerId);
     if (!session) throw new NotFoundException('No active session for this charger');

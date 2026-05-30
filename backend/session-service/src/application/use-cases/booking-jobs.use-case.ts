@@ -1,12 +1,19 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { DataSource } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, DataSource } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import {
   IBookingRepository,
   BOOKING_REPOSITORY,
 } from '../../domain/repositories/booking.repository.interface';
 import { IEventBus, EVENT_BUS } from '../../infrastructure/messaging/event-bus.interface';
 import { Booking } from '../../domain/aggregates/booking.aggregate';
+import {
+  ChargerStateOrmEntity,
+  OutboxOrmEntity,
+} from '../../infrastructure/persistence/typeorm/entities/session.orm-entities';
+import { ChargerReadModelOrmEntity } from '../../infrastructure/persistence/typeorm/entities/booking.orm-entities';
 
 // Auto Expire Bookings Job
 
@@ -66,6 +73,12 @@ export class NoShowDetectionJob {
     @Inject(BOOKING_REPOSITORY) private readonly bookingRepo: IBookingRepository,
     @Inject(EVENT_BUS) private readonly eventBus: IEventBus,
     private readonly dataSource: DataSource,
+    @InjectRepository(ChargerStateOrmEntity)
+    private readonly chargerStateRepo: Repository<ChargerStateOrmEntity>,
+    @InjectRepository(OutboxOrmEntity)
+    private readonly outboxRepo: Repository<OutboxOrmEntity>,
+    @InjectRepository(ChargerReadModelOrmEntity)
+    private readonly chargerRmRepo: Repository<ChargerReadModelOrmEntity>,
   ) {}
 
   @Cron('* * * * *') // every 1 minute
@@ -85,11 +98,51 @@ export class NoShowDetectionJob {
         await this.bookingRepo.save(booking, manager);
         await this.eventBus.publishAll(booking.domainEvents, manager);
         booking.clearDomainEvents();
+
+        // Release charger → available (no physical wait needed — charger was never occupied)
+        // Do NOT set releasedAt because there's no physical car to wait for.
+        const chargerRm = await this.chargerRmRepo.findOneBy({ chargerId: booking.chargerId });
+        const stationId = chargerRm?.stationId ?? 'unknown';
+
+        await manager.upsert(
+          ChargerStateOrmEntity,
+          {
+            chargerId:       booking.chargerId,
+            availability:    'available',
+            activeSessionId: null,
+            errorCode:       null,
+            releasedAt:      null,
+            updatedAt:       new Date(),
+          },
+          ['chargerId'],
+        );
+
+        // Emit charger.status.changed so station-service stays in sync
+        const statusEventId = uuidv4();
+        await manager.save(
+          manager.create(OutboxOrmEntity, {
+            id:            statusEventId,
+            aggregateType: 'charger',
+            aggregateId:   booking.chargerId,
+            eventType:     'charger.status.changed',
+            payload:       {
+              eventId:   statusEventId,
+              chargerId: booking.chargerId,
+              stationId,
+              newStatus: 'available',
+              changedAt: new Date().toISOString(),
+            },
+            status:      'pending',
+            processedAt: null,
+          }),
+        );
       });
 
       this.logger.warn(
         `NO_SHOW: booking=${booking.id} user=${booking.userId} ` +
-        `penalty=${booking.penaltyAmount}VND refund=${(booking.depositAmount ?? 0) - (booking.penaltyAmount ?? 0)}VND`,
+        `penalty=${booking.penaltyAmount}VND ` +
+        `refund=${(booking.depositAmount ?? 0) - (booking.penaltyAmount ?? 0)}VND ` +
+        `→ charger ${booking.chargerId} released to available`,
       );
     }
   }

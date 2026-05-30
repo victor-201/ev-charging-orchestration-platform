@@ -249,7 +249,7 @@ export class SchedulingSlotOrmEntity {
   @Column({ name: 'suggested_end', type: 'timestamptz' })
   suggestedEnd: Date;
 
-  @Column({ name: 'confidence_score', type: 'numeric', precision: 4, scale: 3, nullable: true })
+  @Column({ name: 'confidence_score', type: 'numeric', precision: 8, scale: 6, nullable: true })
   confidenceScore: number | null;
 
   @Column({ type: 'varchar', length: 50, nullable: true })

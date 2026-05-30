@@ -46,8 +46,8 @@ export class ChargingArrearsGuard implements CanActivate {
     const user    = request.user;
     if (!user?.id) return true;
 
-    // Admin/Staff can intervene even with debt (e.g., ending stuck session)
-    if (user.roles?.some((r: string) => ['admin', 'staff'].includes(r))) return true;
+    // Admin/Staff/Kiosk can intervene even with debt or bypass check completely
+    if (user.roles?.some((r: string) => ['admin', 'staff', 'kiosk'].includes(r))) return true;
 
     const debt = await this.debtRepo.findOneBy({ userId: user.id });
     if (debt?.hasOutstandingDebt) {

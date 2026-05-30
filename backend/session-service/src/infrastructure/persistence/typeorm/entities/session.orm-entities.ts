@@ -1,5 +1,5 @@
 import {
-  Entity, Column, PrimaryColumn, CreateDateColumn, Index,
+  Entity, Column, PrimaryColumn, CreateDateColumn, UpdateDateColumn, Index,
 } from 'typeorm';
 
 // charging_sessions
@@ -47,8 +47,19 @@ export class SessionOrmEntity {
   @Column({ name: 'initiated_by', length: 20, default: 'user' })
   initiatedBy: string;
 
+  /**
+   * Scheduled forced stop time (UTC).
+   * Set when a walk-in session starts while a booking is coming up.
+   * The ForceStopJob will call StopSession at this timestamp.
+   */
+  @Column({ name: 'scheduled_stop_at', type: 'timestamptz', nullable: true })
+  scheduledStopAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
+  updatedAt: Date;
 }
 
 // session_telemetry
@@ -112,6 +123,14 @@ export class ChargerStateOrmEntity {
 
   @Column({ name: 'last_heartbeat_at', type: 'timestamptz', nullable: true })
   lastHeartbeatAt: Date | null;
+
+  /**
+   * Timestamp when the last session was released (cable unplugged / session stopped).
+   * Used by QueueCleanupJob to determine if 3-minute physical wait has elapsed.
+   * Cleared (set to null) once the queue has been notified or charger transitions away.
+   */
+  @Column({ name: 'released_at', type: 'timestamptz', nullable: true })
+  releasedAt: Date | null;
 
   @Column({ name: 'updated_at', type: 'timestamptz', default: () => 'NOW()' })
   updatedAt: Date;

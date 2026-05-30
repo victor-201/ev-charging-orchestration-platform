@@ -104,8 +104,11 @@ CREATE TABLE charger_state (
     active_session_id UUID,
     error_code VARCHAR(100),
     last_heartbeat_at TIMESTAMPTZ,
+    released_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX idx_charger_state_released ON charger_state (released_at) WHERE released_at IS NOT NULL AND availability = 'available';
 
 CREATE TABLE charging_sessions (
     id UUID PRIMARY KEY,
@@ -126,6 +129,7 @@ CREATE TABLE charging_sessions (
     billed_at TIMESTAMPTZ,
     deposit_amount NUMERIC(12, 0) NOT NULL DEFAULT 0,
     deposit_transaction_id UUID,
+    scheduled_stop_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -135,6 +139,7 @@ CREATE INDEX idx_session_charger_status ON charging_sessions (charger_id, status
 CREATE INDEX idx_session_active ON charging_sessions (charger_id, start_time) WHERE status = 'active';
 CREATE INDEX idx_session_stopped ON charging_sessions (status, end_time) WHERE status = 'stopped';
 CREATE INDEX idx_session_booking ON charging_sessions (booking_id) WHERE booking_id IS NOT NULL;
+CREATE INDEX idx_session_scheduled_stop ON charging_sessions (scheduled_stop_at) WHERE scheduled_stop_at IS NOT NULL AND status = 'active';
 
 CREATE TABLE session_telemetry (
     id UUID PRIMARY KEY,
@@ -198,6 +203,7 @@ CREATE TABLE booking_read_models (
 CREATE INDEX idx_brm_user ON booking_read_models (user_id);
 CREATE INDEX idx_brm_charger ON booking_read_models (charger_id);
 CREATE INDEX idx_brm_qr ON booking_read_models (qr_token) WHERE qr_token IS NOT NULL;
+CREATE INDEX idx_brm_charger_start ON booking_read_models (charger_id, start_time);
 
 -- Event outbox / Processing
 CREATE TABLE event_outbox (

@@ -66,9 +66,10 @@ export class AvailabilityQueryDto {
 }
 
 export class SuggestChargerDto {
+  @IsOptional()
   @IsString()
   @IsIn(CONNECTOR_TYPES)
-  connectorType: string;
+  connectorType?: string;
 
   @IsOptional()
   @IsNumber()

@@ -34,6 +34,7 @@ import {
   ChargerStateOrmEntity,
   BookingReadModelOrmEntity,
 } from '../../infrastructure/persistence/typeorm/entities/session.orm-entities';
+import { ChargerReadModelOrmEntity } from '../../infrastructure/persistence/typeorm/entities/booking.orm-entities';
 
 
 
@@ -75,10 +76,16 @@ function buildOutboxEntry(
 export class StartSessionUseCase {
   private readonly logger = new Logger(StartSessionUseCase.name);
 
-  /** Allowed early entry before booking time: 15 minutes */
-  private static readonly EARLY_ENTRY_MS = 15 * 60_000;
+  /** Allowed early entry before booking time: 10 minutes (aligned with ChargerReservationJob) */
+  private static readonly EARLY_ENTRY_MS = 10 * 60_000;
   /** Allowed late buffer after booking end: 5 minutes */
   private static readonly LATE_BUFFER_MS = 5 * 60_000;
+  /**
+   * Look-ahead window: if a booking starts within this many minutes,
+   * the walk-in session is capped at the booking startTime.
+   * This ensures the charger is free for the scheduled user.
+   */
+  private static readonly UPCOMING_BOOKING_LOOKAHEAD_MS = 120 * 60_000; // 2 hours look-ahead
 
   constructor(
     @Inject(SESSION_REPOSITORY) private readonly sessionRepo: ISessionRepository,
@@ -93,7 +100,6 @@ export class StartSessionUseCase {
     bookingId?: string;   // User might scan QR for a pre-existing booking
     startMeterWh?: number;
   }): Promise<ChargingSession> {
-    // Guard 0: Validate QR time window (if booking exists)
     let bookingDepositAmount = 0;
     let bookingDepositTransactionId: string | null = null;
 
@@ -107,14 +113,12 @@ export class StartSessionUseCase {
         );
       }
 
-      // Ownership check
       if (bookingRm.userId !== cmd.userId) {
         throw new ConflictException(
           `Booking ${cmd.bookingId} does not belong to the current account.`,
         );
       }
 
-      // Time window check
       const now = Date.now();
       const earliest = bookingRm.startTime.getTime() - StartSessionUseCase.EARLY_ENTRY_MS;
       const latest   = bookingRm.endTime.getTime()   + StartSessionUseCase.LATE_BUFFER_MS;
@@ -134,7 +138,6 @@ export class StartSessionUseCase {
         );
       }
 
-      // Matching charger check
       if (bookingRm.chargerId !== cmd.chargerId) {
         throw new ConflictException(
           `This booking is for another charger (${bookingRm.chargerId}), not ${cmd.chargerId}.`,
@@ -151,7 +154,6 @@ export class StartSessionUseCase {
     }
 
     return this.ds.transaction(async (mgr: EntityManager) => {
-      // Guard 1: If booking exists, check for existing sessions
       if (cmd.bookingId) {
         const existing = await mgr.findOneBy(SessionOrmEntity, {
           bookingId: cmd.bookingId,
@@ -163,7 +165,6 @@ export class StartSessionUseCase {
         }
       }
 
-      // Guard 2: Is the charger occupied?
       const activeSession = await mgr.findOne(SessionOrmEntity, {
         where: { chargerId: cmd.chargerId, status: 'active' },
       });
@@ -173,7 +174,6 @@ export class StartSessionUseCase {
         );
       }
 
-      // Domain: Create session
       const session = ChargingSession.create({
         userId:       cmd.userId,
         chargerId:    cmd.chargerId,
@@ -181,9 +181,30 @@ export class StartSessionUseCase {
         startMeterWh: cmd.startMeterWh ?? 0,
         initiatedBy:  'user',
       });
-      session.activate(); // pending -> active
+      session.activate();
 
-      // Persist session - save depositAmount from booking for future billing
+      // Cap walk-in session duration to protect subsequent reserved slots.
+      let scheduledStopAt: Date | null = null;
+      if (!cmd.bookingId) {
+        const now = new Date();
+        const lookaheadEnd = new Date(now.getTime() + StartSessionUseCase.UPCOMING_BOOKING_LOOKAHEAD_MS);
+        const nextBooking = await mgr
+          .createQueryBuilder(BookingReadModelOrmEntity, 'b')
+          .where('b.chargerId = :chargerId', { chargerId: cmd.chargerId })
+          .andWhere('b.startTime > :now', { now })
+          .andWhere('b.startTime <= :lookaheadEnd', { lookaheadEnd })
+          .orderBy('b.startTime', 'ASC')
+          .getOne();
+
+        if (nextBooking) {
+          scheduledStopAt = nextBooking.startTime;
+          this.logger.log(
+            `Walk-in session ${session.id}: will be force-stopped at ${scheduledStopAt.toISOString()} ` +
+            `for booking ${nextBooking.bookingId}`,
+          );
+        }
+      }
+
       await mgr.save(SessionOrmEntity, {
         id:                    session.id,
         userId:                session.userId,
@@ -196,11 +217,11 @@ export class StartSessionUseCase {
         endMeterWh:            null,
         initiatedBy:           session.initiatedBy,
         errorReason:           null,
+        scheduledStopAt,
         depositAmount:         bookingDepositAmount,
         depositTransactionId:  bookingDepositTransactionId,
       });
 
-      // Update charger state -> occupied
       await mgr.upsert(
         ChargerStateOrmEntity,
         {
@@ -213,7 +234,6 @@ export class StartSessionUseCase {
         ['chargerId'],
       );
 
-      // Outbox event
       const event = new SessionStartedEvent(
         session.id,
         session.userId,
@@ -223,6 +243,19 @@ export class StartSessionUseCase {
         session.startMeterWh,
       );
       await mgr.save(OutboxOrmEntity, buildOutboxEntry(mgr, event, session.id));
+
+      const chargerRm = await mgr.findOneBy(ChargerReadModelOrmEntity, { chargerId: cmd.chargerId });
+      const stationId = chargerRm?.stationId ?? 'unknown';
+      const statusEventId = uuidv4();
+      await mgr.save(OutboxOrmEntity, mgr.create(OutboxOrmEntity, {
+        id:            statusEventId,
+        aggregateType: 'charger',
+        aggregateId:   cmd.chargerId,
+        eventType:     'charger.status.changed',
+        payload:       { eventId: statusEventId, chargerId: cmd.chargerId, stationId, newStatus: 'occupied', changedAt: new Date().toISOString() },
+        status:        'pending',
+        processedAt:   null,
+      }));
 
       this.logger.log(
         `Session started by user ${cmd.userId}: ${session.id} ` +
@@ -236,13 +269,7 @@ export class StartSessionUseCase {
 
 
 /**
- * Ends a session (completed or interrupted).
- *
- * Flow:
- * 1. Load session, assert active
- * 2. Domain: complete(endMeterWh) or interrupt(reason)
- * 3. Persist + outbox event (session.completed / session.interrupted)
- * 4. Release charger state -> available
+ * Finalizes an active session and releases infrastructure resources.
  */
 @Injectable()
 export class StopSessionUseCase {
@@ -256,9 +283,9 @@ export class StopSessionUseCase {
   async execute(cmd: {
     sessionId: string;
     endMeterWh: number;
-    reason?: string;   // If reason exists -> interrupted; otherwise -> completed
-    energyFeeVnd?: number;   // Actual energy fee (VND)
-    depositAmount?: number;  // Deposit amount from booking
+    reason?: string;
+    energyFeeVnd?: number;
+    depositAmount?: number;
     depositTransactionId?: string;
   }): Promise<ChargingSession> {
     return this.ds.transaction(async (mgr: EntityManager) => {
@@ -294,7 +321,6 @@ export class StopSessionUseCase {
         eventPayload = buildOutboxEntry(mgr, ev, session.id);
       }
 
-      // Persist
       await mgr.update(SessionOrmEntity, cmd.sessionId, {
         status:      session.status,
         endTime:     session.endTime,
@@ -302,7 +328,8 @@ export class StopSessionUseCase {
         errorReason: session.errorReason,
       });
 
-      // Release charger
+      // ReleasedAt signals QueueCleanupJob to enforce the physical cooling/vacate period.
+      const releaseTime = new Date();
       await mgr.upsert(
         ChargerStateOrmEntity,
         {
@@ -310,12 +337,26 @@ export class StopSessionUseCase {
           availability:    'available',
           activeSessionId: null,
           errorCode:       null,
-          updatedAt:       new Date(),
+          releasedAt:      releaseTime,
+          updatedAt:       releaseTime,
         },
         ['chargerId'],
       );
 
       await mgr.save(OutboxOrmEntity, eventPayload);
+
+      const chargerRm = await mgr.findOneBy(ChargerReadModelOrmEntity, { chargerId: session.chargerId });
+      const stationId = chargerRm?.stationId ?? 'unknown';
+      const statusEventId = uuidv4();
+      await mgr.save(OutboxOrmEntity, mgr.create(OutboxOrmEntity, {
+        id:            statusEventId,
+        aggregateType: 'charger',
+        aggregateId:   session.chargerId,
+        eventType:     'charger.status.changed',
+        payload:       { eventId: statusEventId, chargerId: session.chargerId, stationId, newStatus: 'available', changedAt: new Date().toISOString() },
+        status:        'pending',
+        processedAt:   null,
+      }));
 
       this.logger.log(
         `Session ${cmd.sessionId} -> ${session.status} kWh=${session.kwhConsumed ?? 'N/A'}`,
@@ -454,6 +495,10 @@ export class BookingConfirmedConsumer {
     private readonly peRepo: Repository<ProcessedEventOrmEntity>,
     @InjectRepository(ChargerStateOrmEntity)
     private readonly chargerStateRepo: Repository<ChargerStateOrmEntity>,
+    @InjectRepository(OutboxOrmEntity)
+    private readonly outboxRepo: Repository<OutboxOrmEntity>,
+    @InjectRepository(ChargerReadModelOrmEntity)
+    private readonly chargerRmRepo: Repository<ChargerReadModelOrmEntity>,
   ) {}
 
   @RabbitSubscribe({
@@ -478,21 +523,66 @@ export class BookingConfirmedConsumer {
 
     await this.peRepo.save({ eventId, eventType: 'booking.confirmed' });
 
-    // Reserve charger (available -> reserved)
-    await this.chargerStateRepo.upsert(
-      {
-        chargerId:       payload.chargerId,
-        availability:    'reserved',
-        activeSessionId: null,
-        errorCode:       null,
-        updatedAt:       new Date(),
-      },
-      ['chargerId'],
-    );
+    let shouldReserveImmediately = true;
+    if (payload.startTime) {
+      const startTime = new Date(payload.startTime);
+      // Reserve immediately if booking starts within 10 minutes (aligned with ChargerReservationJob)
+      const earlyThreshold = new Date(startTime.getTime() - 10 * 60_000);
+      const now = new Date();
+      if (now < earlyThreshold) {
+        shouldReserveImmediately = false;
+      }
+    }
 
-    this.logger.log(
-      `Booking confirmed: charger ${payload.chargerId} -> reserved for booking ${payload.bookingId}`,
-    );
+    if (shouldReserveImmediately) {
+      // FSM check: only allow reserve if currently available or unset
+      const current = await this.chargerStateRepo.findOneBy({ chargerId: payload.chargerId });
+      if (current && current.availability !== 'available') {
+        this.logger.warn(
+          `Booking confirmed: cannot reserve charger ${payload.chargerId} ` +
+          `for booking ${payload.bookingId} — current state is '${current.availability}'`,
+        );
+        return;
+      }
+
+      // Reserve charger (available -> reserved)
+      await this.chargerStateRepo.upsert(
+        {
+          chargerId:       payload.chargerId,
+          availability:    'reserved',
+          activeSessionId: null,
+          errorCode:       null,
+          updatedAt:       new Date(),
+        },
+        ['chargerId'],
+      );
+
+      // Lookup stationId for cross-service event emission
+      const chargerRm = await this.chargerRmRepo.findOneBy({ chargerId: payload.chargerId });
+      const stationId = chargerRm?.stationId ?? 'unknown';
+
+      // Emit charger.status.changed so ev-infrastructure-service stays in sync
+      const statusEventId = uuidv4();
+      await this.outboxRepo.save(
+        this.outboxRepo.create({
+          id:            statusEventId,
+          aggregateType: 'charger',
+          aggregateId:   payload.chargerId,
+          eventType:     'charger.status.changed',
+          payload:       { eventId: statusEventId, chargerId: payload.chargerId, stationId, newStatus: 'reserved', changedAt: new Date().toISOString() },
+          status:        'pending',
+          processedAt:   null,
+        }),
+      );
+
+      this.logger.log(
+        `Booking confirmed: charger ${payload.chargerId} reserved immediately for booking ${payload.bookingId}`,
+      );
+    } else {
+      this.logger.log(
+        `Booking confirmed: charger ${payload.chargerId} starting at ${payload.startTime} in the future. Skipping immediate reservation.`,
+      );
+    }
   }
 }
 

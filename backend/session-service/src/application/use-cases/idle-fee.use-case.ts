@@ -10,7 +10,10 @@ import {
 import {
   SessionOrmEntity,
   OutboxOrmEntity,
+  ChargerStateOrmEntity,
+  BookingReadModelOrmEntity,
 } from '../../infrastructure/persistence/typeorm/entities/session.orm-entities';
+import { ChargerReadModelOrmEntity } from '../../infrastructure/persistence/typeorm/entities/booking.orm-entities';
 import { SessionCompletedEvent } from '../../domain/events/charging.events';
 
 /**
@@ -146,6 +149,74 @@ export class StoppedSessionBillingJob {
       );
 
       this.logger.log(`Force-billing session=${s.id}`);
+    }
+  }
+}
+
+/**
+ * ChargerReservationJob
+ *
+ * Runs every 1 minute.
+ * Scans booking_read_models for confirmed bookings starting within 15 minutes
+ * and sets the charger's operational state to 'reserved' if it is currently 'available'.
+ */
+@Injectable()
+export class ChargerReservationJob {
+  private readonly logger = new Logger(ChargerReservationJob.name);
+
+  constructor(
+    @InjectRepository(BookingReadModelOrmEntity)
+    private readonly bookingRmRepo: Repository<BookingReadModelOrmEntity>,
+    @InjectRepository(ChargerStateOrmEntity)
+    private readonly chargerStateRepo: Repository<ChargerStateOrmEntity>,
+    @InjectRepository(OutboxOrmEntity)
+    private readonly outboxRepo: Repository<OutboxOrmEntity>,
+    @InjectRepository(ChargerReadModelOrmEntity)
+    private readonly chargerRmRepo: Repository<ChargerReadModelOrmEntity>,
+  ) {}
+
+  @Cron('* * * * *')
+  async run(): Promise<void> {
+    const now = new Date();
+    // Lock charger 10 minutes before booking start (agreed business rule)
+    const tenMinutesFromNow = new Date(now.getTime() + 10 * 60_000);
+
+    // Find all confirmed bookings starting within the next 10 minutes and not yet ended
+    const activeBookings = await this.bookingRmRepo
+      .createQueryBuilder('b')
+      .where('b.startTime <= :tenMinutesFromNow', { tenMinutesFromNow })
+      .andWhere('b.endTime >= :now', { now })
+      .getMany();
+
+    if (activeBookings.length === 0) return;
+
+    for (const booking of activeBookings) {
+      const chargerId = booking.chargerId;
+      const state = await this.chargerStateRepo.findOneBy({ chargerId });
+      if (state && state.availability === 'available') {
+        state.availability = 'reserved';
+        state.updatedAt = new Date();
+        await this.chargerStateRepo.save(state);
+
+        const chargerRm = await this.chargerRmRepo.findOneBy({ chargerId });
+        const stationId = chargerRm?.stationId ?? 'unknown';
+        const statusEventId = uuidv4();
+        await this.outboxRepo.save(
+          this.outboxRepo.create({
+            id:            statusEventId,
+            aggregateType: 'charger',
+            aggregateId:   chargerId,
+            eventType:     'charger.status.changed',
+            payload:       { eventId: statusEventId, chargerId, stationId, newStatus: 'reserved', changedAt: new Date().toISOString() },
+            status:        'pending',
+            processedAt:   null,
+          }),
+        );
+
+        this.logger.log(
+          `ChargerReservationJob: Reserved charger ${chargerId} for upcoming booking ${booking.bookingId}`,
+        );
+      }
     }
   }
 }

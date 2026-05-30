@@ -28,6 +28,14 @@ export class SuggestChargerResponseDto {
   stationId: string;
   score: number;
   rank: number;
+  /** Connector type of the matched charger */
+  connectorType: string;
+  /** Maximum power output of the charger in kW */
+  maxPowerKw: number;
+  /** Estimated session cost (VND) for the suggested time window */
+  estimatedPriceVnd: number;
+  /** Distance from the user to the station (km) */
+  distanceKm: number;
 }
 
 export class QueuePositionResponseDto {
