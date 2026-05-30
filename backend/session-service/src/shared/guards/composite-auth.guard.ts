@@ -63,7 +63,7 @@ export class CompositeAuthGuard implements CanActivate {
 
     if (kioskKey && configuredKioskKey && this.safeCompare(kioskKey, configuredKioskKey)) {
       request.user = {
-        id: 'kiosk-device',
+        id: '00000000-0000-4000-8000-000000000000',
         email: 'kiosk@ev-platform.local',
         role: 'kiosk',
         roles: ['kiosk'],
