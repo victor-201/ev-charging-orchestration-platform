@@ -1,7 +1,7 @@
 {
     "name": "ocpp-gateway-service",
     "version": "1.0.0",
-    "description": "OCPP 1.6J WebSocket Gateway ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â bridges physical EV chargers to the platform",
+    "description": "OCPP 1.6J WebSocket Gateway — bridges physical EV chargers to the platform",
     "dependencies": {
         "@golevelup/nestjs-rabbitmq": "^9.0.0",
         "@nestjs/common": "^10.4.0",
