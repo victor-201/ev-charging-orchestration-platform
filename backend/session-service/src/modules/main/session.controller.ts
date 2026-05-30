@@ -67,6 +67,8 @@ export class SessionController {
     @Body() dto: StartSessionDto,
     @CurrentUser() currentUser: AuthenticatedUser,
   ) {
+    let sessionUserId = currentUser.id;
+
     // Booking flow: verify QR token first
     if (dto.bookingId) {
       if (!dto.qrToken) {
@@ -74,11 +76,11 @@ export class SessionController {
           'qrToken is required when bookingId is provided.',
         );
       }
-      this.verifyQrToken(dto.qrToken, dto.bookingId, currentUser.id);
+      sessionUserId = this.verifyQrToken(dto.qrToken, dto.bookingId, currentUser);
     }
 
     return this.startSession.execute({
-      userId:       currentUser.id,           // always from JWT
+      userId:       sessionUserId,
       chargerId:    dto.chargerId,
       bookingId:    dto.bookingId,
       startMeterWh: dto.startMeterWh,
@@ -194,7 +196,7 @@ export class SessionController {
    *   - bookingId in token matches request.
    *   - userId in token matches currently logged-in user.
    */
-  private verifyQrToken(qrToken: string, bookingId: string, callerId: string): void {
+  private verifyQrToken(qrToken: string, bookingId: string, caller: AuthenticatedUser): string {
     const secret = process.env.QR_TOKEN_SECRET ?? process.env.JWT_SECRET ?? 'qr-secret';
     let payload: any;
     try {
@@ -205,8 +207,10 @@ export class SessionController {
     if (payload.bookingId !== bookingId) {
       throw new BadRequestException('QR code does not match this booking.');
     }
-    if (payload.userId !== callerId) {
+    const isKiosk = caller.id === 'kiosk-device' || caller.role === 'kiosk' || caller.roles?.includes('kiosk');
+    if (!isKiosk && payload.userId !== caller.id) {
       throw new UnauthorizedException('QR code does not belong to the current account.');
     }
+    return payload.userId;
   }
 }

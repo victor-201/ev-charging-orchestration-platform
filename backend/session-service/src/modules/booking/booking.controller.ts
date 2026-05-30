@@ -19,7 +19,7 @@ import { CreateBookingDto, CancelBookingDto, JoinQueueDto, AvailabilityQueryDto,
 import { BookingResponseDto, AvailabilitySlotDto, QueuePositionResponseDto, SuggestChargerResponseDto } from '../../application/dtos/response.dto';
 import { SuggestChargerUseCase } from '../../application/use-cases/suggest-charger.use-case';
 import { Booking } from '../../domain/aggregates/booking.aggregate';
-import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
+import { CompositeAuthGuard } from '../../shared/guards/composite-auth.guard';
 import { RolesGuard }   from '../../shared/guards/roles.guard';
 import { ArrearsGuard, SkipArrearsCheck } from '../../shared/guards/arrears.guard';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
@@ -47,7 +47,7 @@ import type { IBookingRepository } from '../../domain/repositories/booking.repos
  *   Complete: automatic after session.started event is received.
  */
 @Controller('bookings')
-@UseGuards(JwtAuthGuard, RolesGuard, ArrearsGuard)
+@UseGuards(CompositeAuthGuard, RolesGuard, ArrearsGuard)
 export class BookingController {
   constructor(
     private readonly createBooking:       CreateBookingUseCase,
