@@ -46,8 +46,8 @@ describe('ClickHouse Integration - ev_telemetry_test', () => {
     }
 
     // Create test DB and table
-    await client.exec({ query: `CREATE DATABASE IF NOT EXISTS ${TEST_DB}` });
-    await client.exec({
+    await client.command({ query: `CREATE DATABASE IF NOT EXISTS ${TEST_DB}` });
+    await client.command({
       query: `
         CREATE TABLE IF NOT EXISTS ${TEST_TABLE} (
           event_id           String,
@@ -73,14 +73,14 @@ describe('ClickHouse Integration - ev_telemetry_test', () => {
 
   afterAll(async () => {
     if (chAvailable) {
-      await client.exec({ query: `DROP TABLE IF EXISTS ${TEST_TABLE}` }).catch(() => {});
+      await client.command({ query: `DROP TABLE IF EXISTS ${TEST_TABLE}` }).catch(() => {});
       await client.close().catch(() => {});
     }
   });
 
   beforeEach(async () => {
     if (!chAvailable) return;
-    await client.exec({ query: `TRUNCATE TABLE ${TEST_TABLE}` }).catch(() => {});
+    await client.command({ query: `TRUNCATE TABLE ${TEST_TABLE}` }).catch(() => {});
   });
 
   // Helper: skip if ClickHouse not available
@@ -116,7 +116,7 @@ describe('ClickHouse Integration - ev_telemetry_test', () => {
   it('pings ClickHouse successfully', async () => {
     if (skip()) return;
     const ok = await client.ping();
-    expect(ok).toBe(true);
+    expect(ok.success).toBe(true);
   });
 
   it('test database and table exist', async () => {

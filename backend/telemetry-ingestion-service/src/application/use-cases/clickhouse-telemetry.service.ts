@@ -38,15 +38,12 @@ export class ClickHouseTelemetryService implements OnModuleInit, OnModuleDestroy
     try {
       this.client = createClient({ url, database, username, password });
 
-      // Verify connection
       await this.client.ping();
       this.connected = true;
       this.logger.log(`ClickHouse connected: ${url} database=${database}`);
 
-      // Create table if it doesn't exist
       await this.ensureTable();
 
-      // Start periodic flush timer
       this.flushTimer = setInterval(() => this.flushBatch(), this.FLUSH_INTERVAL_MS);
     } catch (err: any) {
       this.connected = false;
@@ -56,8 +53,6 @@ export class ClickHouseTelemetryService implements OnModuleInit, OnModuleDestroy
       this.client = null;
     }
   }
-
-  // Schema
 
   private async ensureTable(): Promise<void> {
     if (!this.client) return;
@@ -95,14 +90,12 @@ export class ClickHouseTelemetryService implements OnModuleInit, OnModuleDestroy
     this.logger.log('ClickHouse table telemetry_logs ensured');
   }
 
-  // Ingest
-
    /**
-   * Adds a record to the buffer.
-   * When buffer reaches MAX_BATCH (100) -> flush immediately.
+   * Add a record to the buffer.
+   * Flushes immediately when buffer reaches MAX_BATCH.
    */
   async ingest(row: TelemetryRow): Promise<void> {
-    if (!this.client) return; // ClickHouse unavailable - silent fallback
+    if (!this.client) return;
 
     this.BATCH_BUFFER.push(row);
 
@@ -111,7 +104,7 @@ export class ClickHouseTelemetryService implements OnModuleInit, OnModuleDestroy
     }
   }
 
-  /** Flush the entire buffer to ClickHouse (batch insert) */
+  /** Flush buffer to ClickHouse via batch insert. */
   async flushBatch(): Promise<void> {
     if (!this.client || this.BATCH_BUFFER.length === 0) return;
 
@@ -139,15 +132,11 @@ export class ClickHouseTelemetryService implements OnModuleInit, OnModuleDestroy
       this.logger.debug(`ClickHouse batch inserted: ${batch.length} records`);
     } catch (err: any) {
       this.logger.error(`ClickHouse batch insert failed: ${err?.message ?? err}`);
-      // Do not re-throw - must not block the main execution flow
     }
   }
 
-  // Queries
-
    /**
-   * Query V/A/kW time-series data for a session (for Dashboard/Analytics).
-   * Returns data points sampled at `intervalSeconds`.
+   * Query sampled time-series data for analytics.
    */
   async getSessionTimeSeries(
     sessionId: string,
@@ -186,9 +175,6 @@ export class ClickHouseTelemetryService implements OnModuleInit, OnModuleDestroy
     }
   }
 
-   /**
-   * Total energy consumption (kWh) for a session (used for billing reconciliation).
-   */
   async getSessionEnergyKwh(sessionId: string): Promise<number> {
     if (!this.client) return 0;
 
@@ -209,9 +195,6 @@ export class ClickHouseTelemetryService implements OnModuleInit, OnModuleDestroy
     }
   }
 
-   /**
-   * Fetch the latest telemetry record for a charger.
-   */
   async getLatestReading(chargerId: string): Promise<TelemetryRow | null> {
     if (!this.client) return null;
 
@@ -254,9 +237,6 @@ export class ClickHouseTelemetryService implements OnModuleInit, OnModuleDestroy
     }
   }
 
-  // Status
-
-  /** Returns current connection status (for /health endpoint). */
   getConnectionStatus(): { connected: boolean; database: string; bufferedRows: number } {
     return {
       connected:   this.connected,
@@ -264,8 +244,6 @@ export class ClickHouseTelemetryService implements OnModuleInit, OnModuleDestroy
       bufferedRows: this.BATCH_BUFFER.length,
     };
   }
-
-  // Lifecycle
 
   async onModuleDestroy(): Promise<void> {
     if (this.flushTimer) clearInterval(this.flushTimer);
