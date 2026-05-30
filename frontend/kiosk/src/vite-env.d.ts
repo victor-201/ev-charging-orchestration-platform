@@ -5,8 +5,8 @@ interface ImportMetaEnv {
   readonly VITE_WS_URL: string;
   readonly VITE_STATION_ID: string;
   readonly VITE_POINT_ID?: string;
-  readonly VITE_CHARGER_ID: string;
-  readonly VITE_ENABLE_MOCK_DATA: string;
+  readonly VITE_CHARGER_ID?: string;
+  readonly VITE_KIOSK_API_KEY: string;
 }
 
 interface ImportMeta {
