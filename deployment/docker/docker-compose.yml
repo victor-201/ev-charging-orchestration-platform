@@ -357,6 +357,7 @@ services:
       JWT_ISSUER:          ev-iam-service
       JWT_AUDIENCE:        ev-platform
       STATION_SERVICE_URL: http://ev-infrastructure:3003
+      KIOSK_API_KEY: ${KIOSK_API_KEY}
     depends_on:
       postgres-session:
         condition: service_healthy
@@ -383,6 +384,7 @@ services:
       JWT_AUDIENCE:        ev-platform
       # URL nội bộ → ev-infrastructure-service (tính phí TOU + Idle Fee)
       EV_INFRA_BASE_URL: http://ev-infrastructure:3003
+      KIOSK_API_KEY: ${KIOSK_API_KEY}
     depends_on:
       postgres-billing:
         condition: service_healthy
