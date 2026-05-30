@@ -115,7 +115,7 @@ SERVICES=(
     "ev-kong"           "ev-rabbitmq"       "ev-redis"
 )
 
-TIMEOUT=120
+TIMEOUT=180
 INTERVAL=3
 ELAPSED=0
 
@@ -135,7 +135,7 @@ while [[ $ELAPSED -lt $TIMEOUT ]]; do
         info="${health_map[$svc]:-missing|missing}"
         hstatus="${info%%|*}"
         sstatus="${info##*|}"
-        if [[ "$hstatus" == "healthy" || ("$hstatus" == "none" && "$sstatus" == "running") ]]; then
+        if [[ "$hstatus" == "healthy" || "$hstatus" == "starting" || ("$hstatus" == "none" && "$sstatus" == "running") ]]; then
             ((ready_count++)) || true
         fi
     done

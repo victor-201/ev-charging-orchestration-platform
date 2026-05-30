@@ -40,8 +40,8 @@ if ($Device -eq 'auto') {
 }
 
 if ($Device -match 'chrome|web') {
-    Write-Host "[RUN] Chrome (--disable-web-security bypasses CORS for local dev)" -ForegroundColor Green
-    flutter run -d chrome --web-browser-flag "--disable-web-security" --dart-define=FLAVOR=dev
+    Write-Host "[RUN] Chrome (--disable-web-security bypasses CORS, --disable-gpu prevents WebGL context loss)" -ForegroundColor Green
+    flutter run -d chrome --web-browser-flag "--disable-web-security" --web-browser-flag "--disable-gpu" --dart-define=FLAVOR=dev
 } elseif ($Device -eq 'windows') {
     Write-Host "[RUN] Windows Desktop" -ForegroundColor Green
     flutter run -d windows --dart-define=FLAVOR=dev

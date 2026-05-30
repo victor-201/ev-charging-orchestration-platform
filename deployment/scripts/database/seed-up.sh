@@ -21,6 +21,7 @@ SERVICES=("iam-service" "ev-infrastructure-service" "billing-service" "session-s
 
 DB_USER="ev_user"
 DB_PASS="ev_secret"
+GLOBAL_ERROR=0
 
 get_service_db_config() {
   local service=$1
@@ -70,6 +71,7 @@ run_up_for_service() {
     return 0
   fi
 
+  local has_error=0
   for sql_file in $(ls -1 "$seed_dir"/*.sql | sort); do
     filename=$(basename "$sql_file")
 
@@ -84,15 +86,19 @@ run_up_for_service() {
       echo -e "${RED}----------------------------------------------------------------------${NC}"
       cat "$tmp_out"
       echo -e "${RED}----------------------------------------------------------------------${NC}"
-      rm -f "$tmp_out"
-      exit 1
+      has_error=1
+      GLOBAL_ERROR=1
     else
       echo -e "  ${GREEN}[OK] $filename${NC}"
     fi
     rm -f "$tmp_out"
   done
 
-  echo -e "  ${GREEN}Seed UP complete for $service.${NC}\n"
+  if [ $has_error -ne 0 ]; then
+    echo -e "  ${RED}Seed UP finished with errors for $service.${NC}\n"
+  else
+    echo -e "  ${GREEN}Seed UP complete for $service.${NC}\n"
+  fi
 }
 
 echo -e "======================================================================"
@@ -113,6 +119,14 @@ else
   done
 fi
 
-echo -e "======================================================================"
-echo -e "  ${GREEN}SEED UP COMPLETE${NC}"
-echo -e "======================================================================"
+if [ $GLOBAL_ERROR -ne 0 ]; then
+  echo -e "======================================================================"
+  echo -e "  ${RED}SEED UP COMPLETE WITH ERRORS${NC}"
+  echo -e "======================================================================"
+  exit 1
+else
+  echo -e "======================================================================"
+  echo -e "  ${GREEN}SEED UP COMPLETE SUCCESSFULLY${NC}"
+  echo -e "======================================================================"
+  exit 0
+fi

@@ -598,6 +598,7 @@ function Sub-Frontend-Mobile {
         Write-MenuItem "1" "Setup Environment" Green
         Write-MenuItem "2" "Run Dev Server"    Green
         Write-MenuItem "3" "Build Production"  Yellow
+        Write-MenuItem "4" "Deploy & Detach" Green
         Write-Host ""
         Show-Separator
         Write-MenuItem -IsBack
@@ -607,6 +608,7 @@ function Sub-Frontend-Mobile {
             "1" { Run-Frontend "mobile-app\setup.ps1" }
             "2" { Run-Frontend "mobile-app\run.ps1" }
             "3" { Run-Frontend "mobile-app\build.ps1" }
+            "4" { Run-Frontend "mobile-app\deploy.ps1" }
             "0" { return }
         }
     }

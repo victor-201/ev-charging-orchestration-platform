@@ -9,10 +9,16 @@ if (-not $ScriptDir) {
 }
 $ProjectRoot = (Resolve-Path (Join-Path $ScriptDir "..\..\..\..")).Path
 $AppDir = Join-Path $ProjectRoot "frontend\web-admin"
+$EnvFile = Join-Path $AppDir ".env"
+
+# Read DEV_PORT from .env
+$Port = ((Get-Content $EnvFile) -match '^DEV_PORT=') -replace '^DEV_PORT=' -replace '^"|"$'
+if (-not $Port) { $Port = "5000" }
 
 Write-Host "======================================================"
-Write-Host "  EV Charging — Web Admin Dev Server (npm run dev)" -ForegroundColor Cyan
+Write-Host "  EV Charging — Web Admin Dev Server" -ForegroundColor Cyan
+Write-Host "  Port: $Port  (from $EnvFile)" -ForegroundColor Cyan
 Write-Host "======================================================"
 
 Set-Location $AppDir
-& npm.cmd run dev -- -p 8888
+& npm.cmd run dev -- -p $Port
