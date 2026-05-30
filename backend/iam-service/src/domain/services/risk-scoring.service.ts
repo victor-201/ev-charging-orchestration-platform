@@ -42,7 +42,6 @@ export class RiskScoringService {
     let score = 0;
     const reasons: string[] = [];
 
-    // Factor 1: Failed login count
     if (ctx.recentFailedAttempts >= 3 && ctx.recentFailedAttempts < 5) {
       score += 20;
       reasons.push(`${ctx.recentFailedAttempts} recent failed attempts`);
@@ -51,7 +50,6 @@ export class RiskScoringService {
       reasons.push(`High failure count: ${ctx.recentFailedAttempts}`);
     }
 
-    // Factor 2: Device fingerprint
     if (ctx.deviceFingerprint && ctx.knownDeviceFingerprints.length > 0) {
       const isKnown = ctx.knownDeviceFingerprints.includes(ctx.deviceFingerprint);
       if (!isKnown) {
@@ -59,12 +57,10 @@ export class RiskScoringService {
         reasons.push('Unknown device fingerprint');
       }
     } else if (!ctx.deviceFingerprint && ctx.knownDeviceFingerprints.length > 0) {
-      // No fingerprint provided, but user has previous sessions
       score += 15;
       reasons.push('No device fingerprint provided');
     }
 
-    // Factor 3: Suspicious IP (basic)
     if (ctx.ipAddress) {
       const isSuspiciousIp = this.checkSuspiciousIp(ctx.ipAddress);
       if (isSuspiciousIp) {
@@ -73,7 +69,6 @@ export class RiskScoringService {
       }
     }
 
-    // Cap score at 100
     score = Math.min(score, 100);
 
     return {
