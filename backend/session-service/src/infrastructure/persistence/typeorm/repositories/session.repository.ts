@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import {
   ChargingSession,
   SessionStatus,
@@ -58,6 +58,42 @@ export class SessionRepository implements ISessionRepository {
     return entities.map(this.toDomain.bind(this));
   }
 
+  async findAll(limit = 20): Promise<ChargingSession[]> {
+    const entities = await this.repo.find({
+      order:  { startTime: 'DESC' },
+      take:   limit,
+    });
+    return entities.map(this.toDomain.bind(this));
+  }
+
+  async findAllPaginated(
+    limit = 20,
+    offset = 0,
+    userId?: string,
+    chargerId?: string,
+    status?: string,
+    chargerIds?: string[],
+  ): Promise<{ items: ChargingSession[]; total: number }> {
+    const where: any = {};
+    if (userId) where.userId = userId;
+    if (chargerId) where.chargerId = chargerId;
+    if (status) where.status = status;
+    if (chargerIds && chargerIds.length > 0) {
+      where.chargerId = In(chargerIds);
+    }
+
+    const [rows, total] = await this.repo.findAndCount({
+      where,
+      order: { startTime: 'DESC' },
+      take: limit,
+      skip: offset,
+    });
+    return {
+      items: rows.map(this.toDomain.bind(this)),
+      total,
+    };
+  }
+
   async findStoppedBefore(cutoff: Date): Promise<ChargingSession[]> {
     const entities = await this.repo
       .createQueryBuilder('s')
@@ -87,7 +123,14 @@ export class SessionRepository implements ISessionRepository {
     e.endTime            = s.endTime;
     e.endMeterWh         = s.endMeterWh;
     e.errorReason        = s.errorReason;
-    (e as any).idempotencyKey = s.idempotencyKey;
+    e.idempotencyKey     = s.idempotencyKey;
+    e.energyFeeVnd       = s.energyFeeVnd ?? 0;
+    e.idleFeeVnd         = s.idleFeeVnd ?? 0;
+    e.stoppedAt          = s.stoppedAt;
+    e.billedAt           = s.billedAt;
+    e.depositAmount      = (s as any).depositAmount ?? 0;
+    e.depositTransactionId = (s as any).depositTransactionId ?? null;
+    e.scheduledStopAt    = (s as any).scheduledStopAt ?? null;
     return e;
   }
 
@@ -99,14 +142,18 @@ export class SessionRepository implements ISessionRepository {
       bookingId:       e.bookingId,
       initiatedBy:     (e.initiatedBy ?? 'user') as SessionInitiator,
       startMeterWh:    Number(e.startMeterWh),
-      idempotencyKey:  (e as any).idempotencyKey ?? null,
+      idempotencyKey:  e.idempotencyKey ?? null,
       status:          e.status as SessionStatus,
       startTime:       e.startTime,
       endTime:         e.endTime,
       endMeterWh:      e.endMeterWh !== null ? Number(e.endMeterWh) : null,
       errorReason:     e.errorReason,
       createdAt:       e.createdAt,
-      updatedAt:       e.createdAt,
+      updatedAt:       e.updatedAt,
+      billedAt:        e.billedAt,
+      energyFeeVnd:    e.energyFeeVnd !== null ? Number(e.energyFeeVnd) : null,
+      idleFeeVnd:      e.idleFeeVnd !== null ? Number(e.idleFeeVnd) : 0,
+      stoppedAt:       e.stoppedAt,
     });
   }
 }

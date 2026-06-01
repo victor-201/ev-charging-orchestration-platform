@@ -1,12 +1,12 @@
 export class CreateBookingCommand {
   constructor(
-    public readonly userId:        string,
-    public readonly chargerId:     string,
-    public readonly stationId:     string,
-    public readonly connectorType: string,
-    public readonly startTime:     Date,
-    public readonly endTime:       Date,
-    // depositAmount is no longer in command - UseCase fetches pricing
+    public readonly userId:          string,
+    public readonly chargerId:       string,
+    public readonly stationId:       string,
+    public readonly connectorType:   string,
+    public readonly startTime:       Date,
+    public readonly endTime:         Date,
+    public readonly idempotencyKey?: string,
   ) {}
 }
 

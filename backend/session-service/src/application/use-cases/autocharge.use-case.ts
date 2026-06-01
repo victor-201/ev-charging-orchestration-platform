@@ -10,6 +10,7 @@ import {
   OutboxOrmEntity,
   ProcessedEventOrmEntity,
 } from '../../infrastructure/persistence/typeorm/entities/session.orm-entities';
+import { ChargerReadModelOrmEntity } from '../../infrastructure/persistence/typeorm/entities/booking.orm-entities';
 import { EntityManager } from 'typeorm';
 
 // Outbox helper (local copy)
@@ -167,6 +168,20 @@ export class AutoChargeUseCase {
         ocppTxnId:    payload.transactionId,
       };
       await mgr.save(buildOutboxEntry(mgr, event, sessionId));
+
+      // Emit charger.status.changed so ev-infrastructure-service stays in sync
+      const chargerRm = await mgr.findOneBy(ChargerReadModelOrmEntity, { chargerId: payload.chargerId });
+      const stationId = chargerRm?.stationId ?? 'unknown';
+      const statusEventId = uuidv4();
+      await mgr.save(OutboxOrmEntity, mgr.create(OutboxOrmEntity, {
+        id:            statusEventId,
+        aggregateType: 'charger',
+        aggregateId:   payload.chargerId,
+        eventType:     'charger.status.changed',
+        payload:       { eventId: statusEventId, chargerId: payload.chargerId, stationId, newStatus: 'in_use', changedAt: new Date().toISOString() },
+        status:        'pending',
+        processedAt:   null,
+      }));
 
       // Idempotency
       await mgr.save(ProcessedEventOrmEntity, {

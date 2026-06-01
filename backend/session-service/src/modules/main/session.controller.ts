@@ -4,6 +4,9 @@ import {
   BadRequestException, Logger, UnauthorizedException,
   UseGuards, Header,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, In } from 'typeorm';
+import { ChargerReadModelOrmEntity } from '../../infrastructure/persistence/typeorm/entities/booking.orm-entities';
 import {
   StartSessionUseCase, StopSessionUseCase,
   RecordTelemetryUseCase, GetSessionUseCase,
@@ -47,7 +50,50 @@ export class SessionController {
     private readonly stopSession:     StopSessionUseCase,
     private readonly recordTelemetry: RecordTelemetryUseCase,
     private readonly getSession:      GetSessionUseCase,
+    @InjectRepository(ChargerReadModelOrmEntity)
+    private readonly chargerReadRepo: Repository<ChargerReadModelOrmEntity>,
   ) {}
+
+  /**
+   * Map domain aggregate to plain DTO.
+   * Domain getters (startTime, status, etc.) live on the prototype and are
+   * NOT serialized by JSON.stringify — this helper copies them to own props.
+   */
+  private toSessionDto(session: import('../../domain/entities/charging-session.aggregate').ChargingSession) {
+    return {
+      id:           session.id,
+      userId:       session.userId,
+      chargerId:    session.chargerId,
+      bookingId:    session.bookingId,
+      status:       session.status,
+      startTime:    session.startTime,
+      endTime:      session.endTime,
+      startMeterWh: session.startMeterWh,
+      endMeterWh:   session.endMeterWh,
+      createdAt:    session.createdAt,
+      energyKwh:    session.kwhConsumed ?? 0,
+      amountDue:    session.totalFeeVnd,
+    };
+  }
+
+  /**
+   * Map stopped domain aggregate to the StopSessionResponse shape the frontend expects.
+   * Domain getter names differ from the API contract:
+   *   kwhConsumed → totalKwh
+   *   totalFeeVnd → totalCostVnd
+   *   errorReason → stopReason
+   */
+  private toStopDto(session: import('../../domain/entities/charging-session.aggregate').ChargingSession) {
+    return {
+      id:           session.id,
+      status:       session.status,
+      startTime:    session.startTime,
+      endTime:      session.endTime,
+      totalKwh:     session.kwhConsumed ?? 0,
+      totalCostVnd: session.totalFeeVnd ?? 0,
+      stopReason:   session.errorReason ?? null,
+    };
+  }
 
   /**
    * POST /api/v1/charging/start
@@ -79,12 +125,13 @@ export class SessionController {
       sessionUserId = this.verifyQrToken(dto.qrToken, dto.bookingId, currentUser);
     }
 
-    return this.startSession.execute({
+    const session = await this.startSession.execute({
       userId:       sessionUserId,
       chargerId:    dto.chargerId,
       bookingId:    dto.bookingId,
       startMeterWh: dto.startMeterWh,
     });
+    return this.toSessionDto(session);
   }
 
   /**
@@ -100,18 +147,20 @@ export class SessionController {
     @Body() dto: StopSessionDto,
     @CurrentUser() currentUser: AuthenticatedUser,
   ) {
-    // Ownership check
+    // Ownership check — kiosk device may stop any session it started
     const session = await this.getSession.execute(id);
     if (!session) throw new NotFoundException('Session not found');
-    if (session.userId !== currentUser.id) {
+    const isKiosk = currentUser.role === 'kiosk' || currentUser.roles?.includes('kiosk');
+    if (!isKiosk && session.userId !== currentUser.id) {
       throw new UnauthorizedException('You do not have permission to stop this session');
     }
 
-    return this.stopSession.execute({
+    const stopped = await this.stopSession.execute({
       sessionId:  id,
-      endMeterWh: dto.endMeterWh,
+      endMeterWh: dto.endMeterWh ?? 0,
       reason:     dto.reason,
     });
+    return this.toStopDto(stopped);
   }
 
   /**
@@ -126,12 +175,30 @@ export class SessionController {
   async adminStop(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: StopSessionDto,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.stopSession.execute({
+    const session = await this.getSession.execute(id);
+    if (!session) throw new NotFoundException('Session not found');
+
+    const isStaff = user.role === 'staff' || user.roles?.includes('staff');
+    const isAdmin = user.role === 'admin' || user.roles?.includes('admin');
+
+    if (isStaff && !isAdmin) {
+      const allowedStations = user.stationIds || [];
+      const charger = await this.chargerReadRepo.findOne({
+        where: { chargerId: session.chargerId },
+      });
+      if (!charger || !allowedStations.includes(charger.stationId)) {
+        throw new UnauthorizedException('You do not have permission to force-stop a session on this charger');
+      }
+    }
+
+    const stopped = await this.stopSession.execute({
       sessionId:  id,
-      endMeterWh: dto.endMeterWh,
+      endMeterWh: dto.endMeterWh ?? 0,
       reason:     dto.reason ?? 'admin_intervention',
     });
+    return this.toStopDto(stopped);
   }
 
   /**
@@ -158,7 +225,7 @@ export class SessionController {
   async getById(@Param('id', ParseUUIDPipe) id: string) {
     const session = await this.getSession.execute(id);
     if (!session) throw new NotFoundException('Session not found');
-    return session;
+    return this.toSessionDto(session);
   }
 
   /**
@@ -167,10 +234,26 @@ export class SessionController {
    */
   @Get('charger/:chargerId/active')
   @Roles('staff', 'admin', 'kiosk')
-  async getActiveByCharger(@Param('chargerId', ParseUUIDPipe) chargerId: string) {
+  async getActiveByCharger(
+    @Param('chargerId', ParseUUIDPipe) chargerId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const isStaff = user.role === 'staff' || user.roles?.includes('staff');
+    const isAdmin = user.role === 'admin' || user.roles?.includes('admin');
+
+    if (isStaff && !isAdmin && user.role !== 'kiosk') {
+      const allowedStations = user.stationIds || [];
+      const charger = await this.chargerReadRepo.findOne({
+        where: { chargerId },
+      });
+      if (!charger || !allowedStations.includes(charger.stationId)) {
+        throw new UnauthorizedException('You do not have permission to view active sessions for this charger');
+      }
+    }
+
     const session = await this.getSession.getActiveByCharger(chargerId);
     if (!session) throw new NotFoundException('No active session for this charger');
-    return session;
+    return this.toSessionDto(session);
   }
 
   /**
@@ -183,9 +266,58 @@ export class SessionController {
   @Header('Cache-Control', 'no-store, no-cache, must-revalidate')
   async getHistory(
     @CurrentUser() user: AuthenticatedUser,
-    @Query('limit') limit?: number,
+    @Query('limit') limit = 20,
+    @Query('offset') offset = 0,
+    @Query('userId') userId?: string,
+    @Query('chargerId') chargerId?: string,
+    @Query('status') status?: string,
   ) {
-    return this.getSession.getUserHistory(user.id, limit ?? 20);
+    const isStaff = user.role === 'staff' || user.roles?.includes('staff');
+    const isAdmin = user.role === 'admin' || user.roles?.includes('admin');
+    
+    // Only administrators see other users' history globally.
+    // Staff members see other users' history scoped strictly to their stations.
+    const targetUserId = isAdmin ? (userId || undefined) : (isStaff ? undefined : user.id);
+
+    let chargerIds: string[] | undefined = undefined;
+
+    if (isStaff && !isAdmin) {
+      const allowedStations = user.stationIds || [];
+      if (allowedStations.length === 0) {
+        return { items: [], total: 0 };
+      }
+
+      if (chargerId) {
+        const charger = await this.chargerReadRepo.findOne({
+          where: { chargerId },
+        });
+        if (!charger || !allowedStations.includes(charger.stationId)) {
+          throw new UnauthorizedException('You do not have permission to view charging history for this charger');
+        }
+      } else {
+        const chargers = await this.chargerReadRepo.find({
+          where: { stationId: In(allowedStations) },
+          select: ['chargerId'],
+        });
+        chargerIds = chargers.map((c) => c.chargerId);
+        if (chargerIds.length === 0) {
+          return { items: [], total: 0 };
+        }
+      }
+    }
+
+    const result = await this.getSession.getAllHistoryPaginated(
+      +limit,
+      +offset,
+      targetUserId,
+      chargerId || undefined,
+      status || undefined,
+      chargerIds,
+    );
+    return {
+      items: result.items.map((s) => this.toSessionDto(s)),
+      total: result.total,
+    };
   }
 
   /**

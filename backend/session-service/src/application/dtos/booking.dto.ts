@@ -92,4 +92,9 @@ export class SuggestChargerDto {
   @Min(0)
   @Type(() => Number)
   budgetVnd?: number;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['cost', 'distance'])
+  preference?: 'cost' | 'distance';
 }

@@ -57,12 +57,27 @@ export class CreateBookingUseCase {
     private readonly pricingClient: PricingHttpClient,
     @InjectRepository(ChargerStateOrmEntity)
     private readonly chargerStateRepo: Repository<ChargerStateOrmEntity>,
-  ) {}
+  ) { }
 
   async execute(cmd: CreateBookingCommand): Promise<Booking> {
+    // 1. Idempotency Check
+    if ((cmd as any).idempotencyKey) {
+      const existing = await this.bookingRepo.findByIdempotencyKey((cmd as any).idempotencyKey);
+      if (existing) {
+        this.logger.log(`Idempotent request: Returning existing booking ${existing.id}`);
+        return existing;
+      }
+    }
+
     const startTime = new Date(cmd.startTime);
     const endTime = new Date(cmd.endTime);
-    if (startTime.getTime() < Date.now() - 60_000) {
+
+    /** 
+     * STRICT VALIDATION: Only allow 1 minute buffer for minor sync issues.
+     * Reverted from 5-min grace period as requested.
+     */
+    const STRICT_BUFFER_MS = 60_000;
+    if (startTime.getTime() < Date.now() - STRICT_BUFFER_MS) {
       throw new BadRequestException('Cannot create a booking in the past');
     }
 
@@ -96,24 +111,13 @@ export class CreateBookingUseCase {
       }
     }
 
-    const hasConnector = charger.connectors.some(
-      (c) => c.connectorType === cmd.connectorType,
-    );
-    if (!hasConnector) {
-      const available = charger.connectors.map((c) => c.connectorType).join(', ');
-      throw new BadRequestException(
-        `Charger ${cmd.chargerId} does not have connector ${cmd.connectorType}. ` +
-        `Available: ${available || 'None'}`,
-      );
-    }
-
     // STEP 2: Fetch pricing -> calculate depositAmount
     const pricing = await this.pricingClient.getPricing({
-      stationId:     cmd.stationId,
-      chargerId:     cmd.chargerId,
+      stationId: cmd.stationId,
+      chargerId: cmd.chargerId,
       connectorType: cmd.connectorType,
-      startTime:     timeRange.startTime,
-      endTime:       timeRange.endTime,
+      startTime: timeRange.startTime,
+      endTime: timeRange.endTime,
     });
 
     const depositAmount = pricing.recommendedDepositVnd;
@@ -143,8 +147,8 @@ export class CreateBookingUseCase {
 
       // Create aggregate - with connector type and pricing snapshot
       const booking = Booking.create({
-        userId:        cmd.userId,
-        chargerId:     cmd.chargerId,
+        userId: cmd.userId,
+        chargerId: cmd.chargerId,
         timeRange,
         depositAmount,
         connectorType: cmd.connectorType,
@@ -180,7 +184,7 @@ export class GetAvailabilityUseCase {
     @Inject(BOOKING_REPOSITORY)
     private readonly bookingRepo: IBookingRepository,
     private readonly pricingClient: PricingHttpClient,
-  ) {}
+  ) { }
 
   async execute(
     chargerId: string,
@@ -205,12 +209,12 @@ export class GetAvailabilityUseCase {
 
     for (let t = startOfDay.getTime(); t <= endOfDay.getTime(); t += slotMs) {
       const slotStart = new Date(t);
-      const slotEnd   = new Date(t + slotMs);
+      const slotEnd = new Date(t + slotMs);
 
       const isBooked = bookings.some(
         (b) =>
           b.timeRange.startTime < slotEnd &&
-          b.timeRange.endTime   > slotStart,
+          b.timeRange.endTime > slotStart,
       );
 
       // Calculate slot price (only if not booked) - based on time
@@ -224,7 +228,7 @@ export class GetAvailabilityUseCase {
             startTime: slotStart, endTime: slotEnd,
           });
           pricePerKwhVnd = pricing.pricePerKwhVnd;
-          isPeakHour     = pricing.isPeakHour;
+          isPeakHour = pricing.isPeakHour;
         } catch {
           // If pricing error, do not block availability
         }
@@ -236,4 +240,3 @@ export class GetAvailabilityUseCase {
     return slots;
   }
 }
-

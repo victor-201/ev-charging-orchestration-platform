@@ -9,6 +9,15 @@ export interface ISessionRepository {
   findActiveByUser(userId: string): Promise<ChargingSession | null>;
   findByBookingId(bookingId: string): Promise<ChargingSession | null>;
   findByUserId(userId: string, limit?: number): Promise<ChargingSession[]>;
+  findAll(limit?: number): Promise<ChargingSession[]>;
+  findAllPaginated(
+    limit: number,
+    offset: number,
+    userId?: string,
+    chargerId?: string,
+    status?: string,
+    chargerIds?: string[],
+  ): Promise<{ items: ChargingSession[]; total: number }>;
   /** Find STOPPED sessions older than cutoff - for reconciliation */
   findStoppedBefore(cutoff: Date): Promise<ChargingSession[]>;
   /** Idempotency check on start */

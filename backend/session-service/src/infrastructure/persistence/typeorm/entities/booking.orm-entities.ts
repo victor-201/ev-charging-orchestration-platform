@@ -61,6 +61,9 @@ export class BookingOrmEntity {
   @Column({ name: 'penalty_amount', type: 'numeric', precision: 12, scale: 0, nullable: true })
   penaltyAmount: number | null;
 
+  @Column({ name: 'idempotency_key', type: 'varchar', length: 64, nullable: true, unique: true })
+  idempotencyKey: string | null;
+
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
@@ -319,5 +322,3 @@ export class OutboxOrmEntity {
   @Column({ name: 'processed_at', type: 'timestamptz', nullable: true })
   processedAt: Date | null;
 }
-
-// user_debt_read_models is defined in session.orm-entities.ts and shared

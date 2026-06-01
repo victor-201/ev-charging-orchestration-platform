@@ -1,4 +1,4 @@
-﻿import {
+import {
   Injectable, CanActivate, ExecutionContext,
   UnauthorizedException, Logger,
 } from '@nestjs/common';
@@ -15,6 +15,8 @@ export interface AuthenticatedUser {
   role:      string;
   roles:     string[];
   sessionId: string | null;
+  stationId?: string | null;
+  stationIds?: string[];
 }
 
 @Injectable()
@@ -82,6 +84,8 @@ export class JwtAuthGuard implements CanActivate {
         role:      payload.role    ?? (payload.roles as string[])?.[0] ?? 'user',
         roles:     payload.roles   ?? [payload.role ?? 'user'],
         sessionId: payload.sessionId ?? null,
+        stationId: payload.stationId ?? null,
+        stationIds: payload.stationIds ?? [],
       } satisfies AuthenticatedUser;
 
       // Forward correlation-id from Kong header

@@ -34,7 +34,16 @@ export interface IBookingRepository {
   /** Find by deposit transaction ID - for payment callback lookup */
   findByDepositTransactionId(transactionId: string): Promise<Booking | null>;
   /** Paginated list of user bookings */
-  findByUser(userId: string, limit?: number, offset?: number): Promise<{ items: Booking[]; total: number }>;
+  findByUser(userId: string, limit?: number, offset?: number, status?: string): Promise<{ items: Booking[]; total: number }>;
+  /** List of all bookings in the system - for admin */
+  findAll(
+    limit?: number,
+    offset?: number,
+    userId?: string,
+    chargerId?: string,
+    status?: string,
+    chargerIds?: string[],
+  ): Promise<{ items: Booking[]; total: number }>;
   /**
    * Retrieves active upcoming bookings for the specified chargers.
    *

@@ -5,6 +5,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { AllExceptionsFilter } from './shared/filters/domain-exception.filter';
 
 const SERVICE_NAME = 'booking-service';
 const DEFAULT_PORT = 3004;
@@ -43,6 +44,7 @@ async function bootstrap() {
     whitelist: true, forbidNonWhitelisted: true, transform: true,
     transformOptions: { enableImplicitConversion: true },
   }));
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   app.enableCors({
     origin: process.env.ALLOWED_ORIGINS?.split(',') ?? '*',

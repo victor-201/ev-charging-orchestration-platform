@@ -7,6 +7,8 @@ import {
   ProcessedEventOrmEntity,
   ChargerStateOrmEntity,
 } from '../../persistence/typeorm/entities/session.orm-entities';
+import { OutboxOrmEntity, ChargerReadModelOrmEntity } from '../../persistence/typeorm/entities/booking.orm-entities';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * BookingConfirmedSyncConsumer
@@ -95,6 +97,8 @@ export class BookingCancelledSyncConsumer {
     private readonly peRepo: Repository<ProcessedEventOrmEntity>,
     @InjectRepository(ChargerStateOrmEntity)
     private readonly chargerStateRepo: Repository<ChargerStateOrmEntity>,
+    @InjectRepository(OutboxOrmEntity)
+    private readonly outboxRepo: Repository<OutboxOrmEntity>,
   ) {}
 
   private async releaseCharger(bookingId: string): Promise<void> {
@@ -108,6 +112,24 @@ export class BookingCancelledSyncConsumer {
           state.updatedAt = new Date();
           await this.chargerStateRepo.save(state);
           this.logger.log(`Released charger ${chargerId} -> available because booking ${bookingId} ended/cancelled/no-show`);
+
+          // Resolve stationId
+          const chargerRm = await this.repo.manager.findOneBy(ChargerReadModelOrmEntity, { chargerId });
+          const stationId = chargerRm?.stationId ?? 'unknown';
+
+          // Emit charger.status.changed to sync ev-infrastructure-service
+          const statusEventId = uuidv4();
+          await this.outboxRepo.save(
+            this.outboxRepo.create({
+              id:            statusEventId,
+              aggregateType: 'charger',
+              aggregateId:   chargerId,
+              eventType:     'charger.status.changed',
+              payload:       { eventId: statusEventId, chargerId, stationId, newStatus: 'available', changedAt: new Date().toISOString() },
+              status:        'pending',
+              processedAt:   null,
+            })
+          );
         }
       }
     } catch (err) {

@@ -55,6 +55,27 @@ export class SessionOrmEntity {
   @Column({ name: 'scheduled_stop_at', type: 'timestamptz', nullable: true })
   scheduledStopAt: Date | null;
 
+  @Column({ name: 'idempotency_key', type: 'varchar', length: 128, nullable: true, unique: true })
+  idempotencyKey: string | null;
+
+  @Column({ name: 'energy_fee_vnd', type: 'numeric', precision: 12, scale: 0, default: 0 })
+  energyFeeVnd: number;
+
+  @Column({ name: 'idle_fee_vnd', type: 'numeric', precision: 12, scale: 0, default: 0 })
+  idleFeeVnd: number;
+
+  @Column({ name: 'stopped_at', type: 'timestamptz', nullable: true })
+  stoppedAt: Date | null;
+
+  @Column({ name: 'billed_at', type: 'timestamptz', nullable: true })
+  billedAt: Date | null;
+
+  @Column({ name: 'deposit_amount', type: 'numeric', precision: 12, scale: 0, default: 0 })
+  depositAmount: number;
+
+  @Column({ name: 'deposit_transaction_id', type: 'uuid', nullable: true })
+  depositTransactionId: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

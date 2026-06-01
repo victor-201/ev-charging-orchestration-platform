@@ -150,6 +150,9 @@ export class ChargingSession {
     endMeterWh: number | null;
     errorReason: string | null;
     billedAt?: Date | null;
+    energyFeeVnd?: number | null;
+    idleFeeVnd?: number;
+    stoppedAt?: Date | null;
     createdAt: Date;
     updatedAt: Date;
   }): ChargingSession {

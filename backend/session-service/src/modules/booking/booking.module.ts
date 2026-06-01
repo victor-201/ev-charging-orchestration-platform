@@ -12,7 +12,7 @@ import {
   SchedulingSlotOrmEntity,
   VehicleReadModelOrmEntity,
 } from '../../infrastructure/persistence/typeorm/entities/booking.orm-entities';
-import { UserDebtReadModelOrmEntity, ChargerStateOrmEntity } from '../../infrastructure/persistence/typeorm/entities/session.orm-entities';
+import { UserDebtReadModelOrmEntity, ChargerStateOrmEntity, SessionOrmEntity } from '../../infrastructure/persistence/typeorm/entities/session.orm-entities';
 import { SuggestChargerUseCase } from '../../application/use-cases/suggest-charger.use-case';
 import { BookingRepository } from '../../infrastructure/persistence/typeorm/repositories/booking.repository';
 import { ChargerRepository } from '../../infrastructure/persistence/typeorm/repositories/charger.repository';
@@ -82,6 +82,7 @@ import { StationStatusChangedConsumer } from '../../infrastructure/messaging/con
       SchedulingSlotOrmEntity,
       VehicleReadModelOrmEntity,
       ChargerStateOrmEntity,       // NoShowDetectionJob needs to release charger
+      SessionOrmEntity,
     ]),
   ],
   controllers: [BookingController],

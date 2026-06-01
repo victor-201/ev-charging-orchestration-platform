@@ -60,7 +60,8 @@ export class IdleFeeDetectionJob {
 
       // Actual fee per minute (2,000 VND/min)
       const idleFeeIncrement = IDLE_FEE_PER_MINUTE_VND;
-      const newIdleFee = ((session as any).idleFeeVnd ?? 0) + idleFeeIncrement;
+      const currentIdleFee = Number((session as any).idleFeeVnd ?? 0);
+      const newIdleFee = currentIdleFee + idleFeeIncrement;
 
       await this.sessionRepo.update(session.id, {
         idleFeeVnd: newIdleFee,
@@ -122,17 +123,22 @@ export class StoppedSessionBillingJob {
         ? (Number(s.endMeterWh) - Number(s.startMeterWh)) / 1000
         : 0;
 
+      const chargerRm = await this.dataSource.manager
+        .findOneBy(ChargerReadModelOrmEntity, { chargerId: s.chargerId });
+      const stationId = chargerRm?.stationId ?? 'unknown';
+
       const event = new SessionCompletedEvent(
         s.id,
         s.userId,
         s.chargerId,
+        stationId,
         s.bookingId,
         kwhConsumed,
         s.endTime!,
         durationMin,
-        (s as any).energyFeeVnd ?? 0,
-        (s as any).idleFeeVnd ?? 0,
-        (s as any).depositAmount ?? 0,
+        Number((s as any).energyFeeVnd ?? 0),
+        Number((s as any).idleFeeVnd ?? 0),
+        Number((s as any).depositAmount ?? 0),
         (s as any).depositTransactionId ?? null,
       );
 

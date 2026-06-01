@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager, In } from 'typeorm';
 import { Booking } from '../../../../domain/aggregates/booking.aggregate';
 import { BookingTimeRange } from '../../../../domain/value-objects/booking-time-range.vo';
 import { BookingStatus } from '../../../../domain/value-objects/booking-status.vo';
+import { DomainException } from '../../../../domain/exceptions/domain.exception';
 import { IBookingRepository, SchedulingSlotInput } from '../../../../domain/repositories/booking.repository.interface';
 import {
   BookingOrmEntity,
@@ -14,6 +15,8 @@ import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class BookingRepository implements IBookingRepository {
+  private readonly logger = new Logger(BookingRepository.name);
+
   constructor(
     @InjectRepository(BookingOrmEntity)
     private readonly repo: Repository<BookingOrmEntity>,
@@ -45,26 +48,59 @@ export class BookingRepository implements IBookingRepository {
 
   async findById(id: string): Promise<Booking | null> {
     const entity = await this.repo.findOneBy({ id });
-    return entity ? this.toDomain(entity) : null;
+    return entity ? this.safeToDomain(entity) : null;
   }
 
   async findByUserAndStatus(userId: string, status: BookingStatus): Promise<Booking[]> {
     const entities = await this.repo.findBy({ userId, status });
-    return entities.map(this.toDomain.bind(this));
+    return entities.map(this.safeToDomain.bind(this)).filter((b): b is Booking => b !== null);
   }
 
   async findByUser(
     userId: string,
     limit = 20,
     offset = 0,
+    status?: string,
   ): Promise<{ items: Booking[]; total: number }> {
+    const where: any = { userId };
+    if (status && status !== 'ALL') {
+      where.status = status.toLowerCase();
+    }
     const [rows, total] = await this.repo.findAndCount({
-      where: { userId },
+      where,
       order: { createdAt: 'DESC' },
       take: limit,
       skip: offset,
     });
-    return { items: rows.map(this.toDomain.bind(this)), total };
+    return { items: rows.map(this.safeToDomain.bind(this)).filter((b): b is Booking => b !== null), total };
+  }
+
+  async findAll(
+    limit = 20,
+    offset = 0,
+    userId?: string,
+    chargerId?: string,
+    status?: string,
+    chargerIds?: string[],
+  ): Promise<{ items: Booking[]; total: number }> {
+    const where: any = {};
+    if (userId) where.userId = userId;
+    if (chargerId) where.chargerId = chargerId;
+    if (status) where.status = status;
+    if (chargerIds && chargerIds.length > 0) {
+      where.chargerId = In(chargerIds);
+    }
+
+    const [rows, total] = await this.repo.findAndCount({
+      where,
+      order: { createdAt: 'DESC' },
+      take: limit,
+      skip: offset,
+    });
+    return {
+      items: rows.map(this.safeToDomain.bind(this)).filter((b): b is Booking => b !== null),
+      total,
+    };
   }
 
   async findActiveByCharger(chargerId: string): Promise<Booking[]> {
@@ -72,7 +108,7 @@ export class BookingRepository implements IBookingRepository {
       chargerId,
       status: In(['pending_payment', 'confirmed']),
     });
-    return entities.map(this.toDomain.bind(this));
+    return entities.map(this.safeToDomain.bind(this)).filter((b): b is Booking => b !== null);
   }
 
   /**
@@ -96,7 +132,7 @@ export class BookingRepository implements IBookingRepository {
       .orderBy('b.start_time', 'ASC')
       .getMany();
 
-    return entities.map(this.toDomain.bind(this));
+    return entities.map(this.safeToDomain.bind(this)).filter((b): b is Booking => b !== null);
   }
 
   async hasOverlap(
@@ -128,7 +164,7 @@ export class BookingRepository implements IBookingRepository {
       .where("b.status = 'pending_payment'")
       .andWhere('b.created_at <= :cutoff', { cutoff })
       .getMany();
-    return entities.map(this.toDomain.bind(this));
+    return entities.map(this.safeToDomain.bind(this)).filter((b): b is Booking => b !== null);
   }
 
   async findConfirmedStartedBefore(cutoff: Date): Promise<Booking[]> {
@@ -137,7 +173,7 @@ export class BookingRepository implements IBookingRepository {
       .where("b.status = 'confirmed'")
       .andWhere('b.start_time <= :cutoff', { cutoff })
       .getMany();
-    return entities.map(this.toDomain.bind(this));
+    return entities.map(this.safeToDomain.bind(this)).filter((b): b is Booking => b !== null);
   }
 
   async getQueuePosition(userId: string, chargerId: string): Promise<number> {
@@ -155,12 +191,12 @@ export class BookingRepository implements IBookingRepository {
 
   async findByIdempotencyKey(key: string): Promise<Booking | null> {
     const entity = await this.repo.findOneBy({ idempotencyKey: key } as any);
-    return entity ? this.toDomain(entity) : null;
+    return entity ? this.safeToDomain(entity) : null;
   }
 
   async findByDepositTransactionId(transactionId: string): Promise<Booking | null> {
     const entity = await this.repo.findOneBy({ depositTransactionId: transactionId } as any);
-    return entity ? this.toDomain(entity) : null;
+    return entity ? this.safeToDomain(entity) : null;
   }
 
   async findUpcomingByChargers(chargerIds: string[]): Promise<Booking[]> {
@@ -171,7 +207,7 @@ export class BookingRepository implements IBookingRepository {
       .andWhere("b.status IN ('pending_payment', 'confirmed')")
       .andWhere('b.start_time >= :now', { now: new Date() })
       .getMany();
-    return entities.map(this.toDomain.bind(this));
+    return entities.map(this.safeToDomain.bind(this)).filter((b): b is Booking => b !== null);
   }
 
   // Mappers
@@ -194,6 +230,7 @@ export class BookingRepository implements IBookingRepository {
     e.penaltyAmount        = b.penaltyAmount ?? null;
     e.connectorType        = b.connectorType ?? null;
     e.pricePerKwhSnapshot  = b.pricePerKwhSnapshot ?? null;
+    e.idempotencyKey       = b.idempotencyKey;
     e.createdAt            = b.createdAt;
     e.updatedAt            = b.updatedAt;
     return e;
@@ -206,6 +243,7 @@ export class BookingRepository implements IBookingRepository {
       chargerId:            e.chargerId,
       timeRange:            new BookingTimeRange(e.startTime, e.endTime),
       status:               e.status as BookingStatus,
+      idempotencyKey:       e.idempotencyKey,
       expiredAt:            e.expiresAt ?? null,
       qrToken:              (e as any).qrToken ?? null,
       depositAmount:        (e as any).depositAmount ?? null,
@@ -216,6 +254,22 @@ export class BookingRepository implements IBookingRepository {
       createdAt:            e.createdAt,
       updatedAt:            e.updatedAt,
     });
+  }
+
+  /**
+   * Safe version of toDomain that logs and skips corrupt records instead of throwing.
+   * Used in list operations where a single bad record should not break the entire response.
+   */
+  private safeToDomain(e: BookingOrmEntity): Booking | null {
+    try {
+      return this.toDomain(e);
+    } catch (err) {
+      if (err instanceof DomainException) {
+        this.logger.warn(`Skipping booking ${e.id}: ${err.message}`);
+        return null;
+      }
+      throw err;
+    }
   }
 
   async saveSchedulingSlots(slots: SchedulingSlotInput[]): Promise<void> {

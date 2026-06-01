@@ -234,25 +234,26 @@ export class StartSessionUseCase {
         ['chargerId'],
       );
 
+      const chargerRm = await mgr.findOneBy(ChargerReadModelOrmEntity, { chargerId: cmd.chargerId });
+      const stationId = chargerRm?.stationId ?? 'unknown';
+
       const event = new SessionStartedEvent(
         session.id,
         session.userId,
         session.chargerId,
+        stationId,
         session.bookingId,
         session.startTime,
         session.startMeterWh,
       );
       await mgr.save(OutboxOrmEntity, buildOutboxEntry(mgr, event, session.id));
-
-      const chargerRm = await mgr.findOneBy(ChargerReadModelOrmEntity, { chargerId: cmd.chargerId });
-      const stationId = chargerRm?.stationId ?? 'unknown';
       const statusEventId = uuidv4();
       await mgr.save(OutboxOrmEntity, mgr.create(OutboxOrmEntity, {
         id:            statusEventId,
         aggregateType: 'charger',
         aggregateId:   cmd.chargerId,
         eventType:     'charger.status.changed',
-        payload:       { eventId: statusEventId, chargerId: cmd.chargerId, stationId, newStatus: 'occupied', changedAt: new Date().toISOString() },
+        payload:       { eventId: statusEventId, chargerId: cmd.chargerId, stationId, newStatus: 'in_use', changedAt: new Date().toISOString() },
         status:        'pending',
         processedAt:   null,
       }));
@@ -294,26 +295,76 @@ export class StopSessionUseCase {
 
       const session = this.entityToDomain(entity);
 
+      const chargerRm = await mgr.findOneBy(ChargerReadModelOrmEntity, { chargerId: session.chargerId });
+      const stationId = chargerRm?.stationId ?? 'unknown';
+
       let eventPayload: OutboxOrmEntity;
 
-      if (cmd.reason) {
-        session.interrupt(cmd.reason);
+      const isInterrupted = cmd.reason && cmd.reason !== 'kiosk_user_stop' && cmd.reason !== 'admin_intervention';
+
+      if (isInterrupted) {
+        session.interrupt(cmd.reason!);
         const ev = new SessionInterruptedEvent(
-          session.id, session.userId, session.chargerId, cmd.reason,
+          session.id, session.userId, session.chargerId, cmd.reason!,
         );
         eventPayload = buildOutboxEntry(mgr, ev, session.id);
       } else {
-        session.stop(cmd.endMeterWh, cmd.energyFeeVnd ?? 0);
+        let calculatedEnergyFee = cmd.energyFeeVnd;
+        if (calculatedEnergyFee === undefined) {
+          calculatedEnergyFee = 0;
+          try {
+            const baseUrl = process.env.STATION_SERVICE_URL || 'http://ev-infrastructure:3003';
+            const kwhConsumed = Math.max(0, (cmd.endMeterWh - session.startMeterWh) / 1000);
+            const connectorType = chargerRm?.connectorType ?? 'CCS';
+            const response = await fetch(
+              `${baseUrl}/api/v1/stations/${stationId}/chargers/${session.chargerId}/pricing/calculate-session-fee`,
+              {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  connectorType,
+                  startTime:     session.startTime.toISOString(),
+                  kwhConsumed,
+                  idleMinutes:   0,
+                }),
+                signal: AbortSignal.timeout(3000),
+              }
+            );
+            if (response.ok) {
+              const resBody = await response.json();
+              calculatedEnergyFee = resBody.energyFeeVnd ?? 0;
+            } else {
+              this.logger.error(`Pricing service returned status ${response.status}`);
+              throw new Error(`Status ${response.status}`);
+            }
+          } catch (err: any) {
+            this.logger.error(`Failed to calculate fee from infrastructure: ${err.message}. Using fallback.`);
+            const kwhConsumed = Math.max(0, (cmd.endMeterWh - session.startMeterWh) / 1000);
+            const hour = session.startTime.getHours();
+            const isPeak = (hour >= 9 && hour < 12) || (hour >= 17 && hour < 20);
+            const isOffPeak = hour >= 22 || hour < 6;
+            const pricePerKwhVnd = isPeak ? 4500 : isOffPeak ? 2500 : 3500;
+            calculatedEnergyFee = Math.ceil(kwhConsumed * pricePerKwhVnd);
+          }
+        }
+
+        calculatedEnergyFee ??= 0;
+        if (calculatedEnergyFee < 1000) {
+          calculatedEnergyFee = 1000;
+        }
+
+        session.stop(cmd.endMeterWh, calculatedEnergyFee);
         const durationMs = session.endTime!.getTime() - session.startTime.getTime();
         const ev = new SessionCompletedEvent(
           session.id,
           session.userId,
           session.chargerId,
+          stationId,
           session.bookingId,
           session.kwhConsumed!,
           session.endTime!,
           Math.round(durationMs / 60000),
-          cmd.energyFeeVnd ?? 0,
+          calculatedEnergyFee,
           session.idleFeeVnd,
           cmd.depositAmount ?? 0,
           cmd.depositTransactionId ?? null,
@@ -344,9 +395,6 @@ export class StopSessionUseCase {
       );
 
       await mgr.save(OutboxOrmEntity, eventPayload);
-
-      const chargerRm = await mgr.findOneBy(ChargerReadModelOrmEntity, { chargerId: session.chargerId });
-      const stationId = chargerRm?.stationId ?? 'unknown';
       const statusEventId = uuidv4();
       await mgr.save(OutboxOrmEntity, mgr.create(OutboxOrmEntity, {
         id:            statusEventId,
@@ -476,6 +524,21 @@ export class GetSessionUseCase {
 
   async getUserHistory(userId: string, limit = 20): Promise<ChargingSession[]> {
     return this.sessionRepo.findByUserId(userId, limit);
+  }
+
+  async getAllHistory(limit = 20): Promise<ChargingSession[]> {
+    return this.sessionRepo.findAll(limit);
+  }
+
+  async getAllHistoryPaginated(
+    limit = 20,
+    offset = 0,
+    userId?: string,
+    chargerId?: string,
+    status?: string,
+    chargerIds?: string[],
+  ): Promise<{ items: ChargingSession[]; total: number }> {
+    return this.sessionRepo.findAllPaginated(limit, offset, userId, chargerId, status, chargerIds);
   }
 }
 

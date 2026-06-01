@@ -19,6 +19,31 @@ export class OutboxEventBus implements IEventBus {
     private readonly outboxRepo: Repository<OutboxOrmEntity>,
   ) {}
 
+  async publish(event: { eventType: string; payload: object }, manager?: EntityManager): Promise<void> {
+    const entity = this.outboxRepo.create();
+    entity.id            = uuidv4();
+    entity.aggregateType = event.eventType.split('.')[0];
+    entity.aggregateId   = (event.payload as any).sessionId ?? 
+                           (event.payload as any).bookingId ?? 
+                           (event.payload as any).chargerId ?? 
+                           (event.payload as any).id ?? 
+                           'unknown';
+    entity.eventType     = event.eventType;
+    entity.payload       = event.payload as Record<string, unknown>;
+    entity.status        = 'pending';
+    entity.retryCount    = 0;
+    entity.errorMessage  = null;
+    entity.processedAt   = null;
+
+    if (manager) {
+      await manager.save(OutboxOrmEntity, entity);
+    } else {
+      await this.outboxRepo.save(entity);
+    }
+
+    this.logger.debug(`Wrote event ${event.eventType} to outbox`);
+  }
+
   async publishAll(events: DomainEvent[], manager?: EntityManager): Promise<void> {
     if (events.length === 0) return;
 

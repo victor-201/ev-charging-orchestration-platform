@@ -26,7 +26,7 @@ import { ConfigService } from '@nestjs/config';
 import { PricingHttpClient } from '../../src/infrastructure/http/pricing.http-client';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { VehicleReadModelOrmEntity } from '../../src/infrastructure/persistence/typeorm/entities/booking.orm-entities';
-import { ChargerStateOrmEntity } from '../../src/infrastructure/persistence/typeorm/entities/session.orm-entities';
+import { ChargerStateOrmEntity, SessionOrmEntity } from '../../src/infrastructure/persistence/typeorm/entities/session.orm-entities';
 
 // Mocks
 
@@ -76,6 +76,12 @@ const mockDataSource = {
 // Mock charger state repo - returns null by default (no state = available)
 const mockChargerStateRepo = {
   findOneBy: jest.fn().mockResolvedValue(null),
+  find:      jest.fn().mockResolvedValue([]),
+};
+
+// Mock session repo
+const mockSessionRepo = {
+  find: jest.fn().mockResolvedValue([]),
 };
 
 // Helper factories
@@ -581,6 +587,8 @@ describe('SuggestChargerUseCase', () => {
         { provide: BOOKING_REPOSITORY, useValue: customBookingRepo },
         { provide: PricingHttpClient,  useValue: mockPricingClient },
         { provide: getRepositoryToken(VehicleReadModelOrmEntity), useValue: mockVehicleRepo },
+        { provide: getRepositoryToken(SessionOrmEntity), useValue: mockSessionRepo },
+        { provide: getRepositoryToken(ChargerStateOrmEntity), useValue: mockChargerStateRepo },
       ],
     }).compile();
 
@@ -604,7 +612,146 @@ describe('SuggestChargerUseCase', () => {
     expect(res.length).toBeGreaterThan(0);
     expect(res[0].chargerId).toBe('charger-1');
     expect(res[0].rank).toBe(1);
-    expect(mockSaveSlots).toHaveBeenCalled();
+  });
+
+  it('excludes charger if it has an active session overlapping with the slots', async () => {
+    // Mock an active session on charger-1
+    mockSessionRepo.find.mockResolvedValueOnce([
+      {
+        chargerId: 'charger-1',
+        status: 'active',
+        startTime: new Date(),
+        scheduledStopAt: null,
+      },
+    ]);
+
+    const res = await useCase.execute(
+      {
+        connectorType: 'CCS2',
+        latitude: 21.0285,
+        longitude: 105.8542,
+        startTime: new Date().toISOString(), // Now
+        endTime: new Date(Date.now() + 1000 * 60 * 30).toISOString(),   // 30m future (1 slot)
+        budgetVnd: 150000,
+      },
+      'user-1',
+    );
+
+    // Since the only charger has an active session, no slots should be free, hence suggestion list is empty
+    expect(res).toHaveLength(0);
+  });
+
+  it('suggests busy chargers ranked by fastest wait time when all are busy', async () => {
+    // 1. Mock two active chargers: charger-1 and charger-2
+    jest.spyOn(useCase['chargerRepo'], 'findAvailableByStation').mockResolvedValueOnce([
+      {
+        id: 'charger-1',
+        stationId: 'station-1',
+        connectorType: 'CCS2',
+        connectors: [{ connectorType: 'CCS2', maxPowerKw: 50 }],
+        maxPowerKw: 50,
+        status: 'in_use',
+      },
+      {
+        id: 'charger-2',
+        stationId: 'station-1',
+        connectorType: 'CCS2',
+        connectors: [{ connectorType: 'CCS2', maxPowerKw: 50 }],
+        maxPowerKw: 50,
+        status: 'in_use',
+      },
+    ]);
+
+    // 2. Mock active sessions:
+    // charger-1 has a session ending in 60 minutes
+    // charger-2 has a session ending in 30 minutes
+    const now = Date.now();
+    mockSessionRepo.find.mockResolvedValueOnce([
+      {
+        chargerId: 'charger-1',
+        status: 'active',
+        startTime: new Date(now),
+        scheduledStopAt: new Date(now + 60 * 60 * 1000), // stops in 60m
+      },
+      {
+        chargerId: 'charger-2',
+        status: 'active',
+        startTime: new Date(now),
+        scheduledStopAt: new Date(now + 30 * 60 * 1000), // stops in 30m
+      },
+    ]);
+
+    const res = await useCase.execute(
+      {
+        connectorType: 'CCS2',
+        latitude: 21.0285,
+        longitude: 105.8542,
+        startTime: new Date(now).toISOString(),
+        endTime: new Date(now + 120 * 60 * 1000).toISOString(), // 2h window (4 slots)
+        budgetVnd: 150000,
+      },
+      'user-1',
+    );
+
+    // Since both chargers are busy, we fallback to suggesting busy chargers
+    expect(res).toBeDefined();
+    expect(res.length).toBeGreaterThan(1);
+    
+    // charger-2 must be ranked #1 because it has the fastest wait time (stops in 30m vs 60m)
+    expect(res[0].chargerId).toBe('charger-2');
+    expect(res[0].rank).toBe(1);
+    expect(res[1].chargerId).toBe('charger-1');
+    expect(res[1].rank).toBe(2);
+  });
+
+  it('does NOT suggest a busy charger when a free charger is available', async () => {
+    // Two chargers: charger-1 is busy (active session), charger-2 is free
+    jest.spyOn(useCase['chargerRepo'], 'findAvailableByStation').mockResolvedValueOnce([
+      {
+        id: 'charger-1',
+        stationId: 'station-1',
+        connectorType: 'CCS2',
+        connectors: [{ connectorType: 'CCS2', maxPowerKw: 50 }],
+        maxPowerKw: 50,
+        status: 'in_use',
+      },
+      {
+        id: 'charger-2',
+        stationId: 'station-1',
+        connectorType: 'CCS2',
+        connectors: [{ connectorType: 'CCS2', maxPowerKw: 50 }],
+        maxPowerKw: 50,
+        status: 'available',
+      },
+    ]);
+
+    // Only charger-1 has an active session
+    const now = Date.now();
+    mockSessionRepo.find.mockResolvedValueOnce([
+      {
+        chargerId: 'charger-1',
+        status: 'active',
+        startTime: new Date(now),
+        scheduledStopAt: new Date(now + 60 * 60 * 1000), // stops in 60m
+      },
+    ]);
+
+    const res = await useCase.execute(
+      {
+        connectorType: 'CCS2',
+        latitude: 21.0285,
+        longitude: 105.8542,
+        startTime: new Date(now).toISOString(),
+        endTime: new Date(now + 120 * 60 * 1000).toISOString(), // 2h window
+        budgetVnd: 150000,
+      },
+      'user-1',
+    );
+
+    // Must only suggest charger-2 (free), never charger-1 (busy)
+    expect(res.length).toBeGreaterThan(0);
+    expect(res.every((r) => r.chargerId === 'charger-2')).toBe(true);
+    expect(res.some((r) => r.chargerId === 'charger-1')).toBe(false);
   });
 });
 

@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
+import { SessionOrmEntity, ChargerStateOrmEntity } from '../../infrastructure/persistence/typeorm/entities/session.orm-entities';
 import {
   IChargerRepository,
   CHARGER_REPOSITORY,
@@ -51,6 +52,10 @@ export class SuggestChargerUseCase {
     private readonly pricingHttpClient: PricingHttpClient,
     @InjectRepository(VehicleReadModelOrmEntity)
     private readonly vehicleRepo: Repository<VehicleReadModelOrmEntity>,
+    @InjectRepository(SessionOrmEntity)
+    private readonly sessionRepo: Repository<SessionOrmEntity>,
+    @InjectRepository(ChargerStateOrmEntity)
+    private readonly chargerStateRepo: Repository<ChargerStateOrmEntity>,
   ) {}
 
   /**
@@ -148,6 +153,7 @@ export class SuggestChargerUseCase {
 
     // Keep chargers within radius, nearest-first, capped at MAX_CHARGERS_TO_SCORE.
     let nearbyChargers = chargers
+      .filter((c) => c.status !== 'offline' && c.status !== 'faulted')
       .filter((c) => (chargerDistances.get(c.id) ?? Infinity) <= MAX_RADIUS_KM)
       .sort((a, b) => (chargerDistances.get(a.id) ?? 0) - (chargerDistances.get(b.id) ?? 0))
       .slice(0, MAX_CHARGERS_TO_SCORE);
@@ -155,12 +161,48 @@ export class SuggestChargerUseCase {
     if (nearbyChargers.length === 0) {
       // Fallback: use the nearest chargers regardless of radius when no local ones exist.
       nearbyChargers = [...chargers]
+        .filter((c) => c.status !== 'offline' && c.status !== 'faulted')
         .sort((a, b) => (chargerDistances.get(a.id) ?? 0) - (chargerDistances.get(b.id) ?? 0))
         .slice(0, MAX_CHARGERS_TO_SCORE);
     }
 
     const nearbyChargerIds = nearbyChargers.map((c) => c.id);
     const bookings = await this.bookingRepo.findUpcomingByChargers(nearbyChargerIds);
+    const activeSessions = await this.sessionRepo.find({
+      where: {
+        chargerId: In(nearbyChargerIds),
+        status: 'active',
+      },
+    });
+
+    // Build set of charger IDs that currently have an active session
+    const activeSessionChargerIds = new Set(activeSessions.map((s) => s.chargerId));
+
+    // Fetch real-time charger availability state
+    const chargerStates = await this.chargerStateRepo.find({
+      where: {
+        chargerId: In(nearbyChargerIds),
+      },
+    });
+    const chargerStateMap = new Map(chargerStates.map((s) => [s.chargerId, s]));
+
+    // Filter out chargers that are permanently offline or faulted in real-time
+    const activeNearbyChargers = nearbyChargers.filter((c) => {
+      const state = chargerStateMap.get(c.id);
+      if (state) {
+        return state.availability !== 'offline' && state.availability !== 'faulted';
+      }
+      return true; // default to true if no state row exists
+    });
+
+    const freeNearbyChargers = activeNearbyChargers.filter((c) => !activeSessionChargerIds.has(c.id));
+    const busyNearbyChargers = activeNearbyChargers.filter((c) => activeSessionChargerIds.has(c.id));
+
+    // Score all active chargers to allow comparing available vs busy optimally
+    const chargersToScore = activeNearbyChargers;
+    this.logger.debug(
+      `Suggest: ${freeNearbyChargers.length} free, ${busyNearbyChargers.length} busy → scoring all ${chargersToScore.length} active chargers`,
+    );
 
     // Scale budget in VND to thousands to keep the dynamic programming table dimensions manageable.
     const budgetVnd = dto.budgetVnd ?? 150000;
@@ -169,7 +211,7 @@ export class SuggestChargerUseCase {
     // ── Step 3: Score all chargers IN PARALLEL ─────────────────────────────
     // Each charger gets its pricing calls batched with Promise.all internally.
     const candidateResults = await Promise.all(
-      nearbyChargers.map(async (charger) => {
+      chargersToScore.map(async (charger) => {
         // Filter out already-booked time slots for this charger.
         const freeSlots = slots.filter(
           (slot) =>
@@ -178,7 +220,17 @@ export class SuggestChargerUseCase {
                 b.chargerId === charger.id &&
                 b.timeRange.startTime < slot.endTime &&
                 b.timeRange.endTime > slot.startTime,
-            ),
+            ) &&
+            !activeSessions.some((s) => {
+              if (s.chargerId !== charger.id) return false;
+              let estimatedEnd = s.scheduledStopAt
+                ? new Date(s.scheduledStopAt)
+                : new Date(s.startTime.getTime() + 2 * 60 * 60 * 1000);
+              if (estimatedEnd.getTime() < now.getTime() + 30 * 60 * 1000) {
+                estimatedEnd = new Date(now.getTime() + 30 * 60 * 1000);
+              }
+              return s.startTime < slot.endTime && estimatedEnd > slot.startTime;
+            }),
         );
 
         if (freeSlots.length === 0) return null;
@@ -205,7 +257,8 @@ export class SuggestChargerUseCase {
               b.chargerId === c.id &&
               b.timeRange.startTime < referenceSlot.endTime &&
               b.timeRange.endTime > referenceSlot.startTime,
-          ),
+          ) ||
+          activeSessions.some((s) => s.chargerId === c.id),
         ).length;
         const load = occupiedCount / (stationChargers.length || 1);
 
@@ -239,6 +292,7 @@ export class SuggestChargerUseCase {
           score,
           selectedSlots: selectedItems,
           distance,
+          earliestFreeSlotTime: freeSlots[0].startTime,
         };
       }),
     );
@@ -248,15 +302,73 @@ export class SuggestChargerUseCase {
       (r): r is NonNullable<typeof r> => r !== null,
     );
 
-    candidatesList.sort((a, b) => {
-      if (Math.abs(a.score - b.score) > 0.001) {
+    // Filter to immediately available chargers if any exist
+    const cleanStartMs = cleanStart.getTime();
+    const immediateBufferMs = 5 * 60 * 1000; // 5 minutes
+    const isAvailableNow = (c: typeof candidatesList[0]) => {
+      const isFreeSlotImmediate = c.earliestFreeSlotTime.getTime() <= cleanStartMs + immediateBufferMs;
+      if (!isFreeSlotImmediate) return false;
+      if (activeSessionChargerIds.has(c.chargerId)) return false;
+      const state = chargerStateMap.get(c.chargerId);
+      if (state && (state.availability === 'occupied' || state.availability === 'reserved')) {
+        return false;
+      }
+      return true;
+    };
+
+    const hasAvailableNow = candidatesList.some((c) => isAvailableNow(c));
+
+    let rankedCandidates = candidatesList;
+    if (hasAvailableNow) {
+      rankedCandidates = candidatesList.filter((c) => isAvailableNow(c));
+    }
+
+    const getCompositeMetric = (c: typeof candidatesList[0]) => {
+      const pref = dto.preference;
+      if (pref === 'distance') {
+        // Distance preference: prioritize distance, but ensure cost is optimized
+        return c.distance * (1 + c.estimatedPriceVnd / 150000.0);
+      }
+      // Default / Cost preference: prioritize cost, but ensure reasonable distance
+      return c.estimatedPriceVnd * (1 + c.distance / 25.0);
+    };
+
+    rankedCandidates.sort((a, b) => {
+      const aAvail = isAvailableNow(a);
+      const bAvail = isAvailableNow(b);
+
+      if (aAvail && !bAvail) return -1;
+      if (!aAvail && bAvail) return 1;
+
+      if (aAvail && bAvail) {
+        // Both available: sort by composite metric ascending
+        const metricDiff = getCompositeMetric(a) - getCompositeMetric(b);
+        if (Math.abs(metricDiff) > 0.001) {
+          return metricDiff;
+        }
+        return b.score - a.score;
+      } else {
+        // Both busy:
+        // 1. Wait time difference > 15 minutes gets absolute priority
+        const timeDiff = a.earliestFreeSlotTime.getTime() - b.earliestFreeSlotTime.getTime();
+        if (Math.abs(timeDiff) > 15 * 60 * 1000) {
+          return timeDiff;
+        }
+        // 2. Otherwise, sort by composite metric
+        const metricDiff = getCompositeMetric(a) - getCompositeMetric(b);
+        if (Math.abs(metricDiff) > 0.001) {
+          return metricDiff;
+        }
+        // 3. Fallback to wait time difference and score
+        if (Math.abs(timeDiff) > 1000) {
+          return timeDiff;
+        }
         return b.score - a.score;
       }
-      return a.distance - b.distance;
     });
 
     const limit = 5;
-    const topCandidates = candidatesList.slice(0, limit);
+    const topCandidates = rankedCandidates.slice(0, limit);
 
     // Normalise confidence scores to [0, 1] relative to the best candidate
     // so they fit NUMERIC(8,6) and carry meaningful semantic value.
@@ -285,10 +397,15 @@ export class SuggestChargerUseCase {
       await this.bookingRepo.saveSchedulingSlots(slotsToSave);
     }
 
+    // Normalize score to a 0–100 percentage (best candidate = 100)
+    // so clients always receive a human-readable confidence percentage.
+    const bestRawScore = topCandidates.length > 0 ? topCandidates[0].score : 1;
+
     return topCandidates.map((cand, idx) => ({
       chargerId: cand.chargerId,
       stationId: cand.stationId,
-      score: cand.score,
+      // score ∈ [0, 100] — percentage relative to the best candidate in this batch
+      score: Number(Math.min(100, (cand.score / (bestRawScore || 1)) * 100).toFixed(1)),
       rank: idx + 1,
       connectorType: cand.connectorType,
       maxPowerKw: cand.maxPowerKw,

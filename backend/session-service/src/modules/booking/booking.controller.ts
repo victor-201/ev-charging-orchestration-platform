@@ -3,11 +3,15 @@ import {
   Post, Get, Delete,
   Body, Param, Query,
   HttpCode, HttpStatus,
-  ParseUUIDPipe, NotFoundException,
+  ParseUUIDPipe, NotFoundException, UnauthorizedException,
   UseGuards,
   Inject,
   Header,
+  Headers,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, In } from 'typeorm';
+import { ChargerReadModelOrmEntity } from '../../infrastructure/persistence/typeorm/entities/booking.orm-entities';
 import { CreateBookingUseCase, GetAvailabilityUseCase } from '../../application/use-cases/create-booking.use-case';
 import { CancelBookingUseCase } from '../../application/use-cases/booking-lifecycle.use-case';
 import { GetQueuePositionUseCase } from '../../application/use-cases/booking-jobs.use-case';
@@ -59,6 +63,8 @@ export class BookingController {
     private readonly suggestCharger:       SuggestChargerUseCase,
     @Inject(BOOKING_REPOSITORY)
     private readonly bookingRepo:          IBookingRepository,
+    @InjectRepository(ChargerReadModelOrmEntity)
+    private readonly chargerReadRepo:      Repository<ChargerReadModelOrmEntity>,
   ) {}
 
   /**
@@ -101,6 +107,58 @@ export class BookingController {
     );
   }
 
+  // GET /api/v1/bookings
+  /**
+   * List of all bookings in the system - for admin/staff.
+   */
+  @Get()
+  @Roles('admin', 'staff')
+  @SkipArrearsCheck()
+  async getAllBookings(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('limit') limit = 50,
+    @Query('offset') offset = 0,
+    @Query('userId') userId?: string,
+    @Query('chargerId') chargerId?: string,
+    @Query('status') status?: string,
+  ): Promise<{ items: BookingResponseDto[]; total: number }> {
+    const isStaff = user.role === 'staff' || user.roles?.includes('staff');
+    const isAdmin = user.role === 'admin' || user.roles?.includes('admin');
+
+    let chargerIds: string[] | undefined = undefined;
+
+    if (isStaff && !isAdmin) {
+      const allowedStations = user.stationIds || [];
+      if (allowedStations.length === 0) {
+        return { items: [], total: 0 };
+      }
+
+      if (chargerId) {
+        const charger = await this.chargerReadRepo.findOne({
+          where: { chargerId },
+        });
+        if (!charger || !allowedStations.includes(charger.stationId)) {
+          throw new UnauthorizedException('You do not have permission to view bookings for this charger');
+        }
+      } else {
+        const chargers = await this.chargerReadRepo.find({
+          where: { stationId: In(allowedStations) },
+          select: ['chargerId'],
+        });
+        chargerIds = chargers.map((c) => c.chargerId);
+        if (chargerIds.length === 0) {
+          return { items: [], total: 0 };
+        }
+      }
+    }
+
+    const result = await this.bookingRepo.findAll(+limit, +offset, userId, chargerId, status, chargerIds);
+    return {
+      items: result.items.map((b) => this.toDto(b)),
+      total: result.total,
+    };
+  }
+
   // GET /api/v1/bookings/me
   /**
    * Current user's bookings - paginated.
@@ -113,8 +171,9 @@ export class BookingController {
     @CurrentUser() user: AuthenticatedUser,
     @Query('limit') limit = 20,
     @Query('offset') offset = 0,
+    @Query('status') status?: string,
   ): Promise<{ items: BookingResponseDto[]; total: number }> {
-    const result = await this.bookingRepo.findByUser(user.id, +limit, +offset);
+    const result = await this.bookingRepo.findByUser(user.id, +limit, +offset, status);
     return {
       items: result.items.map((b) => this.toDto(b)),
       total: result.total,
@@ -133,15 +192,16 @@ export class BookingController {
   async create(
     @Body() dto: CreateBookingDto,
     @CurrentUser() user: AuthenticatedUser,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ): Promise<BookingResponseDto> {
     const booking = await this.createBooking.execute({
-      userId:        user.id,
-      chargerId:     dto.chargerId,
-      stationId:     dto.stationId,
-      connectorType: dto.connectorType,
-      startTime:     new Date(dto.startTime),
-      endTime:       new Date(dto.endTime),
-      // depositAmount is removed from DTO - backend calculates it from station-service
+      userId:         user.id,
+      chargerId:      dto.chargerId,
+      stationId:      dto.stationId,
+      connectorType:  dto.connectorType,
+      startTime:      new Date(dto.startTime),
+      endTime:        new Date(dto.endTime),
+      idempotencyKey,
     });
     return this.toDto(booking);
   }
