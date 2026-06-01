@@ -16,6 +16,7 @@ module.exports = {
         // Theme-aware using CSS variables
         'text-main': 'var(--text-main)',
         'text-faded': 'var(--text-faded)',
+        'text-muted': 'var(--text-faded)',
         'card-border': 'var(--card-border)',
         'pill-text': 'var(--pill-text)',
       },

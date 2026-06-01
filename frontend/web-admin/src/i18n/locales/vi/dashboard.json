@@ -14,14 +14,51 @@
       "peak_title": "Giờ cao điểm",
       "peak_sub": "Số phiên sạc theo giờ",
       "top_stations_title": "Top Trạm sạc",
-      "top_stations_sub": "Hiệu suất và doanh thu theo trạm"
+      "top_stations_sub": "Hiệu suất và doanh thu theo trạm",
+      "peak_legend": "Khung giờ cao điểm ghi nhận",
+      "peak_load": "Mức tải {{percent}}%",
+      "peak_sessions_unit": "phiên sạc",
+      "peak_avg_kwh": "kWh trung bình",
+      "peak_tooltip_session": "phiên sạc/giờ",
+      "peak_tooltip_load": "Sức tải trung bình",
+      "peak_tooltip_time": "Khung giờ: {{start}}h - {{end}}h"
     },
     "table": {
       "station_id": "ID Trạm",
       "revenue": "Doanh thu",
       "utilization": "Utilization",
       "status": "Trạng thái"
-    }
+    },
+    "checkin": {
+      "title": "Điểm danh trạm sạc",
+      "checked_in": "Đã Check-In",
+      "completed": "Hoàn thành ca",
+      "pending": "Chưa Check-In",
+      "checkin_btn": "Check-In",
+      "checkout_btn": "Check-Out",
+      "completed_msg": "Ca làm việc hoàn thành!",
+      "checkin_success": "Điểm danh Check-in thành công!",
+      "checkout_success": "Điểm danh Check-out thành công!",
+      "checkin_failed": "Check-in thất bại!",
+      "checkout_failed": "Check-out thất bại!"
+    },
+    "staff_kpi": {
+      "station_status": "Trạng thái trạm",
+      "available_chargers": "Trụ sạc khả dụng",
+      "active_sessions": "Phiên đang sạc"
+    },
+    "staff_incidents": {
+      "title": "Sự cố gần đây",
+      "subtitle": "Các sự cố tại trạm của bạn",
+      "empty": "Không có sự cố nào",
+      "table": {
+        "description": "Mô tả",
+        "severity": "Mức độ",
+        "status": "Trạng thái",
+        "time": "Thời gian"
+      }
+    },
+    "staff_empty": "Bạn chưa được phân công trạm sạc nào"
   },
   "map": {
     "title": "Bản đồ Trạm sạc",
@@ -138,7 +175,9 @@
       "end": "Kết thúc dự kiến",
       "status": "Trạng thái"
     },
-    "resolve": "Resolve"
+    "resolve": "Xử lý",
+    "complete": "Hoàn thành",
+    "complete_success": "Đã hoàn thành bảo trì!"
   },
   "data": {
     "status": {

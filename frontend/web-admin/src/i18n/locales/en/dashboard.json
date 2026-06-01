@@ -14,14 +14,51 @@
       "peak_title": "Peak Hours",
       "peak_sub": "Charging sessions by hour",
       "top_stations_title": "Top Stations",
-      "top_stations_sub": "Performance and revenue by station"
+      "top_stations_sub": "Performance and revenue by station",
+      "peak_legend": "Recorded Peak Hours",
+      "peak_load": "Load Level {{percent}}%",
+      "peak_sessions_unit": "sessions",
+      "peak_avg_kwh": "avg kWh",
+      "peak_tooltip_session": "sessions/hour",
+      "peak_tooltip_load": "Average load",
+      "peak_tooltip_time": "Time frame: {{start}}h - {{end}}h"
     },
     "table": {
       "station_id": "Station ID",
       "revenue": "Revenue",
       "utilization": "Utilization",
       "status": "Status"
-    }
+    },
+    "checkin": {
+      "title": "Station Check-in",
+      "checked_in": "Checked In",
+      "completed": "Shift Completed",
+      "pending": "Not Checked In",
+      "checkin_btn": "Check-In",
+      "checkout_btn": "Check-Out",
+      "completed_msg": "Your shift is complete!",
+      "checkin_success": "Check-in successful!",
+      "checkout_success": "Check-out successful!",
+      "checkin_failed": "Check-in failed!",
+      "checkout_failed": "Check-out failed!"
+    },
+    "staff_kpi": {
+      "station_status": "Station Status",
+      "available_chargers": "Available Chargers",
+      "active_sessions": "Active Sessions"
+    },
+    "staff_incidents": {
+      "title": "Recent Incidents",
+      "subtitle": "Incidents at your station(s)",
+      "empty": "No incidents",
+      "table": {
+        "description": "Description",
+        "severity": "Severity",
+        "status": "Status",
+        "time": "Time"
+      }
+    },
+    "staff_empty": "You have not been assigned any station yet"
   },
   "map": {
     "title": "Station Map",
@@ -138,7 +175,9 @@
       "end": "Scheduled End",
       "status": "Status"
     },
-    "resolve": "Resolve"
+    "resolve": "Resolve",
+    "complete": "Complete",
+    "complete_success": "Maintenance completed successfully!"
   },
   "data": {
     "status": {

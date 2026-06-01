@@ -41,7 +41,11 @@
     "delete": "Delete",
     "add": "Add",
     "no_data": "No data available",
-    "live": "Live · Realtime"
+    "live": "Live · Realtime",
+    "loading_error": "An error occurred while loading data",
+    "retry": "Retry",
+    "filter": "Filter",
+    "clear_filter": "Clear filters"
   },
   "api_errors": {
     "UNKNOWN_ERROR": "Unknown system error",

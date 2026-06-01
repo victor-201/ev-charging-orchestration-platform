@@ -1,59 +1,74 @@
 /* ─────────────────────────────────────────────────────────────────────────
    EVOLTBOARD — SHARED LIQUID GLASS CORE DESIGN SYSTEM
    ───────────────────────────────────────────────────────────────────────── */
-
 :root {
-  /* Brand Gradient Colors */
+  /* Brand Colors & Gradients */
   --brand-cyan: #10bfc9;
   --brand-lime: #9aed57;
-  
+  --brand-danger: #ef4444;
+  --brand-warning: #f59e0b;
+  --brand-success: #19be4b;
+  --brand-info: #3b82f6;
+  --brand-muted: #9e9e9e;
+
+  /* Standard Card Gradients & Glows */
+  --grad-cyan-lime: linear-gradient(135deg, #10bfc9 0%, #19be4b 100%);
+  --grad-yellow-orange: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+  --grad-blue-cyan: linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%);
+  --grad-orange-pink: linear-gradient(135deg, #ffd3a5 0%, #fd6585 100%);
+
+  --glow-cyan: rgba(16, 191, 201, 0.4);
+  --glow-orange: rgba(253, 160, 133, 0.4);
+  --glow-blue: rgba(102, 166, 255, 0.4);
+  --glow-pink: rgba(253, 101, 133, 0.4);
+
   /* Theme Light Mode Variables */
   --bg-color: #e2e8f0;
   --bg-gradient-1: rgba(255, 255, 255, 0.7);
   --bg-gradient-2: #f1f5f9;
   --bg-gradient-3: #cbd5e1;
-  
-  --card-bg: rgba(255, 255, 255, 0.45);
+
+  --card-bg: rgba(255, 255, 255, 0.9);
   --card-border: rgba(255, 255, 255, 0.85);
-  --card-shadow: 0 30px 60px rgba(0, 0, 0, 0.08), 
-                 inset 0 2px 2px rgba(255, 255, 255, 1), 
-                 inset 0 0 40px rgba(255, 255, 255, 0.3);
-  
+  --card-shadow: 0 30px 60px rgba(0, 0, 0, 0.08),
+    inset 0 2px 2px rgba(255, 255, 255, 1),
+    inset 0 0 40px rgba(255, 255, 255, 0.3);
+
   --marker-border: rgba(255, 255, 255, 0.8);
-  
+
   --text-main: #0f172a;
   --text-faded: #64748b;
-  
-  --pill-bg: rgba(255, 255, 255, 0.35);
+
+  --pill-bg: rgba(255, 255, 255, 0.8);
   --pill-border: rgba(255, 255, 255, 0.75);
   --pill-text: #1e293b;
   --pill-shadow: 0 4px 15px rgba(0, 0, 0, 0.02), inset 0 1px 2px rgba(255, 255, 255, 1);
-  
+
   --dark-pill-bg: rgba(30, 41, 59, 0.65);
   --dark-pill-border: rgba(255, 255, 255, 0.2);
   --dark-pill-text: #ffffff;
-  
+
   --sq-border: rgba(255, 255, 255, 0.65);
-  --sq-shadow: inset 0 4px 10px rgba(255, 255, 255, 0.95), 
-               inset 0 -4px 10px rgba(0, 0, 0, 0.08), 
-               0 0 0 1px rgba(255, 255, 255, 0.25);
+  --sq-shadow: inset 0 4px 10px rgba(255, 255, 255, 0.95),
+    inset 0 -4px 10px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(255, 255, 255, 0.25);
   --sq-shine: linear-gradient(135deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0) 40%);
-  --sq-3-bg: rgba(255, 255, 255, 0.2);
-  --sq-3-border: rgba(255, 255, 255, 0.95);
-  
+  --sq-3-bg: rgba(15, 23, 42, 0.04);
+  --sq-3-border: rgba(15, 23, 42, 0.12);
+
   --slider-track: rgba(255, 255, 255, 0.75);
-  --bar-bg: rgba(255, 255, 255, 0.25);
+  --bar-bg: rgba(255, 255, 255, 0.75);
   --bar-border: rgba(255, 255, 255, 0.55);
-  
+
   --v-pill-bg: rgba(255, 255, 255, 0.75);
   --v-pill-border: rgba(255, 255, 255, 1);
   --v-pill-text: #0f172a;
   --v-pill-grey-bg: rgba(148, 163, 184, 0.25);
-  
+
   --token-shadow: inset 0 4px 6px rgba(255, 255, 255, 0.65), inset 0 -4px 6px rgba(0, 0, 0, 0.15);
   --token-border: rgba(255, 255, 255, 0.25);
   --token-dashed: rgba(255, 255, 255, 0.55);
-  
+
   --white-token-bg: rgba(255, 255, 255, 0.85);
   --white-token-text: #1e293b;
   --white-token-border: #ffffff;
@@ -66,48 +81,48 @@
   --bg-gradient-1: rgba(16, 191, 201, 0.12);
   --bg-gradient-2: #0f172a;
   --bg-gradient-3: #020617;
-  
+
   --card-bg: rgba(15, 23, 42, 0.55);
   --card-border: rgba(255, 255, 255, 0.08);
-  --card-shadow: 0 30px 60px rgba(0, 0, 0, 0.4), 
-                 inset 0 2px 2px rgba(255, 255, 255, 0.05), 
-                 inset 0 0 45px rgba(255, 255, 255, 0.02);
-  
+  --card-shadow: 0 30px 60px rgba(0, 0, 0, 0.4),
+    inset 0 2px 2px rgba(255, 255, 255, 0.05),
+    inset 0 0 45px rgba(255, 255, 255, 0.02);
+
   --marker-border: rgba(255, 255, 255, 0.18);
-  
+
   --text-main: #f8fafc;
   --text-faded: #64748b;
-  
+
   --pill-bg: rgba(30, 41, 59, 0.45);
   --pill-border: rgba(255, 255, 255, 0.08);
   --pill-text: #f1f5f9;
   --pill-shadow: 0 4px 15px rgba(0, 0, 0, 0.18), inset 0 1px 2px rgba(255, 255, 255, 0.05);
-  
+
   --dark-pill-bg: rgba(255, 255, 255, 0.08);
   --dark-pill-border: rgba(255, 255, 255, 0.08);
   --dark-pill-text: #f8fafc;
-  
+
   --sq-border: rgba(255, 255, 255, 0.12);
-  --sq-shadow: inset 0 4px 10px rgba(255, 255, 255, 0.15), 
-               inset 0 -4px 10px rgba(0, 0, 0, 0.45), 
-               0 0 0 1px rgba(255, 255, 255, 0.04);
+  --sq-shadow: inset 0 4px 10px rgba(255, 255, 255, 0.15),
+    inset 0 -4px 10px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
   --sq-shine: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 40%);
   --sq-3-bg: rgba(255, 255, 255, 0.04);
   --sq-3-border: rgba(255, 255, 255, 0.15);
-  
+
   --slider-track: rgba(15, 23, 42, 0.75);
   --bar-bg: rgba(15, 23, 42, 0.35);
   --bar-border: rgba(255, 255, 255, 0.08);
-  
+
   --v-pill-bg: rgba(30, 41, 59, 0.65);
   --v-pill-border: rgba(255, 255, 255, 0.08);
   --v-pill-text: #f1f5f9;
   --v-pill-grey-bg: rgba(15, 23, 42, 0.45);
-  
+
   --token-shadow: inset 0 4px 6px rgba(255, 255, 255, 0.15), inset 0 -4px 6px rgba(0, 0, 0, 0.45);
   --token-border: rgba(255, 255, 255, 0.08);
   --token-dashed: rgba(255, 255, 255, 0.15);
-  
+
   --white-token-bg: rgba(30, 41, 59, 0.8);
   --white-token-text: #f8fafc;
   --white-token-border: rgba(255, 255, 255, 0.08);
@@ -129,14 +144,30 @@
   z-index: 10;
   transition: border-color 0.4s ease;
 }
-.cm-tl { top: 20px; left: 20px; }
-.cm-tr { top: 20px; right: 20px; }
-.cm-bl { bottom: 20px; left: 20px; }
-.cm-br { bottom: 20px; right: 20px; }
+
+.cm-tl {
+  top: 12px;
+  left: 12px;
+}
+
+.cm-tr {
+  top: 12px;
+  right: 12px;
+}
+
+.cm-bl {
+  bottom: 12px;
+  left: 12px;
+}
+
+.cm-br {
+  bottom: 12px;
+  right: 12px;
+}
 
 /* Grid Overlay & Animations */
 .grid-overlay {
-  background-image: 
+  background-image:
     linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
   background-size: 50px 50px;
@@ -144,7 +175,7 @@
 }
 
 [data-theme="dark"] .grid-overlay {
-  background-image: 
+  background-image:
     linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
 }
@@ -153,20 +184,52 @@
 .glass-shine::after {
   content: '';
   position: absolute;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   background: var(--sq-shine);
   pointer-events: none;
   z-index: 5;
+  border-radius: inherit;
 }
 
 /* Shake Animation (for validation errors) */
 @keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  20%, 60% { transform: translateX(-6px); }
-  40%, 80% { transform: translateX(6px); }
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20%,
+  60% {
+    transform: translateX(-6px);
+  }
+
+  40%,
+  80% {
+    transform: translateX(6px);
+  }
 }
 
 .shake-error {
   animation: shake 0.4s ease-in-out;
+}
+
+/* Glassmorphism Zoom-in Animation */
+@keyframes scaleUp {
+  0% {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-scale-up {
+  animation: scaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

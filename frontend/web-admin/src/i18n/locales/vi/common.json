@@ -41,7 +41,11 @@
     "delete": "Xóa",
     "add": "Thêm",
     "no_data": "Chưa có dữ liệu",
-    "live": "Live · Realtime"
+    "live": "Live · Realtime",
+    "loading_error": "Đã xảy ra lỗi khi tải dữ liệu",
+    "retry": "Thử lại",
+    "filter": "Lọc",
+    "clear_filter": "Xóa bộ lọc"
   },
   "api_errors": {
     "UNKNOWN_ERROR": "Lỗi hệ thống không xác định",

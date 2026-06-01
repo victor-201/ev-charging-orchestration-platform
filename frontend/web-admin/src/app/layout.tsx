@@ -5,6 +5,9 @@ import I18nProvider from '@/i18n/I18nProvider';
 export const metadata: Metadata = {
   title: 'EVOLTBOARD — EV Charging Admin',
   description: 'Enterprise-grade control center for EV Charging Orchestration Platform',
+  icons: {
+    icon: '/EVoltBoard.png',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

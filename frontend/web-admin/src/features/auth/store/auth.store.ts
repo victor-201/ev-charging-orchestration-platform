@@ -18,6 +18,8 @@ interface User {
   email: string;
   fullName: string;
   roles: string[];
+  stationId?: string | null;
+  stationIds?: string[];
 }
 
 interface AuthState {
@@ -31,7 +33,7 @@ interface AuthState {
 }
 
 /** Decode user info from JWT payload without verifying signature (client-side only). */
-function decodeJwtPayload(token: string): Partial<User> | null {
+function decodeJwtPayload(token: string): (Partial<User> & { exp?: number }) | null {
   try {
     const base64Url = token.split('.')[1];
     if (!base64Url) return null;
@@ -48,6 +50,9 @@ function decodeJwtPayload(token: string): Partial<User> | null {
       email: payload.email,
       fullName: payload.fullName ?? payload.full_name ?? payload.name ?? payload.email,
       roles: payload.roles ?? (payload.role ? [payload.role] : []),
+      stationId: payload.stationId ?? null,
+      stationIds: payload.stationIds ?? [],
+      exp: payload.exp,
     };
   } catch {
     return null;
@@ -79,6 +84,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         email: decoded?.email ?? email,
         fullName: decoded?.fullName ?? email,
         roles: decoded?.roles ?? [],
+        stationId: decoded?.stationId ?? null,
+        stationIds: decoded?.stationIds ?? [],
       };
 
       set({ user, isAuthenticated: true, isLoading: false, isCheckingAuth: false });
@@ -105,15 +112,18 @@ export const useAuthStore = create<AuthState>((set) => ({
         return;
       }
 
-      // First try to decode from stored token (instant, no network needed).
+      // First try to decode from stored token (instant if token is still valid).
       const decoded = decodeJwtPayload(token);
-      if (decoded?.id) {
+      const isExpired = decoded?.exp ? decoded.exp * 1000 < Date.now() : false;
+      if (decoded?.id && !isExpired) {
         set({
           user: {
             id: decoded.id,
             email: decoded.email ?? '',
             fullName: decoded.fullName ?? decoded.email ?? '',
             roles: decoded.roles ?? [],
+            stationId: decoded.stationId ?? null,
+            stationIds: decoded.stationIds ?? [],
           },
           isAuthenticated: true,
           isCheckingAuth: false,
@@ -121,7 +131,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         return;
       }
 
-      // Fallback: call /auth/me for the full user object.
+      // Fallback: call /auth/me for the full user object (triggers token refresh interceptor if expired but refresh token exists).
       const res = await apiClient.get('/auth/me');
       set({ user: res.data, isAuthenticated: true, isCheckingAuth: false });
     } catch {
