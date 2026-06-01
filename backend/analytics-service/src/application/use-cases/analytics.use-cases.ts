@@ -80,7 +80,7 @@ export class GetStationUsageUseCase {
         SUM(total_revenue_vnd)  AS total_revenue_vnd,
         ROUND(AVG(avg_session_min), 2) AS avg_session_min
       FROM daily_station_metrics
-      WHERE metric_date >= CURRENT_DATE - INTERVAL '${days} days'
+      WHERE metric_date >= (SELECT COALESCE(MAX(metric_date), CURRENT_DATE) FROM daily_station_metrics) - INTERVAL '${days} days'
       GROUP BY station_id
       ORDER BY total_sessions DESC
       LIMIT 10
@@ -133,7 +133,7 @@ export class GetRevenueUseCase {
         (sum: number, r: any) => sum + parseInt(r.total_revenue_vnd || '0'), 0,
       );
 
-      return { range: 'monthly', stationId: params.stationId ?? 'platform', totalRevenue, monthly: rows };
+      return { range: 'monthly', stationId: params.stationId ?? 'platform', totalRevenue, monthly: rows.reverse() };
     }
 
     // Daily revenue from daily_station_metrics
@@ -148,10 +148,10 @@ export class GetRevenueUseCase {
         SUM(total_revenue_vnd)  AS total_revenue_vnd,
         SUM(total_sessions)     AS total_sessions
       FROM daily_station_metrics
-      WHERE metric_date >= CURRENT_DATE - INTERVAL '${days} days'
+      WHERE metric_date >= (SELECT COALESCE(MAX(metric_date), CURRENT_DATE) FROM daily_station_metrics) - INTERVAL '${days} days'
         ${stationFilter}
       GROUP BY metric_date
-      ORDER BY metric_date DESC
+      ORDER BY metric_date ASC
     `);
 
     const totalRevenue = rows.reduce(
@@ -221,14 +221,14 @@ export class GetSystemMetricsUseCase {
             SUM(total_kwh)         AS total_kwh_30d,
             ROUND(AVG(avg_session_min), 2) AS avg_session_min
           FROM daily_station_metrics
-          WHERE metric_date >= CURRENT_DATE - INTERVAL '30 days'
+          WHERE metric_date >= (SELECT COALESCE(MAX(metric_date), CURRENT_DATE) FROM daily_station_metrics) - INTERVAL '30 days'
         `),
 
         // Total revenue (30 days)
         this.ds.query(`
           SELECT SUM(total_revenue_vnd) AS total_revenue_30d
           FROM daily_station_metrics
-          WHERE metric_date >= CURRENT_DATE - INTERVAL '30 days'
+          WHERE metric_date >= (SELECT COALESCE(MAX(metric_date), CURRENT_DATE) FROM daily_station_metrics) - INTERVAL '30 days'
         `),
 
         // Booking funnel (7 days)
@@ -238,7 +238,7 @@ export class GetSystemMetricsUseCase {
             SUM(bookings_confirmed)  AS confirmed_7d,
             SUM(bookings_cancelled)  AS cancelled_7d
           FROM booking_stats
-          WHERE metric_date >= CURRENT_DATE - INTERVAL '7 days'
+          WHERE metric_date >= (SELECT COALESCE(MAX(metric_date), CURRENT_DATE) FROM booking_stats) - INTERVAL '7 days'
         `),
 
         // Top 5 users by sessions (30 days)
@@ -249,7 +249,7 @@ export class GetSystemMetricsUseCase {
             SUM(kwh_consumed)      AS total_kwh,
             SUM(amount_spent_vnd)  AS total_spent_vnd
           FROM daily_user_metrics
-          WHERE metric_date >= CURRENT_DATE - INTERVAL '30 days'
+          WHERE metric_date >= (SELECT COALESCE(MAX(metric_date), CURRENT_DATE) FROM daily_user_metrics) - INTERVAL '30 days'
           GROUP BY user_id
           ORDER BY sessions DESC
           LIMIT 5
@@ -406,7 +406,7 @@ export class DashboardUseCase {
           SUM(total_revenue_vnd) AS total_revenue_vnd,
           COALESCE(AVG(utilization_rate), 0) * 100 AS utilization_rate
         FROM daily_station_metrics
-        WHERE metric_date >= NOW() - INTERVAL '30 days'
+        WHERE metric_date >= (SELECT COALESCE(MAX(metric_date), CURRENT_DATE) FROM daily_station_metrics) - INTERVAL '30 days'
         GROUP BY station_id
         ORDER BY total_sessions DESC
         LIMIT 5
@@ -422,16 +422,16 @@ export class DashboardUseCase {
           SUM(total_revenue_vnd) AS revenue_vnd,
           SUM(total_sessions)    AS sessions
         FROM daily_station_metrics
-        WHERE metric_date >= NOW() - INTERVAL '30 days'
+        WHERE metric_date >= (SELECT COALESCE(MAX(metric_date), CURRENT_DATE) FROM daily_station_metrics) - INTERVAL '30 days'
         GROUP BY metric_date
-        ORDER BY metric_date DESC
+        ORDER BY metric_date ASC
       `),
 
       // Unique active users (last 30 days) for newUsers30d KPI
       this.ds.query(`
         SELECT COUNT(DISTINCT user_id) AS cnt
         FROM daily_user_metrics
-        WHERE metric_date >= NOW() - INTERVAL '30 days'
+        WHERE metric_date >= (SELECT COALESCE(MAX(metric_date), CURRENT_DATE) FROM daily_user_metrics) - INTERVAL '30 days'
       `),
     ]);
 

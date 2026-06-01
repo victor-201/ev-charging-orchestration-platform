@@ -30,7 +30,7 @@ export class PeakHourDetector {
         SUM(sessions_count)                           AS total_sessions
       FROM hourly_usage_stats
       WHERE station_id = $1
-        AND hour_bucket >= NOW() - INTERVAL '${lookbackDays} days'
+        AND hour_bucket >= (SELECT COALESCE(MAX(hour_bucket), NOW()) FROM hourly_usage_stats) - INTERVAL '${lookbackDays} days'
       GROUP BY hour_of_day
       ORDER BY avg_sessions DESC
     `, [stationId]);
@@ -63,7 +63,7 @@ export class PeakHourDetector {
         ROUND(AVG(kwh_consumed), 4)      AS avg_kwh,
         SUM(sessions_count)              AS total_sessions
       FROM hourly_usage_stats
-      WHERE hour_bucket >= NOW() - INTERVAL '${lookbackDays} days'
+      WHERE hour_bucket >= (SELECT COALESCE(MAX(hour_bucket), NOW()) FROM hourly_usage_stats) - INTERVAL '${lookbackDays} days'
       GROUP BY hour_of_day
       ORDER BY avg_sessions DESC
     `);
@@ -116,7 +116,7 @@ export class PeakHourDetector {
           EXTRACT(DAY FROM (hour_bucket - MIN(hour_bucket) OVER (PARTITION BY hour_of_day))) AS day_ordinal
         FROM hourly_usage_stats
         WHERE station_id = $1
-          AND hour_bucket >= NOW() - INTERVAL '28 days'
+          AND hour_bucket >= (SELECT COALESCE(MAX(hour_bucket), NOW()) FROM hourly_usage_stats) - INTERVAL '28 days'
       ) t
       GROUP BY hour_of_day
       ORDER BY hour_of_day

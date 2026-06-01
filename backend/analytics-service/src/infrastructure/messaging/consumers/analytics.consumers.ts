@@ -68,10 +68,7 @@ export class SessionEventConsumer {
 
     await this.logEvent(payload, 'charging-control-service');
 
-    // Enrichment: stationId might be missing from the payload.
-    // Utilize event_log for booking lookup if required.
-    // Currently trusts stationId from payload (if enriched by charging-service).
-    const stationId = (payload as any).stationId ?? null;
+    const stationId = payload.stationId ?? null;
 
     await this.aggregation.onSessionCompleted({
       sessionId:       payload.sessionId,
