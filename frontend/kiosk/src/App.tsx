@@ -18,9 +18,10 @@ import {
   resetKioskIdentifiers, 
   CHARGER_ID, 
   STATION_ID,
+  POINT_ID,
 } from "./data/sources/localStorage";
-import { GetStationChargersUseCase, GetStationDetailUseCase } from "./application/useCases";
-import type { ChargerInfo } from "./domain/entities/entities";
+import { GetStationDetailUseCase } from "./application/useCases";
+import type { StationDetail, ChargerInfo } from "./domain/entities/entities";
 import { Wrench, X, RefreshCw, Check, RotateCcw, Zap, Clock, Activity } from "lucide-react";
 
 // Hooks
@@ -37,6 +38,7 @@ import BookingConfirmationScreen from "./presentation/screens/BookingConfirmatio
 import InterimNoticeScreen from "./presentation/screens/InterimNoticeScreen";
 import MaintenanceScreen from "./presentation/screens/MaintenanceScreen";
 import OfflineScreen from "./presentation/screens/OfflineScreen";
+import QrScannerScreen from "./presentation/screens/QrScannerScreen";
 
 const getStationStatusMeta = (status: string | null) => {
   if (!status) return { text: "Không xác định", colorClass: "text-slate-400" };
@@ -98,24 +100,20 @@ const App: React.FC = () => {
   const [isLoadingChargers, setIsLoadingChargers] = useState(false);
   const [inputStationId, setInputStationId] = useState(STATION_ID);
   const [devError, setDevError] = useState<string | null>(null);
-  const [stationStatus, setStationStatus] = useState<string | null>(null);
+  const [stationDetail, setStationDetail] = useState<StationDetail | null>(null);
 
-  const getStationChargersUseCase = new GetStationChargersUseCase();
   const getStationDetailUseCase = new GetStationDetailUseCase();
 
   const fetchChargers = useCallback(async () => {
     setIsLoadingChargers(true);
     setDevError(null);
     try {
-      const [chargersData, stationDetail] = await Promise.all([
-        getStationChargersUseCase.execute(STATION_ID),
-        getStationDetailUseCase.execute(STATION_ID),
-      ]);
-      setChargers(chargersData || []);
-      setStationStatus(stationDetail?.status || null);
+      const detail = await getStationDetailUseCase.execute(STATION_ID);
+      setStationDetail(detail);
+      setChargers(detail.chargers || []);
     } catch (err) {
-      console.error("[DevTools] Failed to fetch chargers:", err);
-      setDevError("Không thể tải danh sách trụ sạc hoặc thông tin trạm.");
+      console.error("[DevTools] Failed to fetch station detail:", err);
+      setDevError("Không thể tải thông tin trạm.");
     } finally {
       setIsLoadingChargers(false);
     }
@@ -133,8 +131,13 @@ const App: React.FC = () => {
     window.location.reload();
   };
 
-  const handleSelectCharger = (chargerId: string) => {
-    setChargerId(chargerId);
+  const handleSelectCharger = (chargerPointId: string) => {
+    const matched = chargers.find(c => c.id === chargerPointId);
+    if (matched?.connectors?.length) {
+      setChargerId(matched.connectors[0].id, matched.id);
+    } else {
+      setChargerId(chargerPointId);
+    }
     window.location.reload();
   };
 
@@ -152,6 +155,7 @@ const App: React.FC = () => {
     vnpayUrl,
     errorMessage,
     startSession,
+    startBookingSession,
     stopSession,
     resetSession,
     updateTelemetry,
@@ -159,6 +163,7 @@ const App: React.FC = () => {
     triggerOffline,
     triggerReserved,
     triggerNotice,
+    triggerScanQr,
   } = useSessionStateMachine();
 
   const [noticeBookingTime, setNoticeBookingTime] = useState<string>("11:30");
@@ -181,7 +186,8 @@ const App: React.FC = () => {
         {status === "INIT" && (
           <WelcomeScreen 
             key="init" 
-            onStart={startSession} 
+            onStart={startSession}
+            onScanQrBooking={triggerScanQr}
             theme={theme}
             onToggleTheme={toggleTheme}
             triggerMaintenance={triggerMaintenance}
@@ -192,6 +198,14 @@ const App: React.FC = () => {
               setNoticeRemainingMins(remainingMins);
               triggerNotice();
             }}
+          />
+        )}
+
+        {status === "SCAN_QR" && (
+          <QrScannerScreen
+            key="scan-qr"
+            onScanSuccess={startBookingSession}
+            onCancel={resetSession}
           />
         )}
 
@@ -310,49 +324,66 @@ const App: React.FC = () => {
             <div className="relative z-10 flex flex-col gap-5 max-h-[60vh] overflow-y-auto pr-1">
               
               {/* 1. Diagnostics summary widgets */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-2">
                 <div 
-                  className="p-3 rounded-xl border flex flex-col gap-0.5"
+                  className="p-2.5 rounded-xl border flex flex-col gap-0.5"
                   style={{
                     background: "var(--pill-bg)",
                     borderColor: "var(--pill-border)",
                   }}
                 >
                   <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Trạm</span>
-                  <span className="text-[11px] font-mono font-medium truncate" title={STATION_ID}>
-                    {STATION_ID || "—"}
+                  <span className="text-[10px] font-mono font-medium truncate" title={STATION_ID}>
+                    {stationDetail?.name || STATION_ID?.substring(0, 12) || "—"}
                   </span>
                 </div>
                 <div 
-                  className="p-3 rounded-xl border flex flex-col gap-0.5"
+                  className="p-2.5 rounded-xl border flex flex-col gap-0.5"
                   style={{
                     background: "var(--pill-bg)",
                     borderColor: "var(--pill-border)",
                   }}
                 >
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Trạng thái trạm</span>
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Trạng thái</span>
                   {(() => {
-                    const meta = getStationStatusMeta(stationStatus);
+                    const meta = getStationStatusMeta(stationDetail?.status || null);
                     return (
-                      <span className={`text-[11px] font-bold uppercase tracking-wide truncate ${meta.colorClass}`}>
+                      <span className={`text-[10px] font-bold uppercase tracking-wide truncate ${meta.colorClass}`}>
                         {meta.text}
                       </span>
                     );
                   })()}
                 </div>
                 <div 
-                  className="p-3 rounded-xl border flex flex-col gap-0.5"
+                  className="p-2.5 rounded-xl border flex flex-col gap-0.5"
                   style={{
                     background: "var(--pill-bg)",
                     borderColor: "var(--pill-border)",
                   }}
                 >
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Kiosk State</span>
-                  <span className="text-[11px] font-bold text-sky-500 uppercase tracking-wide truncate">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Trụ</span>
+                  <span className="text-[10px] font-bold truncate">
+                    {stationDetail ? `${stationDetail.availableChargers ?? '?'}/${stationDetail.totalChargers ?? chargers.length}` : "—"}
+                  </span>
+                </div>
+                <div 
+                  className="p-2.5 rounded-xl border flex flex-col gap-0.5"
+                  style={{
+                    background: "var(--pill-bg)",
+                    borderColor: "var(--pill-border)",
+                  }}
+                >
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Kiosk</span>
+                  <span className="text-[10px] font-bold text-sky-500 uppercase tracking-wide truncate">
                     {status}
                   </span>
                 </div>
               </div>
+              {stationDetail?.address && (
+                <div className="text-[10px] text-[var(--text-secondary)] font-medium truncate px-0.5">
+                  📍 {stationDetail.address}
+                </div>
+              )}
 
               {/* 2. Station ID configuration */}
               <div className="flex flex-col gap-1.5">
@@ -421,9 +452,18 @@ const App: React.FC = () => {
                     }
 
                     return chargers.map((c) => {
-                      const isSelected = c.id === CHARGER_ID;
+                      const isSelected = c.id === POINT_ID || c.connectors?.some(conn => conn.id === CHARGER_ID);
                       const meta = getChargerStatusMeta(c.status);
                       const ChargerIcon = meta.Icon;
+
+                      // Compute max power from connectors or charger level
+                      const powerText = c.connectors?.length
+                        ? `${Math.max(...c.connectors.map(co => co.maxPowerKw || 0))} kW`
+                        : (c.maxPowerKw ? `${c.maxPowerKw} kW` : null);
+
+                      const connectorsText = c.connectors?.length
+                        ? c.connectors.map(co => `${co.connectorType} (${co.maxPowerKw}kW)`).join(', ')
+                        : null;
 
                       let cardBg = "bg-white/5 dark:bg-white/5 border-[var(--pill-border)] hover:bg-white/10";
                       if (isSelected) {
@@ -436,24 +476,34 @@ const App: React.FC = () => {
                           onClick={() => handleSelectCharger(c.id)}
                           className={`flex items-center justify-between p-3 rounded-2xl border transition-all duration-200 cursor-pointer active:scale-[0.98] ${cardBg}`}
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
                             <div 
-                              className={`w-8 h-8 rounded-xl flex items-center justify-center ${isSelected ? 'bg-[var(--primary)]/20 text-[var(--primary)]' : 'bg-white/10 dark:bg-white/5 text-[var(--text-secondary)]'}`}
+                              className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isSelected ? 'bg-[var(--primary)]/20 text-[var(--primary)]' : 'bg-white/10 dark:bg-white/5 text-[var(--text-secondary)]'}`}
                             >
                               <ChargerIcon size={15} />
                             </div>
-                            <div className="flex flex-col">
-                              <span className="text-sm font-bold truncate max-w-[180px]">
-                                {c.name || `Trụ sạc ${c.id.substring(0, 4)}`}
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-sm font-bold truncate max-w-[160px]">
+                                {c.name || `Trụ ${c.id.substring(0, 4)}`}
                               </span>
-                              <span className="text-[10px] font-mono text-[var(--text-secondary)] truncate max-w-[180px]">
-                                ID: {c.id}
+                              <span className="text-[9px] font-mono text-[var(--text-secondary)] truncate max-w-[160px]">
+                                {c.id}
                               </span>
+                              {powerText && (
+                                <span className="text-[9px] font-semibold text-[var(--primary)] truncate max-w-[160px]">
+                                  ⚡ {powerText}
+                                </span>
+                              )}
+                              {connectorsText && (
+                                <span className="text-[8px] text-[var(--text-secondary)] truncate max-w-[160px] leading-tight mt-0.5">
+                                  {connectorsText}
+                                </span>
+                              )}
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-3">
-                            <span className={`text-xs font-semibold ${meta.colorClass}`}>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className={`text-[10px] font-semibold ${meta.colorClass}`}>
                               {meta.text}
                             </span>
                             {isSelected && (

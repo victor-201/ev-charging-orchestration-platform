@@ -36,17 +36,38 @@ export function resetKioskIdentifiers() {
 }
 
 export async function resolveKioskIdentifiers(): Promise<{ stationId: string; pointId: string; chargerId: string }> {
-  if (!CHARGER_ID && POINT_ID) {
-    try {
-      const stationRepo = new StationRepositoryImpl();
-      const chargers = await stationRepo.getStationChargers(STATION_ID);
-      const matched = chargers.find(c => c.id === POINT_ID);
-      if (matched?.connectors?.length) {
-        setChargerId(matched.connectors[0].id);
+  try {
+    const stationRepo = new StationRepositoryImpl();
+    const chargers = await stationRepo.getStationChargers(STATION_ID);
+
+    let isValid = false;
+    let firstPointId = '';
+    let firstChargerId = '';
+
+    for (const charger of chargers) {
+      if (charger.connectors) {
+        for (const conn of charger.connectors) {
+          if (!firstChargerId) {
+            firstPointId = charger.id;
+            firstChargerId = conn.id;
+          }
+          if (conn.id === CHARGER_ID) {
+            isValid = true;
+            break;
+          }
+        }
       }
-    } catch {
-      console.warn('[Kiosk] Could not resolve POINT_ID to connector');
+      if (isValid) break;
     }
+
+    // If currently selected charger doesn't exist on this station, self-heal to first available connector
+    if ((!CHARGER_ID || !isValid) && firstChargerId) {
+      console.log('[Kiosk] Stale or unassigned charger ID. Auto-resolving first connector of this station:', firstChargerId);
+      setChargerId(firstChargerId, firstPointId);
+    }
+  } catch (err) {
+    console.warn('[Kiosk] Could not validate or resolve identifiers against station chargers:', err);
   }
+
   return { stationId: STATION_ID, pointId: POINT_ID, chargerId: CHARGER_ID };
 }

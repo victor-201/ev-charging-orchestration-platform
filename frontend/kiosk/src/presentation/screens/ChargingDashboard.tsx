@@ -247,8 +247,8 @@ const ChargingDashboard: React.FC<ChargingDashboardProps> = ({
             </div>
 
             <div className="border-t border-[var(--card-border)] pt-5 space-y-3">
-              <BillingRow label="Giá điện" value={pricing ? `${pricing.pricePerKwh.toLocaleString()} ₫/kWh` : "—"} />
-              <BillingRow label="Phí nhàn rỗi (Đơn giá)" value={pricing ? `${pricing.idleFeePerMinute.toLocaleString()} ₫/phút` : "—"} />
+              <BillingRow label="Giá điện" value={pricing ? `${(pricing.pricePerKwh ?? 0).toLocaleString()} ₫/kWh` : "—"} />
+              <BillingRow label="Phí nhàn rỗi (Đơn giá)" value={pricing ? `${(pricing.idleFeePerMinute ?? 0).toLocaleString()} ₫/phút` : "—"} />
               <BillingRow
                 label="Giờ bắt đầu"
                 value={new Date(session.startTime).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}

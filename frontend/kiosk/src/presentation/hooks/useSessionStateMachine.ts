@@ -45,6 +45,7 @@ interface StateMachineReturn {
   vnpayUrl: string | null;
   errorMessage: string | null;
   startSession: () => Promise<void>;
+  startBookingSession: (bookingId: string, qrToken: string) => Promise<void>;
   stopSession: () => Promise<void>;
   resetSession: () => void;
   updateTelemetry: (data: Partial<TelemetryData>) => void;
@@ -52,6 +53,7 @@ interface StateMachineReturn {
   triggerOffline: () => void;
   triggerReserved: () => void;
   triggerNotice: () => void;
+  triggerScanQr: () => void;
 }
 
 // Instantiate Use Cases cleanly
@@ -118,7 +120,7 @@ export const useSessionStateMachine = (): StateMachineReturn => {
   }, [status, startElapsedTimer]);
 
   /**
-   * Start a new charging session.
+   * Flow 2 — Walk-in: Start without booking (user walks up to kiosk)
    */
   const startSession = useCallback(async () => {
     if (status !== 'INIT') return;
@@ -142,6 +144,38 @@ export const useSessionStateMachine = (): StateMachineReturn => {
       startElapsedTimer();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Không thể bắt đầu phiên sạc';
+      setErrorMessage(msg);
+      setStatus('ERROR');
+    }
+  }, [status, startElapsedTimer]);
+
+  /**
+   * Flow 1 — Pre-booked: Start with bookingId + qrToken from scanned user app QR.
+   * Called by QrScannerScreen after successfully decoding the user's booking JWT QR.
+   * Kiosk sends: POST /charging/start { chargerId, bookingId, qrToken } with kiosk JWT.
+   */
+  const startBookingSession = useCallback(async (bookingId: string, qrToken: string) => {
+    if (status !== 'SCAN_QR') return;
+    setErrorMessage(null);
+
+    if (!CHARGER_ID) {
+      setErrorMessage('Kiosk chưa được cấu hình trụ sạc.');
+      setStatus('ERROR');
+      return;
+    }
+
+    try {
+      const [session, price] = await Promise.all([
+        startSessionUseCase.execute(CHARGER_ID, bookingId, qrToken),
+        getPricingUseCase.execute(STATION_ID, CHARGER_ID),
+      ]);
+
+      setActiveSession(session);
+      setPricing(price);
+      setStatus('ACTIVE');
+      startElapsedTimer();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Mã QR không hợp lệ hoặc đã hết hạn';
       setErrorMessage(msg);
       setStatus('ERROR');
     }
@@ -217,6 +251,10 @@ export const useSessionStateMachine = (): StateMachineReturn => {
     setStatus('NOTICE');
   }, []);
 
+  const triggerScanQr = useCallback(() => {
+    setStatus('SCAN_QR');
+  }, []);
+
   /**
    * Update telemetry and compute estimated cost based on current pricing.
    */
@@ -243,6 +281,7 @@ export const useSessionStateMachine = (): StateMachineReturn => {
     vnpayUrl,
     errorMessage,
     startSession,
+    startBookingSession,
     stopSession,
     resetSession,
     updateTelemetry,
@@ -250,5 +289,6 @@ export const useSessionStateMachine = (): StateMachineReturn => {
     triggerOffline,
     triggerReserved,
     triggerNotice,
+    triggerScanQr,
   };
 };

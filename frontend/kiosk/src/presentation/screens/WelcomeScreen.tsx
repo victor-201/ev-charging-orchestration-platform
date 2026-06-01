@@ -6,13 +6,14 @@
 
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Zap, ShieldCheck, Wifi, ArrowRight, Sun, Moon, WrenchIcon } from "lucide-react";
-import { CHARGER_ID, STATION_ID, setChargerId } from "../../data/sources/localStorage";
+import { Zap, ShieldCheck, Wifi, ArrowRight, Sun, Moon, WrenchIcon, QrCode } from "lucide-react";
+import { CHARGER_ID, STATION_ID, POINT_ID, setChargerId } from "../../data/sources/localStorage";
 import { GetStationDetailUseCase, GetAvailabilitySlotsUseCase } from "../../application/useCases";
 import type { ChargerInfo } from "../../domain/entities/entities";
 
 interface WelcomeScreenProps {
   onStart: () => Promise<void>;
+  onScanQrBooking: () => void;
   theme: "light" | "dark";
   onToggleTheme: () => void;
   triggerMaintenance: () => void;
@@ -26,6 +27,7 @@ const getAvailabilitySlotsUseCase = new GetAvailabilitySlotsUseCase();
 
 const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   onStart,
+  onScanQrBooking,
   theme,
   onToggleTheme,
   triggerMaintenance,
@@ -52,7 +54,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         
         // Default select first available or first charger
         if (list.length > 0) {
-          const defaultCharger = list.find(c => c.id === CHARGER_ID) || list[0];
+          const defaultCharger = list.find(c => c.id === POINT_ID || c.connectors?.some(conn => conn.id === CHARGER_ID)) || list[0];
           setSelectedCharger(defaultCharger.id);
         }
       } catch (err) {
@@ -94,7 +96,12 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
   const handleStart = async () => {
     if (!selectedCharger) return;
-    setChargerId(selectedCharger);
+    const matched = chargers.find(c => c.id === selectedCharger);
+    if (matched?.connectors?.length) {
+      setChargerId(matched.connectors[0].id, matched.id);
+    } else {
+      setChargerId(selectedCharger);
+    }
 
     setLoading(true);
     try {
@@ -162,8 +169,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     : (currentCharger?.maxPowerKw ? `${currentCharger.maxPowerKw} kW` : '350 kW');
 
   const connectorsText = currentCharger?.connectors?.length
-    ? currentCharger.connectors.map((c: any) => `${c.connectorType || c.type || 'CCS'} (${c.maxPowerKw || 0}kW)`).join(' / ')
-    : (currentCharger?.connectorType || 'CCS2 / CHAdeMO');
+    ? currentCharger.connectors.map((c: any) => `${c.connectorType || 'CCS'} (${c.maxPowerKw || 0}kW)`).join(' / ')
+    : (currentCharger?.maxPowerKw ? `${currentCharger.maxPowerKw} kW` : 'CCS2 / CHAdeMO');
 
   // Compute button state and labels
   let buttonLabel = 'BẮT ĐẦU SẠC';
@@ -303,39 +310,69 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             Chào mừng đến EVOLT Network. Trạm sạc đã sẵn sàng phục vụ quý khách.
           </motion.p>
 
-          <motion.button
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.55 }}
-            className={`flex items-center gap-4 transition-all duration-300 font-black uppercase tracking-wider relative overflow-hidden group btn-primary ${
-              buttonDisabled ? "cursor-not-allowed opacity-60" : "hover:scale-[1.02] active:scale-[0.98]"
-            }`}
-            onClick={handleStart}
-            disabled={buttonDisabled}
-            style={{
-              padding: "18px 44px",
-              borderRadius: "20px",
-              fontSize: "16px",
-              cursor: buttonDisabled ? "not-allowed" : "pointer",
-              background: isOffline
-                ? "#dc2626"
-                : isInUse || isReserved
-                ? "rgba(100,116,139,0.3)"
-                : "linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%)",
-              color: "#ffffff",
-              border: "none",
-              boxShadow: isOffline
-                ? "0 0 24px rgba(220,38,38,0.35), 0 4px 16px rgba(0,0,0,0.25)"
-                : buttonDisabled
-                ? "none"
-                : "0 0 32px var(--cyan-glow), 0 4px 16px rgba(0,0,0,0.3)",
-              opacity: 1,
-            }}
-          >
-            {isOffline ? <WrenchIcon size={20} /> : <Zap size={20} />}
-            <span className="relative z-10">{buttonLabel}</span>
-            {!buttonDisabled && <ArrowRight size={20} className="relative z-10" />}
-          </motion.button>
+          <div className="flex flex-col gap-4">
+            <motion.button
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.55 }}
+              className={`flex items-center gap-4 transition-all duration-300 font-black uppercase tracking-wider relative overflow-hidden group btn-primary ${
+                buttonDisabled ? "cursor-not-allowed opacity-60" : "hover:scale-[1.02] active:scale-[0.98]"
+              }`}
+              onClick={handleStart}
+              disabled={buttonDisabled}
+              style={{
+                padding: "18px 44px",
+                borderRadius: "20px",
+                fontSize: "16px",
+                cursor: buttonDisabled ? "not-allowed" : "pointer",
+                background: isOffline
+                  ? "#dc2626"
+                  : isInUse || isReserved
+                  ? "rgba(100,116,139,0.3)"
+                  : "linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%)",
+                color: "#ffffff",
+                border: "none",
+                boxShadow: isOffline
+                  ? "0 0 24px rgba(220,38,38,0.35), 0 4px 16px rgba(0,0,0,0.25)"
+                  : buttonDisabled
+                  ? "none"
+                  : "0 0 32px var(--cyan-glow), 0 4px 16px rgba(0,0,0,0.3)",
+                opacity: 1,
+              }}
+            >
+              {isOffline ? <WrenchIcon size={20} /> : <Zap size={20} />}
+              <span className="relative z-10">{buttonLabel}</span>
+              {!buttonDisabled && <ArrowRight size={20} className="relative z-10" />}
+            </motion.button>
+
+            {/* Flow 1: Booking QR scan button */}
+            {isAvailable && !buttonDisabled && (
+              <motion.button
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.65 }}
+                onClick={onScanQrBooking}
+                className="flex items-center justify-center gap-3 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                style={{
+                  padding: "14px 36px",
+                  borderRadius: "20px",
+                  fontSize: "14px",
+                  fontWeight: "700",
+                  letterSpacing: "0.05em",
+                  textTransform: "uppercase",
+                  background: "var(--pill-bg)",
+                  color: "var(--primary)",
+                  border: "1.5px solid var(--primary)",
+                  backdropFilter: "blur(20px)",
+                  WebkitBackdropFilter: "blur(20px)",
+                  boxShadow: "0 0 12px var(--cyan-glow)",
+                }}
+              >
+                <QrCode size={18} />
+                <span>Đã đặt lịch? Quét QR</span>
+              </motion.button>
+            )}
+          </div>
         </div>
 
         {/* Right: Orb — adapts content based on offline state */}

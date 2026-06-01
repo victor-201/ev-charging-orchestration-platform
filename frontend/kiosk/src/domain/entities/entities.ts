@@ -8,7 +8,8 @@
 
 /** Mirrors charging_sessions_status_enum from session DB */
 export type SessionStatus = 
-  | 'INIT' 
+  | 'INIT'
+  | 'SCAN_QR'       // Kiosk scanning booking QR from user's phone
   | 'RESERVED' 
   | 'NOTICE' 
   | 'ACTIVE' 
@@ -109,19 +110,35 @@ export interface StationDetail {
   id: string;
   name: string;
   address: string;
+  cityId?: string;
+  latitude?: number;
+  longitude?: number;
   status: string;
+  ownerId?: string | null;
+  ownerName?: string | null;
+  totalChargers?: number;
+  availableChargers?: number;
   chargers: ChargerInfo[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ConnectorInfo {
+  id: string;
+  connectorType: string;
+  maxPowerKw: number;
 }
 
 /** A charger/pillar at a station */
 export interface ChargerInfo {
   id: string;
   name?: string;
-  externalId?: string;
-  status?: string;
-  connectors?: { id: string; type: string }[];
+  externalId?: string | null;
+  stationId?: string;
   maxPowerKw?: number;
-  connectorType?: string;
+  status?: string;
+  connectors?: ConnectorInfo[];
+  updatedAt?: string;
 }
 
 // ---- Kiosk Config ----
