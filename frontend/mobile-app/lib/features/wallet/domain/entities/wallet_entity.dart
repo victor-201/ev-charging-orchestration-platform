@@ -5,16 +5,20 @@ class WalletEntity extends Equatable {
   final double balance; // VND
   final bool hasArrears;
   final double? arrearsAmount;
+  final int totalTransactionsCount;
+  final double totalTopUpAmount;
 
   const WalletEntity({
     required this.id,
     required this.balance,
     required this.hasArrears,
     this.arrearsAmount,
+    this.totalTransactionsCount = 0,
+    this.totalTopUpAmount = 0.0,
   });
 
   @override
-  List<Object?> get props => [id, balance, hasArrears];
+  List<Object?> get props => [id, balance, hasArrears, totalTransactionsCount, totalTopUpAmount];
 }
 
 class TransactionEntity extends Equatable {

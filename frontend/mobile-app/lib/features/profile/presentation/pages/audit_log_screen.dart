@@ -47,7 +47,7 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.history_toggle_off, size: 64, color: AppColors.grey400),
+                    const Icon(Icons.history_toggle_off, size: 64, color: AppColors.grey400),
                     const SizedBox(height: 16),
                     Text(
                       'Không có nhật ký hoạt động nào',
@@ -59,7 +59,7 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
             }
   
             return ListView.builder(
-              padding: AppLayout.paddingWithHeaderAndNavbar(context),
+              padding: AppLayout.paddingWithHeader(context),
               itemCount: logs.length,
               itemBuilder: (context, index) {
                 final log = logs[index];

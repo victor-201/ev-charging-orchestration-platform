@@ -15,6 +15,7 @@ import '../../../../core/design_system/widgets/liquid_glass_scaffold.dart';
 import '../../../../core/design_system/widgets/ev_header.dart';
 import '../../../../core/utils/date_utils.dart' as ev_date;
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../wallet/presentation/bloc/wallet_bloc.dart';
 import '../../../map/domain/usecases/get_charger_pricing_usecase.dart';
 import '../../../map/domain/entities/station_entity.dart';
 import '../widgets/booking_date_selector.dart';
@@ -85,7 +86,7 @@ class _BookingNewScreenState extends State<BookingNewScreen>
   void _scrollToFirstAvailableSlot(List<AvailabilitySlotEntity> slots) {
     if (!_gridScrollController.hasClients || slots.isEmpty) return;
 
-    final now = DateTime.now();
+    final now = ev_date.DateUtils.now;
     final firstAvailIdx = slots.indexWhere((s) => s.isAvailable && !s.startTime.isBefore(now));
     if (firstAvailIdx == -1) return;
 
@@ -132,6 +133,7 @@ class _BookingNewScreenState extends State<BookingNewScreen>
           date: _selectedDate,
         ));
     context.read<AuthBloc>().add(const AuthCheckRequested());
+    context.read<WalletBloc>().add(const WalletLoad());
   }
 
   Future<void> _fetchPricingEstimate() async {
@@ -224,7 +226,7 @@ class _BookingNewScreenState extends State<BookingNewScreen>
       return;
     }
 
-    final now = DateTime.now();
+    final now = ev_date.DateUtils.now;
     final startDt = DateTime(
       _selectedDate.year, _selectedDate.month, _selectedDate.day,
       _customStartTime!.hour, _customStartTime!.minute,
@@ -316,7 +318,7 @@ class _BookingNewScreenState extends State<BookingNewScreen>
       } else {
         final startIdx = allSlots.indexOf(_rangeStart!);
         final endIdx = allSlots.indexOf(slot);
-        final now = DateTime.now();
+        final now = ev_date.DateUtils.now;
         bool conflict = false;
         for (int k = startIdx; k <= endIdx; k++) {
           if (!allSlots[k].isAvailable || allSlots[k].startTime.isBefore(now)) {
@@ -346,6 +348,28 @@ class _BookingNewScreenState extends State<BookingNewScreen>
     final start = _rangeStart;
     if (start == null) return;
     final end = _rangeEnd ?? start;
+
+    // Strict validation: if the selected start time has passed, notify user and reload
+    final now = ev_date.DateUtils.now;
+    if (start.startTime.isBefore(now)) {
+      HapticFeedback.heavyImpact();
+      EVToast.show(
+        context, 
+        message: 'Thời gian đặt lịch đã trôi qua. Vui lòng chọn khung giờ khác!', 
+        isError: true,
+      );
+      
+      // Clear selection and reload to refresh availability
+      setState(() {
+        _rangeStart = null;
+        _rangeEnd = null;
+        _pricingEstimate = null;
+        _pricingError = null;
+      });
+      _loadSlots();
+      return;
+    }
+
     context.read<BookingBloc>().add(BookingCreate(
           chargerId: widget.chargerId,
           stationId: widget.stationId,
@@ -358,58 +382,64 @@ class _BookingNewScreenState extends State<BookingNewScreen>
   @override
   Widget build(BuildContext context) {
     final authState = context.watch<AuthBloc>().state;
-    final hasArrears = authState is AuthAuthenticated && authState.hasArrears;
+    final walletState = context.watch<WalletBloc>().state;
+    final hasArrears = (authState is AuthAuthenticated && authState.hasArrears) ||
+        (walletState is WalletLoaded && walletState.wallet.hasArrears);
+    final arrearsAmount = walletState is WalletLoaded ? walletState.wallet.arrearsAmount : null;
 
     // Guard: no charger selected
     if (widget.chargerId.isEmpty) {
       return LiquidGlassScaffold(
-        appBar: const EVHeader(
-          title: 'Đặt lịch sạc',
-          showBackButton: true,
-        ),
         child: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.xl),
-              child: GlassContainer(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
+          bottom: false,
+          child: Column(
+            children: [
+              const EVHeader(
+                title: 'Đặt lịch sạc',
+                showBackButton: true,
+              ),
+              Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.xl),
+                    child: GlassContainer(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.12),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.ev_station_rounded,
+                                color: AppColors.primary, size: 48),
+                          ),
+                          const SizedBox(height: AppSpacing.lg),
+                          Text('Chưa chọn trụ sạc', style: AppTypography.headingMd),
+                          const SizedBox(height: AppSpacing.sm),
+                          Text(
+                            'Vui lòng quay lại màn hình bản đồ để lựa chọn trạm sạc phù hợp.',
+                            textAlign: TextAlign.center,
+                            style: AppTypography.bodyMd.copyWith(color: AppColors.textMuted),
+                          ),
+                          const SizedBox(height: AppSpacing.lg),
+                          EVButton(label: 'Quay lại Bản đồ', onPressed: () => context.go('/map')),
+                        ],
                       ),
-                      child: const Icon(Icons.ev_station_rounded,
-                          color: AppColors.primary, size: 48),
                     ),
-                    const SizedBox(height: AppSpacing.lg),
-                    Text('Chưa chọn trụ sạc', style: AppTypography.headingMd),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      'Vui lòng quay lại màn hình bản đồ để lựa chọn trạm sạc phù hợp.',
-                      textAlign: TextAlign.center,
-                      style: AppTypography.bodyMd.copyWith(color: AppColors.textMuted),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    EVButton(label: 'Quay lại Bản đồ', onPressed: () => context.go('/map')),
-                  ],
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
         ),
       );
     }
 
     return LiquidGlassScaffold(
-      extendBodyBehindAppBar: true,
-      appBar: const EVHeader(
-        title: 'Đặt lịch sạc',
-        showBackButton: true,
-      ),
       child: SafeArea(
+        bottom: false,
         child: BlocConsumer<BookingBloc, BookingState>(
           listener: (context, state) {
             if (state is BookingCreated) {
@@ -433,6 +463,10 @@ class _BookingNewScreenState extends State<BookingNewScreen>
                 // ── Main Content Column ──
                 Column(
                   children: [
+                    const EVHeader(
+                      title: 'Đặt lịch sạc',
+                      showBackButton: true,
+                    ),
                     // ── Date selector ──────────────────────────────────
                     BookingDateSelector(
                       selected: _selectedDate,
@@ -501,7 +535,7 @@ class _BookingNewScreenState extends State<BookingNewScreen>
                   curve: Curves.easeOutCubic,
                   left: 0,
                   right: 0,
-                  bottom: showSummary ? 0 : -360,
+                  bottom: showSummary ? 0 : -800,
                   child: GestureDetector(
                     onVerticalDragEnd: (details) {
                       if (details.primaryVelocity != null && details.primaryVelocity! > 100) {
@@ -530,6 +564,7 @@ class _BookingNewScreenState extends State<BookingNewScreen>
                           _rangeStart != null,
                       onConfirm: _confirmBooking,
                       hasArrears: hasArrears,
+                      arrearsAmount: arrearsAmount,
                       onPayArrears: () async {
                         await context.push('/profile/arrears');
                         _loadSlots();
@@ -549,7 +584,7 @@ class _BookingNewScreenState extends State<BookingNewScreen>
 
   Widget _buildQuickGrid(
       BuildContext context, BookingState state, bool hasArrears, bool showSummary) {
-    if (state is BookingLoading) {
+    if (state is BookingLoading || state is BookingInitial) {
       return const Center(child: CircularProgressIndicator());
     }
     if (state is BookingAvailabilityLoaded) {
@@ -566,8 +601,9 @@ class _BookingNewScreenState extends State<BookingNewScreen>
       return GridView.builder(
         key: _gridKey,
         controller: _gridScrollController,
-        padding: AppLayout.paddingWithHeader(context).copyWith(
-            bottom: showSummary ? 260.0 : 0.0),
+        padding: AppLayout.paddingWithNavbar(context).copyWith(
+            top: 0,
+            bottom: showSummary ? 260.0 : null),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
           childAspectRatio: 1.7,
@@ -577,6 +613,7 @@ class _BookingNewScreenState extends State<BookingNewScreen>
         itemCount: state.slots.length,
         itemBuilder: (_, i) {
           final slot = state.slots[i];
+          final now = ev_date.DateUtils.now;
           final isPast = slot.startTime.isBefore(now);
           final isAvailable = slot.isAvailable && !isPast;
           final isSelected = _isSlotInRange(slot);
@@ -595,27 +632,27 @@ class _BookingNewScreenState extends State<BookingNewScreen>
             timeTextColor = Colors.white;
             statusTextColor = Colors.white.withValues(alpha: 0.9);
           } else if (isAvailable) {
-            cardBgColor = AppColors.primary.withValues(alpha: 0.08);
-            cardBorderColor = AppColors.primary.withValues(alpha: 0.35);
-            timeTextColor = AppColors.primary;
-            statusTextColor = AppColors.primary.withValues(alpha: 0.8);
+            cardBgColor = AppColors.success.withValues(alpha: 0.12);
+            cardBorderColor = AppColors.success.withValues(alpha: 0.4);
+            timeTextColor = AppColors.success;
+            statusTextColor = AppColors.success.withValues(alpha: 0.8);
           } else if (isPast) {
             cardBgColor = isDark
                 ? Colors.white.withValues(alpha: 0.03)
-                : Colors.black.withValues(alpha: 0.03);
-            cardBorderColor = AppColors.outlineLight.withValues(alpha: 0.2);
+                : Colors.black.withValues(alpha: 0.04);
+            cardBorderColor = AppColors.textMuted.withValues(alpha: 0.2);
             timeTextColor = AppColors.textMuted.withValues(alpha: 0.6);
             statusTextColor = AppColors.textMuted.withValues(alpha: 0.5);
             statusIcon = Icons.history_rounded;
             iconColor = AppColors.textMuted.withValues(alpha: 0.5);
           } else {
             // isBooked / hasArrears
-            cardBgColor = AppColors.error.withValues(alpha: 0.06);
-            cardBorderColor = AppColors.error.withValues(alpha: 0.3);
-            timeTextColor = AppColors.error;
-            statusTextColor = AppColors.error.withValues(alpha: 0.8);
+            cardBgColor = AppColors.warning.withValues(alpha: 0.12);
+            cardBorderColor = AppColors.warning.withValues(alpha: 0.5);
+            timeTextColor = AppColors.warning;
+            statusTextColor = AppColors.warning.withValues(alpha: 0.8);
             statusIcon = Icons.lock_outline_rounded;
-            iconColor = AppColors.error.withValues(alpha: 0.8);
+            iconColor = AppColors.warning.withValues(alpha: 0.8);
           }
 
           return GestureDetector(
@@ -727,8 +764,9 @@ class _BookingNewScreenState extends State<BookingNewScreen>
     }
 
     return SingleChildScrollView(
-      padding: AppLayout.paddingWithHeader(context).copyWith(
-          bottom: showSummary ? 260.0 : 0.0),
+      padding: AppLayout.paddingWithNavbar(context).copyWith(
+          top: 0,
+          bottom: showSummary ? 260.0 : null),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

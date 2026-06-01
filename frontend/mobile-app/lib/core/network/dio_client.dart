@@ -30,8 +30,9 @@ class DioClient {
       },
     ));
 
-    // Order is important: Logging → Auth
+    // Order is important: TimeSync → Logging → Auth
     _dio.interceptors.addAll([
+      DioTimeSyncInterceptor(),
       DioLoggingInterceptor(enabled: config.enableLogging),
       DioAuthInterceptor(
         secureStorage: secureStorage,

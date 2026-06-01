@@ -80,7 +80,7 @@ class _VNPayProcessingScreenState extends State<VNPayProcessingScreen>
         bottom: false,
         child: Center(
           child: SingleChildScrollView(
-            padding: AppLayout.paddingWithHeaderAndNavbar(context),
+            padding: AppLayout.paddingWithHeader(context),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               if (_uiState == _VNPayState.processing)
                 RotationTransition(

@@ -110,9 +110,21 @@ class BookingRepositoryImpl implements IBookingRepository {
   }
 
   @override
-  Future<Either<Failure, List<BookingEntity>>> getMyBookings() async {
+  Future<Either<Failure, List<BookingEntity>>> getMyBookings({
+    int page = 1,
+    int limit = 20,
+    String? status,
+  }) async {
     try {
-      final response = await _client.get(ApiPaths.myBookings);
+      final offset = (page - 1) * limit;
+      final response = await _client.get(
+        ApiPaths.myBookings,
+        queryParameters: {
+          'limit': limit,
+          'offset': offset,
+          if (status != null && status != 'ALL') 'status': status.toLowerCase(),
+        },
+      );
       // GET /bookings/me returns { items: [...], total: number }
       final raw = response.data;
       final List<dynamic> list = raw is Map

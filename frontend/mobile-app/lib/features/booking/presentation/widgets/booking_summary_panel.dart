@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
-import '../../../../core/design_system/widgets/alert_banner.dart';
 import '../../../../core/design_system/widgets/glass_container.dart';
 import '../../../../core/utils/date_utils.dart' as ev_date;
 import '../../../../core/utils/vnd_formatter.dart';
@@ -20,6 +19,7 @@ class BookingSummaryPanel extends StatelessWidget {
   final bool canConfirm;
   final VoidCallback onConfirm;
   final bool hasArrears;
+  final double? arrearsAmount;
   final VoidCallback? onPayArrears;
 
   const BookingSummaryPanel({
@@ -33,6 +33,7 @@ class BookingSummaryPanel extends StatelessWidget {
     required this.canConfirm,
     required this.onConfirm,
     this.hasArrears = false,
+    this.arrearsAmount,
     this.onPayArrears,
   });
 
@@ -308,9 +309,55 @@ class BookingSummaryPanel extends StatelessWidget {
 
                 if (hasArrears) ...[
                   const SizedBox(height: AppSpacing.md),
-                  ArrearsAlertBanner(
-                    amount: 'Tài khoản đang có nợ tồn đọng',
-                    onTap: onPayArrears,
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withValues(alpha: isDark ? 0.16 : 0.08),
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      border: Border.all(
+                        color: AppColors.error.withValues(alpha: isDark ? 0.35 : 0.25),
+                        width: 1.0,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.error.withValues(alpha: isDark ? 0.15 : 0.05),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.warning_amber_rounded,
+                                color: AppColors.error, size: 20),
+                            const SizedBox(width: AppSpacing.sm),
+                            Text(
+                              'Cảnh báo nợ tồn đọng',
+                              style: AppTypography.bodyMd.copyWith(
+                                color: AppColors.error,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          'Tài khoản đang phát sinh nợ tồn đọng trị giá ${arrearsAmount != null ? VndFormatter.format(arrearsAmount!) : '...'}. Đặt lịch và sạc pin bị tạm khoá.',
+                          style: AppTypography.caption
+                              .copyWith(color: AppColors.textMuted),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        EVButton(
+                          label: 'Thanh toán ngay',
+                          variant: EVButtonVariant.danger,
+                          onPressed: onPayArrears,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
 

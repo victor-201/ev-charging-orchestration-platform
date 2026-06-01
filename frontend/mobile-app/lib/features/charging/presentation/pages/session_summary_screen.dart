@@ -53,7 +53,7 @@ class _SessionSummaryScreenState extends State<SessionSummaryScreen>
         child: SafeArea(
           bottom: false,
           child: SingleChildScrollView(
-            padding: AppLayout.paddingWithNavbar(context),
+            padding: AppLayout.paddingWithSafeArea(context),
             child: Column(children: [
               const SizedBox(height: AppSpacing.xxxl),
 

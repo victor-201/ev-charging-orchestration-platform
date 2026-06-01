@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/profile_bloc.dart';
@@ -7,6 +6,7 @@ import '../../../../core/design_system/theme/app_colors.dart';
 import '../../../../core/design_system/theme/app_layout.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
+import '../../../../core/design_system/widgets/glass_container.dart';
 import '../../../../core/utils/date_utils.dart' as ev_date;
 import '../../../../core/design_system/widgets/liquid_glass_scaffold.dart';
 import '../../../../core/design_system/widgets/liquid_glass_card.dart';
@@ -195,7 +195,7 @@ class _ChangePasswordTabState extends State<_ChangePasswordTab> {
     final newPass = _newCtrl.text;
 
     return SingleChildScrollView(
-      padding: AppLayout.paddingWithNavbar(context),
+      padding: AppLayout.paddingWithSafeArea(context),
       child: Form(
         key: _formKey,
         child: Column(
@@ -398,7 +398,7 @@ class _MFATab extends StatelessWidget {
     final mfaEnabled = profile?.mfaEnabled ?? false;
 
     return SingleChildScrollView(
-      padding: AppLayout.paddingWithNavbar(context),
+      padding: AppLayout.paddingWithSafeArea(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -607,7 +607,7 @@ class _SessionsTabState extends State<_SessionsTab> {
           )
         else
           SliverPadding(
-            padding: AppLayout.paddingWithNavbar(context),
+            padding: AppLayout.paddingWithSafeArea(context),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
                 (_, i) {
@@ -712,26 +712,47 @@ class _SessionsTabState extends State<_SessionsTab> {
                             onPressed: () {
                               showDialog(
                                 context: context,
-                                builder: (ctx) => BackdropFilter(
-                                  filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-                                  child: AlertDialog(
-                                    backgroundColor: isDark ? AppColors.cardDark : AppColors.cardLight,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.0)),
-                                    title: const Text('Đăng xuất thiết bị?'),
-                                    content: const Text('Bạn có chắc chắn muốn đăng xuất khỏi phiên truy cập này không?'),
-                                    actions: [
-                                      TextButton(
-                                        child: const Text('Hủy', style: TextStyle(color: AppColors.textMuted)),
-                                        onPressed: () => Navigator.pop(ctx),
-                                      ),
-                                      TextButton(
-                                        child: const Text('Đăng xuất', style: TextStyle(color: AppColors.danger)),
-                                        onPressed: () {
-                                          Navigator.pop(ctx);
-                                          context.read<ProfileBloc>().add(ProfileRevokeSession(id: s.id));
-                                        },
-                                      ),
-                                    ],
+                                builder: (ctx) => Dialog(
+                                  backgroundColor: Colors.transparent,
+                                  elevation: 0,
+                                  child: GlassContainer(
+                                    borderRadius: BorderRadius.circular(24),
+                                    padding: const EdgeInsets.all(AppSpacing.lg),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        Text(
+                                          'Đăng xuất thiết bị?',
+                                          style: AppTypography.headingMd.copyWith(
+                                            fontWeight: FontWeight.w800,
+                                            color: isDark ? Colors.white : AppColors.black,
+                                          ),
+                                        ),
+                                        const SizedBox(height: AppSpacing.md),
+                                        Text(
+                                          'Bạn có chắc chắn muốn đăng xuất khỏi phiên truy cập này không?',
+                                          style: AppTypography.bodyMd.copyWith(
+                                            color: isDark ? Colors.white70 : Colors.black87,
+                                          ),
+                                        ),
+                                        const SizedBox(height: AppSpacing.xl),
+                                        EVButton(
+                                          label: 'Đăng xuất',
+                                          variant: EVButtonVariant.danger,
+                                          onPressed: () {
+                                            Navigator.pop(ctx);
+                                            context.read<ProfileBloc>().add(ProfileRevokeSession(id: s.id));
+                                          },
+                                        ),
+                                        const SizedBox(height: AppSpacing.sm),
+                                        EVButton(
+                                          label: 'Huỷ bỏ',
+                                          variant: EVButtonVariant.secondary,
+                                          onPressed: () => Navigator.pop(ctx),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               );

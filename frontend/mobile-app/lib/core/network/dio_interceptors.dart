@@ -1,6 +1,45 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../constants/storage_keys.dart';
+import '../utils/date_utils.dart' as ev_date;
+
+/// Interceptor to synchronize app time with the server.
+/// Reads the 'Date' header from every response and updates DateUtils.now offset.
+class DioTimeSyncInterceptor extends Interceptor {
+  @override
+  void onResponse(Response response, ResponseInterceptorHandler handler) {
+    final dateHeader = response.headers.value('date');
+    if (dateHeader != null) {
+      try {
+        final serverTime = HttpDate.parse(dateHeader);
+        final phoneTime = DateTime.now();
+        final offset = serverTime.difference(phoneTime);
+        ev_date.DateUtils.setServerOffset(offset);
+      } catch (e) {
+        // ignore
+      }
+    }
+    handler.next(response);
+  }
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) {
+    final dateHeader = err.response?.headers.value('date');
+    if (dateHeader != null) {
+      try {
+        final serverTime = HttpDate.parse(dateHeader);
+        final phoneTime = DateTime.now();
+        final offset = serverTime.difference(phoneTime);
+        ev_date.DateUtils.setServerOffset(offset);
+      } catch (e) {
+        // ignore
+      }
+    }
+    handler.next(err);
+  }
+}
 
 /// JWT Authentication Interceptor — injects Bearer token, handles 401 refresh
 /// Inherits from QueuedInterceptor to queue all concurrent 401 requests
@@ -8,6 +47,11 @@ class DioAuthInterceptor extends QueuedInterceptor {
   final FlutterSecureStorage _secureStorage;
   final Dio _dio;
   Future<void> Function()? onLogout;  // mutable — wired after AuthBloc is ready
+
+  /// Prevents multiple concurrent token refresh calls.
+  /// When one refresh is in flight, subsequent 401 errors wait for it.
+  bool _isRefreshing = false;
+  Completer<String?>? _refreshCompleter;
 
   DioAuthInterceptor({
     required FlutterSecureStorage secureStorage,
@@ -52,14 +96,37 @@ class DioAuthInterceptor extends QueuedInterceptor {
       }
 
       try {
-        final newTokens = await _refresh();
-        if (newTokens != null) {
-          await _secureStorage.write(
-            key: StorageKeys.accessToken,
-            value: newTokens,
-          );
+        String? newAccessToken;
+
+        if (_isRefreshing) {
+          // Another request is already refreshing — wait for its result
+          newAccessToken = await _refreshCompleter!.future;
+        } else {
+          // First 401 → acquire lock and start refresh
+          _isRefreshing = true;
+          _refreshCompleter = Completer<String?>();
+          try {
+            newAccessToken = await _refresh();
+            // Persist the new access token immediately so future requests use it
+            if (newAccessToken != null && newAccessToken.isNotEmpty) {
+              await _secureStorage.write(
+                key: StorageKeys.accessToken,
+                value: newAccessToken,
+              );
+            }
+            _refreshCompleter!.complete(newAccessToken);
+          } catch (e) {
+            _refreshCompleter!.completeError(e);
+            rethrow;
+          } finally {
+            _isRefreshing = false;
+            _refreshCompleter = null;
+          }
+        }
+
+        if (newAccessToken != null && newAccessToken.isNotEmpty) {
           // Retry original request with new token
-          err.requestOptions.headers['Authorization'] = 'Bearer $newTokens';
+          err.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
           final retry = await _dio.fetch(err.requestOptions);
           return handler.resolve(retry);
         }

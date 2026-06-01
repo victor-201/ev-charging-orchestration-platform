@@ -20,8 +20,13 @@ abstract class IWalletRepository {
   Future<Either<Failure, List<TransactionEntity>>> getTransactions({
     int page = 1,
     int limit = 20,
+    String? type,
   });
 
   /// Settles accumulated platform arrears using the current wallet balance.
   Future<Either<Failure, void>> payArrears();
+
+  /// Initiates a direct VNPay payment to settle outstanding arrears.
+  /// The user's EVolt wallet balance remains unchanged.
+  Future<Either<Failure, TopUpResultEntity>> payArrearsVNPay();
 }

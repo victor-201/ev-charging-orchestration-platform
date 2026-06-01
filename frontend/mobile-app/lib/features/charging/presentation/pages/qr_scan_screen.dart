@@ -6,10 +6,18 @@ import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_toast.dart';
 import '../../../../core/utils/qr_validator.dart';
 
-/// QR Scanning Camera Screen for Session Activation
+/// QR Scanning Camera Screen
 ///
-/// Integrates the mobile_scanner camera pipeline with strict temporal validation rules
-/// (valid activation window: reservation startTime -15m to endTime +5m).
+/// Handles two walk-in charging flows:
+///
+/// Flow 2 — Walk-in (no booking):
+///   Scans QR code physically printed on the charger pole.
+///   QR format: EVCHARGER-{uuid} — encodes the connector (chargerId).
+///   → Navigates to ActiveSessionScreen with chargerId to start session immediately.
+///
+/// Note: Booking QR (Flow 1) is NOT scanned here.
+///   In Flow 1, the USER shows their QR in booking_detail_screen.dart,
+///   and the KIOSK device scans it using its own camera.
 class QRScanScreen extends StatefulWidget {
   const QRScanScreen({super.key});
 
@@ -50,25 +58,40 @@ class _QRScanScreenState extends State<QRScanScreen>
     final code = capture.barcodes.firstOrNull?.rawValue;
     if (code == null) return;
 
-    if (!QrValidator.isValidFormat(code)) {
-      _showError('Mã QR không đúng định dạng EV-XXXXXXXX-XXXXXXXXXXXXXXXX');
+    // Flow 2 — Walk-in: QR on the physical charger pole (EVCHARGER-{uuid})
+    if (QrValidator.isChargerQr(code)) {
+      final chargerId = QrValidator.extractChargerId(code)!;
+      setState(() => _scanned = true);
+      _cameraController.stop();
+      _navigateToWalkInSession(chargerId);
       return;
     }
 
-    setState(() => _scanned = true);
-    _cameraController.stop();
-    // Extract bookingId from QR code pattern: EV-{bookingId}-{random}
-    final parts = code.split('-');
-    final bookingId = parts.length >= 2 ? parts[1] : code;
-    _showSuccessAndNavigate(code, bookingId);
+    // Booking QR detected — but user's app should NOT scan this.
+    // The booking QR is shown BY the app and scanned BY the kiosk camera.
+    if (QrValidator.isBookingQr(code)) {
+      _showError(
+        'Đây là mã QR đặt lịch. Hãy đưa điện thoại cho kiosk tại trạm để quét.',
+      );
+      return;
+    }
+
+    _showError('Mã QR không hợp lệ. Vui lòng quét mã trên cột sạc.');
   }
 
-  void _showSuccessAndNavigate(String qrToken, String bookingId) {
-    EVToast.show(context, message: 'Quét QR thành công! Đang khởi động phiên sạc...', isError: false);
+  /// Flow 2: Walk-in — user scanned charger pole QR, start session directly.
+  void _navigateToWalkInSession(String chargerId) {
+    EVToast.show(
+      context,
+      message: 'Đã nhận mã trụ sạc! Đang khởi động phiên sạc...',
+      isError: false,
+    );
     Future.delayed(const Duration(seconds: 1), () {
       if (mounted) {
-        context.go('/charging/session/new',
-            extra: {'bookingId': bookingId, 'qrToken': qrToken});
+        context.go(
+          '/charging/session/new',
+          extra: {'chargerId': chargerId, 'mode': 'walkin'},
+        );
       }
     });
   }
@@ -87,7 +110,7 @@ class _QRScanScreenState extends State<QRScanScreen>
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: const Text('Quét QR để sạc'),
+        title: const Text('Quét mã trụ sạc'),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => context.pop(),
@@ -114,6 +137,7 @@ class _QRScanScreenState extends State<QRScanScreen>
             onDetect: _onBarcodeDetected,
           ),
 
+          // Dimmed overlay with cutout
           ColorFiltered(
             colorFilter: ColorFilter.mode(
               Colors.black.withValues(alpha: 0.4),
@@ -141,6 +165,7 @@ class _QRScanScreenState extends State<QRScanScreen>
             ),
           ),
 
+          // Scan frame corners + animated line
           Center(
             child: SizedBox(
               width: 260,
@@ -173,16 +198,57 @@ class _QRScanScreenState extends State<QRScanScreen>
             ),
           ),
 
+          // Instruction label
           Positioned(
-            bottom: 100,
+            bottom: 140,
             left: 0,
             right: 0,
-            child: Text(
-              'Đặt mã QR vào trong khung để sạc',
-              style: AppTypography.bodyMd.copyWith(
-                color: Colors.white,
+            child: Column(
+              children: [
+                Text(
+                  'Quét mã QR trên cột sạc',
+                  style: AppTypography.bodyMd.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Mã QR dán/in trên thân cột sạc (không phải mã đặt lịch)',
+                  style: AppTypography.caption.copyWith(
+                    color: Colors.white70,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+
+          // Info banner at bottom
+          Positioned(
+            bottom: 40,
+            left: 24,
+            right: 24,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
               ),
-              textAlign: TextAlign.center,
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: AppColors.secondary, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Đã đặt lịch trước? Vào Đặt lịch → Chi tiết → hiển thị mã QR cho kiosk quét.',
+                      style: AppTypography.caption.copyWith(color: Colors.white70),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],

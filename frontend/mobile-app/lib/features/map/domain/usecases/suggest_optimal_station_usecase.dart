@@ -12,11 +12,13 @@ class SuggestOptimalStationUseCase {
     required double lat,
     required double lng,
     String? connectorType,
+    String? preference,
   }) async {
     return await repository.suggestOptimalStation(
       lat: lat,
       lng: lng,
       connectorType: connectorType,
+      preference: preference,
     );
   }
 }

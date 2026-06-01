@@ -7,7 +7,10 @@ sealed class WalletEvent extends Equatable {
 }
 
 final class WalletLoad extends WalletEvent {
-  const WalletLoad();
+  final String? type;
+  const WalletLoad({this.type});
+  @override
+  List<Object?> get props => [type];
 }
 
 final class WalletTopUpInitiate extends WalletEvent {
@@ -19,11 +22,16 @@ final class WalletTopUpInitiate extends WalletEvent {
 
 final class WalletLoadTransactions extends WalletEvent {
   final int page;
-  const WalletLoadTransactions({this.page = 1});
+  final String? type;
+  const WalletLoadTransactions({this.page = 1, this.type});
   @override
-  List<Object?> get props => [page];
+  List<Object?> get props => [page, type];
 }
 
 final class WalletPayArrears extends WalletEvent {
   const WalletPayArrears();
+}
+
+final class WalletPayArrearsVNPayInitiate extends WalletEvent {
+  const WalletPayArrearsVNPayInitiate();
 }

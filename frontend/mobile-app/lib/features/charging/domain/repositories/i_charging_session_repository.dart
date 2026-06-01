@@ -27,6 +27,7 @@ abstract class IChargingSessionRepository {
   Future<Either<Failure, List<ChargingSessionEntity>>> getSessionHistory({
     int? limit,
     int? offset,
+    String? status,
   });
 
   /// Establishes a WebSocket tunnel to stream real-time sensor metrics for a charger.

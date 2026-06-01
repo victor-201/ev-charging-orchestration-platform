@@ -12,6 +12,7 @@ import '../../../../core/design_system/widgets/liquid_glass_scaffold.dart';
 import '../../../../core/design_system/widgets/ev_header.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
+import '../../../../core/design_system/widgets/glass_container.dart';
 import '../../../../core/design_system/widgets/ev_toast.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/utils/vnd_formatter.dart';
@@ -201,9 +202,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
         showBackButton: true,
         onBackTapped: () => context.pop(true),
       ),
-      child: SafeArea(
-        bottom: false,
-        child: BlocConsumer<BookingBloc, BookingState>(
+      child: BlocConsumer<BookingBloc, BookingState>(
           listener: (context, state) {
             if (state is BookingDetailLoaded) {
               _startCountdown(state.booking);
@@ -288,7 +287,6 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
             return const Center(child: CircularProgressIndicator());
           },
         ),
-      ),
     );
   }
 
@@ -296,9 +294,9 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
     Color statusColor;
     String statusLabel;
     switch (b.status) {
-      case 'CONFIRMED':      statusColor = AppColors.chargerAvailable; statusLabel = 'Đã xác nhận'; break;
-      case 'PENDING_PAYMENT':statusColor = AppColors.amber;            statusLabel = 'Chờ thanh toán'; break;
-      case 'COMPLETED':      statusColor = AppColors.secondary;        statusLabel = 'Hoàn thành'; break;
+      case 'CONFIRMED':      statusColor = AppColors.cyan;             statusLabel = 'Đã xác nhận'; break;
+      case 'PENDING_PAYMENT':statusColor = AppColors.warning;          statusLabel = 'Chờ thanh toán'; break;
+      case 'COMPLETED':      statusColor = AppColors.success;          statusLabel = 'Hoàn thành'; break;
       case 'CANCELLED':      statusColor = AppColors.grey400;          statusLabel = 'Đã hủy'; break;
       case 'EXPIRED':        statusColor = AppColors.grey400;          statusLabel = 'Hết hạn'; break;
       case 'NO_SHOW':        statusColor = AppColors.error;            statusLabel = 'Không đến (phạt 20%)'; break;
@@ -315,10 +313,12 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: AppLayout.paddingWithHeaderAndNavbar(context),
+        padding: AppLayout.paddingWithHeaderAndNavbar(context).copyWith(
+          bottom: AppLayout.paddingWithHeaderAndNavbar(context).bottom,
+        ),
         child: Column(children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 6.0),
           decoration: BoxDecoration(
             color: statusColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(AppRadius.full),
@@ -326,7 +326,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
           ),
           child: Text(statusLabel, style: AppTypography.bodyMd.copyWith(color: statusColor, fontWeight: FontWeight.w600)),
         ),
-        const SizedBox(height: AppSpacing.xl),
+        const SizedBox(height: AppSpacing.md),
 
         // Beautiful Charging Station & Charger Point details card!
         BookingStationCard(
@@ -341,40 +341,139 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
         ),
 
         if (b.qrToken != null && b.isConfirmed) ...[
-          Text('Mã QR sạc điện', style: AppTypography.headingMd),
-          const SizedBox(height: AppSpacing.md),
-          if (_qrValid)
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-                boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.15), blurRadius: 20)],
+          // Flow 1 — Pre-booked: user shows QR to kiosk camera
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.qr_code_2, color: AppColors.primary, size: 20),
               ),
-              child: QrImageView(data: b.qrToken!, version: QrVersions.auto, size: 200,
-                eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: AppColors.primary)),
-            )
-          else
-            Container(
-              width: 200, height: 200,
-              decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(AppRadius.lg)),
-              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(isNotYet ? Icons.schedule_outlined : Icons.timer_off_outlined, size: 48, color: AppColors.grey400),
-                const SizedBox(height: AppSpacing.sm),
-                Text(isNotYet ? 'Chưa đến giờ' : 'QR đã hết hạn',
-                    style: AppTypography.bodyMd.copyWith(color: AppColors.grey600)),
-              ]),
-            ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Mã QR kích hoạt sạc', style: AppTypography.headingMd),
+                    Text(
+                      'Đưa màn hình này cho kiosk tại trụ sạc để quét',
+                      style: AppTypography.caption.copyWith(color: AppColors.grey600),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          // QR code display
+          Center(
+            child: _qrValid
+                ? Container(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(AppRadius.lg),
+                      boxShadow: [
+                        BoxShadow(color: AppColors.primary.withValues(alpha: 0.2), blurRadius: 24, spreadRadius: 2),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        QrImageView(
+                          data: b.qrToken!,
+                          version: QrVersions.auto,
+                          size: 220,
+                          eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: AppColors.primary),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.camera_alt_outlined, color: AppColors.primary, size: 14),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Hướng camera kiosk vào đây',
+                                style: AppTypography.caption.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : Container(
+                    width: 220, height: 220,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(AppRadius.lg),
+                      border: Border.all(color: Theme.of(context).colorScheme.outline),
+                    ),
+                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(isNotYet ? Icons.schedule_outlined : Icons.timer_off_outlined,
+                          size: 48, color: AppColors.grey400),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        isNotYet ? 'Chưa đến giờ sạc' : 'Mã QR đã hết hạn',
+                        style: AppTypography.bodyMd.copyWith(color: AppColors.grey600),
+                      ),
+                    ]),
+                  ),
+          ),
           const SizedBox(height: AppSpacing.sm),
           if (_qrRemaining > Duration.zero)
-            Text(
-              _qrValid ? 'Hết hạn sau: ${ev_date.DateUtils.formatCountdown(_qrRemaining)}'
-                       : 'Mở sau: ${ev_date.DateUtils.formatCountdown(_qrRemaining)}',
-              style: AppTypography.bodyMd.copyWith(
-                  color: _qrValid ? AppColors.primary : AppColors.grey600, fontWeight: FontWeight.w600),
+            Center(
+              child: Text(
+                _qrValid
+                    ? 'Mã hết hạn sau: ${ev_date.DateUtils.formatCountdown(_qrRemaining)}'
+                    : 'Mã mở sau: ${ev_date.DateUtils.formatCountdown(_qrRemaining)}',
+                style: AppTypography.bodyMd.copyWith(
+                  color: _qrValid ? AppColors.primary : AppColors.grey600,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
+
+          // Step-by-step guide when QR is valid
+          if (_qrValid) ...[
+            const SizedBox(height: AppSpacing.lg),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Hướng dẫn sử dụng',
+                      style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.bold, color: AppColors.primary)),
+                  const SizedBox(height: AppSpacing.sm),
+                  _buildStep('1', 'Đến trụ sạc đã đặt'),
+                  _buildStep('2', 'Mở màn hình này và giữ điện thoại trước camera kiosk'),
+                  _buildStep('3', 'Kiosk tự động nhận diện mã và khởi động phiên sạc'),
+                  _buildStep('4', 'Cắm đầu sạc vào xe khi kiosk báo sẵn sàng'),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.xl),
         ],
+
 
         Container(
           padding: const EdgeInsets.all(AppSpacing.lg),
@@ -418,23 +517,55 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
             label: 'Hủy đặt lịch (hoàn 100%)',
             variant: EVButtonVariant.danger,
             icon: Icons.cancel_outlined,
-            onPressed: () => showDialog(
-              context: context,
-              builder: (dialogContext) => AlertDialog(
-                title: const Text('Xác nhận hủy?'),
-                content: const Text('Bạn sẽ được hoàn 100% tiền đặt cọc.'),
-                actions: [
-                  TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Không')),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(dialogContext);
-                      context.read<BookingBloc>().add(BookingCancel(id: b.id));
-                    },
-                    child: const Text('Hủy', style: TextStyle(color: AppColors.error)),
+            onPressed: () {
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+              showDialog(
+                context: context,
+                builder: (dialogContext) => Dialog(
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  child: GlassContainer(
+                    borderRadius: BorderRadius.circular(24),
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'Xác nhận hủy?',
+                          style: AppTypography.headingMd.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? Colors.white : AppColors.black,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          'Bạn có chắc chắn muốn hủy đặt lịch này? Bạn sẽ được hoàn 100% tiền đặt cọc.',
+                          style: AppTypography.bodyMd.copyWith(
+                            color: isDark ? Colors.white70 : Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+                        EVButton(
+                          label: 'Hủy đặt lịch',
+                          variant: EVButtonVariant.danger,
+                          onPressed: () {
+                            Navigator.pop(dialogContext);
+                            context.read<BookingBloc>().add(BookingCancel(id: b.id));
+                          },
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        EVButton(
+                          label: 'Huỷ bỏ',
+                          variant: EVButtonVariant.secondary,
+                          onPressed: () => Navigator.pop(dialogContext),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
           const SizedBox(height: AppSpacing.md),
         ],
@@ -446,6 +577,42 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
           onPressed: () => context.pop(true),
         ),
       ]),
+      ),
+    );
+  }
+
+  Widget _buildStep(String number, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            decoration: const BoxDecoration(
+              color: AppColors.primary,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                number,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              text,
+              style: AppTypography.bodyMd.copyWith(fontSize: 13),
+            ),
+          ),
+        ],
       ),
     );
   }

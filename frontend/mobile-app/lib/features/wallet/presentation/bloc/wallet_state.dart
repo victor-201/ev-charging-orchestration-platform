@@ -14,6 +14,16 @@ final class WalletLoading extends WalletState {
   const WalletLoading();
 }
 
+/// Emitted when ONLY the transaction list is refreshing (filter change / load more).
+/// The wallet balance card and stats boxes remain visible during this partial load.
+final class WalletTransactionsLoading extends WalletState {
+  final WalletEntity wallet;
+  final List<TransactionEntity> transactions;
+  const WalletTransactionsLoading({required this.wallet, required this.transactions});
+  @override
+  List<Object?> get props => [wallet];
+}
+
 final class WalletLoaded extends WalletState {
   final WalletEntity wallet;
   final List<TransactionEntity> transactions;

@@ -13,7 +13,7 @@ abstract class AppLayout {
 
   /// Dynamically calculates the perfect top padding to clear the transparent AppBar
   static double topPadding(BuildContext context) {
-    return headerHeight;
+    return MediaQuery.of(context).padding.top + headerHeight;
   }
 
   /// Dynamically calculates the perfect bottom padding to clear the floating glass navbar completely
@@ -48,6 +48,37 @@ abstract class AppLayout {
       0.0,
       sidePadding,
       bottomPadding(context),
+    );
+  }
+
+  /// Dynamic padding for pages WITH NO AppBar and NO persistent bottom navbar (just system safe area bottom)
+  static EdgeInsets paddingWithSafeArea(BuildContext context) {
+    return EdgeInsets.fromLTRB(
+      sidePadding,
+      0.0,
+      sidePadding,
+      MediaQuery.of(context).padding.bottom + 16.0,
+    );
+  }
+
+  /// Unified padding for Bottom Sheets, clearing system bottom bar (safe area) but not the floating navbar
+  static EdgeInsets paddingForBottomSheet(BuildContext context) {
+    return EdgeInsets.fromLTRB(
+      sidePadding,
+      12.0, // small space below drag handle
+      sidePadding,
+      MediaQuery.of(context).padding.bottom + 16.0,
+    );
+  }
+
+  /// Dynamic padding for Bottom Sheets that contain TextFields, adjusting for keyboard insets
+  static EdgeInsets paddingForBottomSheetWithKeyboard(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return EdgeInsets.fromLTRB(
+      sidePadding,
+      12.0, // small space below drag handle
+      sidePadding,
+      bottomInset > 0 ? (bottomInset + 16.0) : (MediaQuery.of(context).padding.bottom + 16.0),
     );
   }
 }

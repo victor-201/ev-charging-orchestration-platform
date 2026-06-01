@@ -225,8 +225,13 @@ class AppRouter {
                   path: 'session/new', name: 'charging-new',
                   builder: (_, state) {
                     final extra = state.extra as Map<String, String>? ?? {};
-                    return ActiveSessionScreen(sessionId: 'new',
-                        bookingId: extra['bookingId'], qrToken: extra['qrToken']);
+                    // Flow 2 (walk-in): chargerId from QR scan on charger pole
+                    // Flow 1 (booking): bookingId + qrToken from kiosk scan of user's app QR
+                    return ActiveSessionScreen(
+                        sessionId: 'new',
+                        chargerId: extra['chargerId'],
+                        bookingId: extra['bookingId'],
+                        qrToken: extra['qrToken']);
                   },
                 ),
                 GoRoute(

@@ -1,8 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
+import '../../../../core/design_system/widgets/glass_container.dart';
 import '../../../../core/utils/vnd_formatter.dart';
 import '../../domain/entities/station_entity.dart';
 import '../../domain/usecases/get_charger_pricing_usecase.dart';
@@ -60,25 +61,35 @@ class _PricingDialogState extends State<PricingDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-      child: Padding(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: GlassContainer(
+        borderRadius: BorderRadius.circular(24),
         padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               children: [
                 const Icon(Icons.request_quote_outlined, color: AppColors.primary),
                 const SizedBox(width: AppSpacing.sm),
-                Text('Báo giá dự kiến (1 giờ)', style: AppTypography.headingMd),
+                Text(
+                  'Báo giá dự kiến (1 giờ)',
+                  style: AppTypography.headingMd.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : AppColors.black,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: AppSpacing.md),
             if (_isLoading)
               const Padding(
                 padding: EdgeInsets.all(AppSpacing.xl),
-                child: CircularProgressIndicator(),
+                child: Center(child: CircularProgressIndicator()),
               )
             else if (_error != null)
               Text(
@@ -94,7 +105,13 @@ class _PricingDialogState extends State<PricingDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Ước tính (1h):', style: AppTypography.bodyLg.copyWith(fontWeight: FontWeight.w600)),
+                  Text(
+                    'Ước tính (1h):',
+                    style: AppTypography.bodyLg.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white70 : Colors.black87,
+                    ),
+                  ),
                   Text(
                     _pricing!.totalEstimateVnd != null ? VndFormatter.format(_pricing!.totalEstimateVnd!) : '---',
                     style: AppTypography.headingMd.copyWith(color: AppColors.primary),
@@ -104,17 +121,17 @@ class _PricingDialogState extends State<PricingDialog> {
               const SizedBox(height: AppSpacing.sm),
               Text(
                 'Lưu ý: Đây chỉ là mức giá ước tính. Phí sạc thực tế phụ thuộc vào công suất sạc của xe.',
-                style: AppTypography.caption.copyWith(color: AppColors.grey600, fontStyle: FontStyle.italic),
+                style: AppTypography.caption.copyWith(
+                  color: isDark ? Colors.white60 : AppColors.grey600,
+                  fontStyle: FontStyle.italic,
+                ),
                 textAlign: TextAlign.center,
               ),
             ],
             const SizedBox(height: AppSpacing.lg),
-            SizedBox(
-              width: double.infinity,
-              child: EVButton(
-                label: 'Đóng',
-                onPressed: () => Navigator.pop(context),
-              ),
+            EVButton(
+              label: 'Đóng',
+              onPressed: () => Navigator.pop(context),
             ),
           ],
         ),
@@ -123,13 +140,25 @@ class _PricingDialogState extends State<PricingDialog> {
   }
 
   Widget _buildRow(String label, String value) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: AppTypography.bodyMd.copyWith(color: AppColors.grey600)),
-          Text(value, style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.w600)),
+          Text(
+            label,
+            style: AppTypography.bodyMd.copyWith(
+              color: isDark ? Colors.white70 : AppColors.grey600,
+            ),
+          ),
+          Text(
+            value,
+            style: AppTypography.bodyMd.copyWith(
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : AppColors.black,
+            ),
+          ),
         ],
       ),
     );

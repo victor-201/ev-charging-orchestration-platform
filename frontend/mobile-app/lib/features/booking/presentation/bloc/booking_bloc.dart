@@ -35,11 +35,38 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
 
   Future<void> _onLoadHistory(
       BookingLoadHistory event, Emitter<BookingState> emit) async {
-    emit(const BookingLoading());
-    final result = await _repository.getMyBookings();
+    final isFirstPage = event.page == 1;
+    if (isFirstPage) {
+      emit(const BookingLoading());
+    }
+
+    final result = await _repository.getMyBookings(
+      page: event.page,
+      limit: event.limit,
+      status: event.status,
+    );
+
     result.fold(
-      (f) => emit(BookingError(message: f.message)),
-      (list) => emit(BookingHistoryLoaded(bookings: list)),
+      (f) {
+        if (isFirstPage) {
+          emit(BookingError(message: f.message));
+        }
+      },
+      (list) {
+        final current = state;
+        if (current is BookingHistoryLoaded && !isFirstPage) {
+          final merged = [...current.bookings, ...list];
+          emit(BookingHistoryLoaded(
+            bookings: merged,
+            hasMorePages: list.length == event.limit,
+          ));
+        } else {
+          emit(BookingHistoryLoaded(
+            bookings: list,
+            hasMorePages: list.length == event.limit,
+          ));
+        }
+      },
     );
   }
 

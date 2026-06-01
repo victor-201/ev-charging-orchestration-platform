@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -32,7 +33,7 @@ class AiSuggestionSheet extends StatelessWidget {
     final connector = station.suggestedConnectorType ?? 'CCS2';
     final powerKw = station.suggestedMaxPowerKw ?? 150.0;
     final estPrice = station.suggestedEstimatedPriceVnd ?? 150000.0;
-    final scorePercent = ((station.suggestedScore ?? 1.0) * 100).toStringAsFixed(0);
+    final scorePercent = (station.suggestedScore ?? 100.0).toStringAsFixed(0);
 
     // Resolve optimal suggested charger in the station using safe loop (bypasses runtime closure subtyping issues in Dart Web)
     dynamic suggestedCharger;
@@ -52,36 +53,49 @@ class AiSuggestionSheet extends StatelessWidget {
       maxChildSize: 0.85,
       expand: false,
       builder: (context, scrollController) {
-        return Container(
-          decoration: BoxDecoration(
-            color: theme.cardColor,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(AppRadius.xl),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.15),
-                blurRadius: 20,
-                offset: const Offset(0, -4),
-              ),
-            ],
+        final isDark = theme.brightness == Brightness.dark;
+        return ClipRRect(
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppRadius.card),
           ),
-          child: Column(
-            children: [
-              // Handle
-              Container(
-                margin: const EdgeInsets.only(top: 12, bottom: 8),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.outlineLight,
-                  borderRadius: BorderRadius.circular(2),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.cardDark : AppColors.cardLight,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppRadius.card),
                 ),
+                border: Border(
+                  top: BorderSide(
+                    color: isDark ? AppColors.cardBorderDark : AppColors.cardBorderLight,
+                    width: 1.5,
+                  ),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.08),
+                    blurRadius: 24,
+                    offset: const Offset(0, -6),
+                  ),
+                ],
               ),
+              child: Column(
+                children: [
+                  // Handle
+                  Container(
+                    margin: const EdgeInsets.only(top: 12, bottom: 8),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white30 : Colors.black12,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
               Expanded(
                 child: ListView(
                   controller: scrollController,
-                  padding: AppLayout.paddingWithNavbar(context),
+                  padding: AppLayout.paddingForBottomSheet(context),
                   children: [
                     const SizedBox(height: 16),
                     // AI Pulse Badge & Compatibility Score
@@ -169,7 +183,6 @@ class AiSuggestionSheet extends StatelessWidget {
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(100),
                                 onTap: () {
-                                  Navigator.pop(context);
                                   double userLat = userLocation?.latitude ?? 0.0;
                                   double userLng = userLocation?.longitude ?? 0.0;
                                   if (userLat == 0.0) {
@@ -188,6 +201,7 @@ class AiSuggestionSheet extends StatelessWidget {
                                     extra: {
                                       'stationLat': station.latitude,
                                       'stationLng': station.longitude,
+                                      'stationName': station.name,
                                       'userLat': userLat,
                                       'userLng': userLng,
                                     },
@@ -323,15 +337,17 @@ class AiSuggestionSheet extends StatelessWidget {
                 ),
               ),
             ],
+            ),
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 
   Widget _buildSuggestedChargerCard(BuildContext context, dynamic charger) {
     final color = AppColors.forChargerStatus(charger.status);
-    final isBookable = charger.status.toUpperCase() != 'FAULTED' && charger.status.toUpperCase() != 'OFFLINE';
+    final isBookable = charger.status.toUpperCase() == 'AVAILABLE';
 
     String statusText;
     switch (charger.status.toUpperCase()) {
@@ -486,15 +502,24 @@ class AiSuggestionSheet extends StatelessWidget {
                       InkWell(
                         onTap: () {
                           if (!isBookable) {
-                            EVToast.show(context, message: 'Trụ sạc này hiện đang ngoại tuyến hoặc đang lỗi, không thể đặt lịch.', isError: true);
+                            String msg = 'Trụ sạc này hiện không thể đặt lịch.';
+                            final status = charger.status.toUpperCase();
+                            if (status == 'FAULTED' || status == 'OFFLINE') {
+                              msg = 'Trụ sạc này hiện đang ngoại tuyến hoặc đang lỗi, không thể đặt lịch.';
+                            } else if (status == 'IN_USE') {
+                              msg = 'Trụ sạc này hiện đang được sử dụng, vui lòng chọn trụ khác hoặc tham gia hàng chờ.';
+                            } else if (status == 'RESERVED') {
+                              msg = 'Trụ sạc này hiện đã được đặt trước cho lịch sạc sắp tới.';
+                            }
+                            EVToast.show(context, message: msg, isError: true);
                             return;
                           }
                           Navigator.pop(context);
                           context.push(
-                            '/bookings/new?stationId=${station.id}&chargerId=${charger.connectorId ?? charger.id}&connectorType=${charger.connectorType}&physicalChargerId=${charger.id}',
+                            '/bookings/new?stationId=${station.id}&chargerId=${charger.id}&connectorType=${charger.connectorType}&physicalChargerId=${charger.id}',
                             extra: {
                               'stationId': station.id,
-                              'chargerId': charger.connectorId ?? charger.id,
+                              'chargerId': charger.id,
                               'connectorType': charger.connectorType,
                               'physicalChargerId': charger.id,
                             },

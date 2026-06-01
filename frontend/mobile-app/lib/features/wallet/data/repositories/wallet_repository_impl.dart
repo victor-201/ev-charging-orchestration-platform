@@ -16,7 +16,7 @@ class WalletRepositoryImpl implements IWalletRepository {
   Future<Either<Failure, WalletEntity>> getBalance() async {
     try {
       final response = await _client.get(ApiPaths.walletBalance);
-      // API [74]: GET /wallet/balance → { walletId, balance, currency } (flat, no 'data' wrapper)
+      // API [74]: GET /wallet/balance → { walletId, balance, currency, hasArrears, arrearsAmount, totalTransactionsCount, totalTopUpAmount }
       final raw = response.data;
       final data = raw is Map<String, dynamic> ? raw : <String, dynamic>{};
       return Right(WalletEntity(
@@ -25,6 +25,8 @@ class WalletRepositoryImpl implements IWalletRepository {
         balance: _parseNum(data['balance']) ?? 0,
         hasArrears: data['hasArrears'] == true,
         arrearsAmount: _parseNum(data['arrearsAmount']),
+        totalTransactionsCount: _parseNum(data['totalTransactionsCount'])?.toInt() ?? 0,
+        totalTopUpAmount: _parseNum(data['totalTopUpAmount']) ?? 0.0,
       ));
     } on DioException catch (e) {
       return Left(ErrorMapper.fromDioException(e));
@@ -80,13 +82,18 @@ class WalletRepositoryImpl implements IWalletRepository {
   Future<Either<Failure, List<TransactionEntity>>> getTransactions({
     int page = 1,
     int limit = 20,
+    String? type,
   }) async {
     try {
-      // API [77]: GET /transactions?limit=&offset= (offset-based, returns flat array)
+      // API [77]: GET /transactions?limit=&offset=&type= (offset-based, returns flat array)
       final offset = (page - 1) * limit;
       final response = await _client.get(
         ApiPaths.transactions,
-        queryParameters: {'limit': limit, 'offset': offset},
+        queryParameters: {
+          'limit': limit,
+          'offset': offset,
+          if (type != null && type != 'ALL') 'type': type,
+        },
       );
       final raw = response.data;
       final List<dynamic> list = raw is List
@@ -110,6 +117,24 @@ class WalletRepositoryImpl implements IWalletRepository {
         withIdempotency: true,
       );
       return const Right(null);
+    } on DioException catch (e) {
+      return Left(ErrorMapper.fromDioException(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, TopUpResultEntity>> payArrearsVNPay() async {
+    try {
+      final response = await _client.post(
+        ApiPaths.walletPayArrearsVNPay,
+        withIdempotency: true,
+      );
+      final data = response.data as Map<String, dynamic>? ?? {};
+      return Right(TopUpResultEntity(
+        transactionId: data['transactionId']?.toString() ?? '',
+        vnpayUrl: data['paymentUrl']?.toString() ?? '',
+        status: 'PENDING',
+      ));
     } on DioException catch (e) {
       return Left(ErrorMapper.fromDioException(e));
     }

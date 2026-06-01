@@ -20,8 +20,12 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     on<WalletTopUpInitiate>(_onTopUp);
     on<WalletLoadTransactions>(_onLoadTransactions);
     on<WalletPayArrears>(_onPayArrears);
+    on<WalletPayArrearsVNPayInitiate>(_onPayArrearsVNPay);
   }
 
+  /// Full reload: fetches wallet balance (including DB stats) + first page of transactions.
+  /// `WalletLoad` no longer accepts a type filter — stats must always reflect ALL data,
+  /// so we load all transactions for page 1 with no type filter here.
   Future<void> _onLoad(
       WalletLoad event, Emitter<WalletState> emit) async {
     emit(const WalletLoading());
@@ -44,6 +48,56 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     );
   }
 
+  /// Partial reload: only refetches the transaction list (filter or pagination).
+  /// Emits [WalletTransactionsLoading] first — the wallet card, stats boxes, and
+  /// filter pills stay visible so the user experience is smooth.
+  Future<void> _onLoadTransactions(
+      WalletLoadTransactions event, Emitter<WalletState> emit) async {
+    final current = state;
+
+    // Determine the wallet object to preserve
+    WalletEntity? currentWallet;
+    List<TransactionEntity> currentTxs = const [];
+    if (current is WalletLoaded) {
+      currentWallet = current.wallet;
+      currentTxs = current.transactions;
+    } else if (current is WalletTransactionsLoading) {
+      currentWallet = current.wallet;
+      currentTxs = current.transactions;
+    }
+
+    if (currentWallet == null) return; // Safety guard — WalletLoad must go first.
+
+    // For page 1 (filter change), clear old items in the loading state.
+    // For page > 1 (infinite scroll), keep existing items visible.
+    final loadingTxs = event.page == 1 ? const <TransactionEntity>[] : currentTxs;
+    emit(WalletTransactionsLoading(wallet: currentWallet, transactions: loadingTxs));
+
+    final result = await _repository.getTransactions(
+        page: event.page, limit: 20, type: event.type);
+
+    result.fold(
+      (f) {
+        // Restore to WalletLoaded with current data on error, don't show full error screen
+        emit(WalletLoaded(
+          wallet: currentWallet!,
+          transactions: currentTxs,
+          hasMorePages: false,
+        ));
+      },
+      (txs) {
+        final merged = event.page == 1
+            ? txs
+            : [...currentTxs, ...txs];
+        emit(WalletLoaded(
+          wallet: currentWallet!,
+          transactions: merged,
+          hasMorePages: txs.length == 20,
+        ));
+      },
+    );
+  }
+
   Future<void> _onTopUp(
       WalletTopUpInitiate event, Emitter<WalletState> emit) async {
     emit(const WalletLoading());
@@ -57,28 +111,6 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     );
   }
 
-  Future<void> _onLoadTransactions(
-      WalletLoadTransactions event, Emitter<WalletState> emit) async {
-    final result = await _repository.getTransactions(
-        page: event.page, limit: 20);
-    result.fold(
-      (f) {},
-      (txs) {
-        final current = state;
-        if (current is WalletLoaded) {
-          final merged = event.page == 1
-              ? txs
-              : [...current.transactions, ...txs];
-          emit(WalletLoaded(
-            wallet: current.wallet,
-            transactions: merged,
-            hasMorePages: txs.length == 20,
-          ));
-        }
-      },
-    );
-  }
-
   Future<void> _onPayArrears(
       WalletPayArrears event, Emitter<WalletState> emit) async {
     emit(const WalletLoading());
@@ -86,6 +118,19 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     result.fold(
       (f) => emit(WalletError(message: f.message)),
       (_) => add(const WalletLoad()),
+    );
+  }
+
+  Future<void> _onPayArrearsVNPay(
+      WalletPayArrearsVNPayInitiate event, Emitter<WalletState> emit) async {
+    emit(const WalletLoading());
+    final result = await _repository.payArrearsVNPay();
+    result.fold(
+      (f) => emit(WalletError(message: f.message)),
+      (topUp) => emit(WalletTopUpInitiated(
+        vnpayUrl: topUp.vnpayUrl,
+        transactionId: topUp.transactionId,
+      )),
     );
   }
 }

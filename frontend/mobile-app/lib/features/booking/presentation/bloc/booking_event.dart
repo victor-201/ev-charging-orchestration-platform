@@ -7,7 +7,18 @@ sealed class BookingEvent extends Equatable {
 }
 
 final class BookingLoadHistory extends BookingEvent {
-  const BookingLoadHistory();
+  final int page;
+  final int limit;
+  final String? status;
+
+  const BookingLoadHistory({
+    this.page = 1,
+    this.limit = 20,
+    this.status,
+  });
+
+  @override
+  List<Object?> get props => [page, limit, status];
 }
 
 final class BookingLoadAvailability extends BookingEvent {

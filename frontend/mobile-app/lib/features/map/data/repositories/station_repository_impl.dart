@@ -268,6 +268,7 @@ class StationRepositoryImpl implements IStationRepository {
     required double lat,
     required double lng,
     String? connectorType,
+    String? preference,
   }) async {
     try {
       final response = await _client.get(
@@ -276,6 +277,7 @@ class StationRepositoryImpl implements IStationRepository {
           'latitude': lat,
           'longitude': lng,
           if (connectorType != null) 'connectorType': connectorType,
+          if (preference != null) 'preference': preference,
         },
       );
       List<dynamic> list = [];

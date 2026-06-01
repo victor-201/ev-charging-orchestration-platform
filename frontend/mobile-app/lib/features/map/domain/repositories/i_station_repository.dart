@@ -54,5 +54,6 @@ abstract class IStationRepository {
     required double lat,
     required double lng,
     String? connectorType,
+    String? preference,
   });
 }

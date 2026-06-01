@@ -95,7 +95,7 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
     final isStopping = s.status == 'STOPPING';
 
     return SingleChildScrollView(
-      padding: AppLayout.paddingWithHeaderAndNavbar(context),
+      padding: AppLayout.paddingWithHeader(context),
       child: Column(children: [
         if (isStopping)
           const IdleFeeCountdownBanner(

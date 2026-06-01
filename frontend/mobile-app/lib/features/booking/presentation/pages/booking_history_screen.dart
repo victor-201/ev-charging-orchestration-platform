@@ -34,11 +34,46 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
   final Set<String> _failedChargerIds = {}; // Track failed charger IDs to prevent infinite loop
   bool _isInitial = true;
   bool _wasCurrent = false;
+  final ScrollController _scrollController = ScrollController();
+  int _currentPage = 1;
+  bool _isLoadingMore = false;
 
   @override
   void initState() {
     super.initState();
-    context.read<BookingBloc>().add(const BookingLoadHistory());
+    _scrollController.addListener(_onScroll);
+    context.read<BookingBloc>().add(BookingLoadHistory(page: 1, status: _filter));
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      final bloc = context.read<BookingBloc>();
+      final state = bloc.state;
+      if (state is BookingHistoryLoaded && state.hasMorePages && !_isLoadingMore) {
+        setState(() {
+          _isLoadingMore = true;
+        });
+        _currentPage++;
+        bloc.add(BookingLoadHistory(page: _currentPage, status: _filter));
+      }
+    }
+  }
+
+  void _onFilterChanged(String v) {
+    setState(() {
+      _filter = v;
+      _currentPage = 1;
+      _isLoadingMore = false;
+      _bookings = [];
+    });
+    context.read<BookingBloc>().add(BookingLoadHistory(page: 1, status: v));
   }
 
   @override
@@ -49,7 +84,12 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
       if (_isInitial) {
         _isInitial = false;
       } else {
-        context.read<BookingBloc>().add(const BookingLoadHistory());
+        setState(() {
+          _currentPage = 1;
+          _isLoadingMore = false;
+          _bookings = [];
+        });
+        context.read<BookingBloc>().add(BookingLoadHistory(page: 1, status: _filter));
       }
     }
     _wasCurrent = isCurrent;
@@ -134,15 +174,15 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
-                    _Chip(label: 'Tất cả',    value: 'ALL',             current: _filter, onTap: (v) => setState(() => _filter = v)),
+                    _Chip(label: 'Tất cả',    value: 'ALL',             current: _filter, onTap: _onFilterChanged),
                     const SizedBox(width: 8),
-                    _Chip(label: 'Chờ TT',    value: 'PENDING_PAYMENT', current: _filter, onTap: (v) => setState(() => _filter = v)),
+                    _Chip(label: 'Chờ TT',    value: 'PENDING_PAYMENT', current: _filter, onTap: _onFilterChanged),
                     const SizedBox(width: 8),
-                    _Chip(label: 'Xác nhận',  value: 'CONFIRMED',       current: _filter, onTap: (v) => setState(() => _filter = v)),
+                    _Chip(label: 'Xác nhận',  value: 'CONFIRMED',       current: _filter, onTap: _onFilterChanged),
                     const SizedBox(width: 8),
-                    _Chip(label: 'Hoàn thành',value: 'COMPLETED',       current: _filter, onTap: (v) => setState(() => _filter = v)),
+                    _Chip(label: 'Hoàn thành',value: 'COMPLETED',       current: _filter, onTap: _onFilterChanged),
                     const SizedBox(width: 8),
-                    _Chip(label: 'Đã hủy',    value: 'CANCELLED',       current: _filter, onTap: (v) => setState(() => _filter = v)),
+                    _Chip(label: 'Đã hủy',    value: 'CANCELLED',       current: _filter, onTap: _onFilterChanged),
                   ],
                 ),
               ),
@@ -174,7 +214,16 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                       });
                     }
                   } else if (state is BookingCancelled) {
-                    context.read<BookingBloc>().add(const BookingLoadHistory());
+                    setState(() {
+                      _currentPage = 1;
+                      _isLoadingMore = false;
+                      _bookings = [];
+                    });
+                    context.read<BookingBloc>().add(BookingLoadHistory(page: 1, status: _filter));
+                  } else if (state is BookingHistoryLoaded) {
+                    setState(() {
+                      _isLoadingMore = false;
+                    });
                   }
                 },
                 builder: (context, state) {
@@ -206,9 +255,14 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                               EVButton(
                                 label: 'Thử lại',
                                 variant: EVButtonVariant.secondary,
-                                onPressed: () => context
-                                    .read<BookingBloc>()
-                                    .add(const BookingLoadHistory()),
+                                onPressed: () {
+                                  setState(() {
+                                    _currentPage = 1;
+                                    _isLoadingMore = false;
+                                    _bookings = [];
+                                  });
+                                  context.read<BookingBloc>().add(BookingLoadHistory(page: 1, status: _filter));
+                                },
                               ),
                             ],
                           ),
@@ -217,11 +271,7 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                     );
                   }
 
-                  final filtered = _filter == 'ALL'
-                      ? _bookings
-                      : _bookings.where((b) => b.status == _filter).toList();
-
-                  if (filtered.isEmpty) {
+                  if (_bookings.isEmpty) {
                     return Center(
                       child: Padding(
                         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -281,23 +331,39 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
 
                   return RefreshIndicator(
                     onRefresh: () async {
-                      context.read<BookingBloc>().add(const BookingLoadHistory());
-                      context.read<AuthBloc>().add(const AuthCheckRequested());
                       setState(() {
+                        _currentPage = 1;
+                        _isLoadingMore = false;
+                        _bookings = [];
                         _stationCache.clear();
                         _loadingChargerIds.clear();
                         _failedChargerIds.clear();
                       });
+                      context.read<BookingBloc>().add(BookingLoadHistory(page: 1, status: _filter));
+                      context.read<AuthBloc>().add(const AuthCheckRequested());
                     },
-                    child: ListView.separated(
-                      padding: AppLayout.paddingWithNavbar(context),
-                      itemCount: filtered.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: AppLayout.paddingWithNavbar(context).copyWith(
+                        top: AppSpacing.sm,
+                        bottom: AppLayout.paddingWithNavbar(context).bottom,
+                      ),
+                      itemCount: _bookings.length + (_isLoadingMore ? 1 : 0),
                       itemBuilder: (_, i) {
-                        final b = filtered[i];
-                        return BookingCard(
-                          booking: b,
-                          station: _stationCache[b.chargerId],
+                        if (i == _bookings.length) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16.0),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        final b = _bookings[i];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                          child: BookingCard(
+                            booking: b,
+                            station: _stationCache[b.chargerId],
+                          ),
                         );
                       },
                     ),

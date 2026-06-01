@@ -113,6 +113,7 @@ class ChargingSessionRepositoryImpl
   Future<Either<Failure, List<ChargingSessionEntity>>> getSessionHistory({
     int? limit,
     int? offset,
+    String? status,
   }) async {
     try {
       final response = await _client.get(
@@ -121,12 +122,15 @@ class ChargingSessionRepositoryImpl
         queryParameters: {
           if (limit != null) 'limit': limit,
           if (offset != null) 'offset': offset,
+          if (status != null && status != 'ALL') 'status': status.toLowerCase(),
         },
       );
       final raw = response.data;
       final list = raw is List
           ? raw
-          : (raw is Map ? (raw['data'] as List<dynamic>? ?? []) : <dynamic>[]);
+          : (raw is Map
+              ? (raw['items'] as List<dynamic>? ?? raw['data'] as List<dynamic>? ?? [])
+              : <dynamic>[]);
       return Right(list
           .map((e) => ChargingSessionModel.fromJson(e as Map<String, dynamic>))
           .toList());

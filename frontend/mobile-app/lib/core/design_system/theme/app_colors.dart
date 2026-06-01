@@ -52,13 +52,13 @@ abstract class AppColors {
   static const bgGradDark3  = Color(0xFF020617);
 
   // ── Glass Cards ───────────────────────────────────────────────
-  static const cardLight       = Color(0x66FFFFFF);
+  static const cardLight       = Color(0xE6FFFFFF);
   static const cardBorderLight = Color(0xCCFFFFFF);
   static const cardDark        = Color(0x990F172A);
   static const cardBorderDark  = Color(0x1AFFFFFF);
 
   // ── Glass Pill — Light ────────────────────────────────────────
-  static const pillBgLight     = Color(0x4DFFFFFF);
+  static const pillBgLight     = Color(0xCCFFFFFF);
   static const pillBorderLight = Color(0xB3FFFFFF);
   static const pillTextLight   = Color(0xFF1E293B);
 
@@ -92,7 +92,7 @@ abstract class AppColors {
   static const markerDark  = Color(0x33FFFFFF);
 
   // ── Surface Bar ───────────────────────────────────────────────
-  static const barBgLight     = Color(0x33FFFFFF);
+  static const barBgLight     = Color(0xC0FFFFFF);
   static const barBorderLight = Color(0x80FFFFFF);
   static const barBgDark      = Color(0xCC0F172A);  // navy-950 @ 80% opacity
   static const barBorderDark  = Color(0x26FFFFFF);  // white @ 15% opacity

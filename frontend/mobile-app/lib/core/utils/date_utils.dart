@@ -4,6 +4,19 @@ import 'package:intl/intl.dart';
 class DateUtils {
   DateUtils._();
 
+  static Duration _serverOffset = Duration.zero;
+
+  /// Synchronize app time with server time using an offset.
+  /// offset = serverTime - phoneTime
+  static void setServerOffset(Duration offset) {
+    _serverOffset = offset;
+    // ignore: avoid_print
+    print('[DateUtils] Time sync updated. Offset: ${offset.inMilliseconds}ms');
+  }
+
+  /// Returns the current time synchronized with the server.
+  static DateTime get now => DateTime.now().add(_serverOffset);
+
   static final _dateFormat     = DateFormat('dd/MM/yyyy', 'vi_VN');
   static final _timeFormat     = DateFormat('HH:mm', 'vi_VN');
   static final _dateTimeFormat = DateFormat('dd/MM/yyyy HH:mm', 'vi_VN');
@@ -21,12 +34,12 @@ class DateUtils {
 
   /// Validates legal age requirement (minimum 18 years from birthdate)
   static bool isAtLeast18(DateTime dateOfBirth) {
-    final now = DateTime.now();
-    final age = now.year - dateOfBirth.year;
+    final sNow = now;
+    final age = sNow.year - dateOfBirth.year;
     if (age > 18) return true;
     if (age == 18) {
-      if (now.month > dateOfBirth.month) return true;
-      if (now.month == dateOfBirth.month && now.day >= dateOfBirth.day) return true;
+      if (sNow.month > dateOfBirth.month) return true;
+      if (sNow.month == dateOfBirth.month && sNow.day >= dateOfBirth.day) return true;
     }
     return false;
   }
@@ -48,8 +61,8 @@ class DateUtils {
 
   /// Computes relative human-friendly date indicators (e.g. "just now", "3m ago")
   static String formatRelative(DateTime dt) {
-    final now  = DateTime.now();
-    final diff = now.difference(dt);
+    final sNow = now;
+    final diff = sNow.difference(dt);
     if (diff.inSeconds < 60) return 'Vừa xong';
     if (diff.inMinutes < 60) return '${diff.inMinutes} phút trước';
     if (diff.inHours < 24)   return '${diff.inHours} giờ trước';

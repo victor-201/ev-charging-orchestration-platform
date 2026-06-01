@@ -2,12 +2,30 @@
 class QrValidator {
   QrValidator._();
 
-  /// Format expectation: EV-{8-char bookingId}-{16-char random hex}
+  /// Walk-in charger QR: EVCHARGER-{UUID} encoded on physical charger pole
+  /// This is the QR the USER'S APP scans from the physical charger/kiosk.
+  static final _chargerPattern =
+      RegExp(r'^EVCHARGER-[0-9a-fA-F-]{36}$');
+
+  /// Booking QR: EV-{8-char bookingId}-{16-char random hex}
+  /// This is the JWT-derived QR displayed in the USER'S APP for the KIOSK to scan.
   static final _pattern =
       RegExp(r'^EV-[A-Za-z0-9]{8}-[A-Fa-f0-9]{16}$');
 
-  /// Validates string token conforms to correct EV prefix format
+  /// Validates booking QR format (displayed on app, scanned by kiosk)
   static bool isValidFormat(String qrCode) => _pattern.hasMatch(qrCode);
+
+  /// Validates charger QR format (on physical pole, scanned by user app)
+  static bool isChargerQr(String qrCode) => _chargerPattern.hasMatch(qrCode);
+
+  /// Returns true for booking QR (app shows → kiosk scans)
+  static bool isBookingQr(String qrCode) => _pattern.hasMatch(qrCode);
+
+  /// Extracts chargerId from a charger pole QR code: EVCHARGER-{uuid}
+  static String? extractChargerId(String qrCode) {
+    if (!isChargerQr(qrCode)) return null;
+    return qrCode.replaceFirst('EVCHARGER-', '');
+  }
 
   /// Validates request lands inside reservation activation limits
   /// Valid range: startTime - 15 minutes to endTime + 5 minutes

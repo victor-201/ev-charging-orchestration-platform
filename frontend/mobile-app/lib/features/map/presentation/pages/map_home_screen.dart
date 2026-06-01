@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -13,6 +14,7 @@ import '../../../profile/presentation/bloc/profile_bloc.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 import '../../../../core/design_system/theme/app_layout.dart';
+import '../../../../core/design_system/theme/app_typography.dart';
 import '../../domain/entities/station_entity.dart';
 import '../../domain/usecases/search_stations_usecase.dart';
 import '../../domain/usecases/suggest_optimal_station_usecase.dart';
@@ -25,6 +27,7 @@ import '../widgets/map_cluster_layer.dart';
 import '../widgets/map_search_bar.dart';
 import '../widgets/ai_suggestion_sheet.dart';
 import '../../../../core/design_system/widgets/ev_toast.dart';
+import '../../../../core/design_system/widgets/glass_container.dart';
 
 /// Main Geospatial Charging Stations Map Screen
 ///
@@ -310,28 +313,190 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
     );
   }
 
-  void _getAiSuggestion() async {
+  void _showAiPreferenceSelection() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        final theme = Theme.of(context);
+        final isDark = theme.brightness == Brightness.dark;
+        return ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              padding: AppLayout.paddingForBottomSheet(context),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.cardDark : AppColors.cardLight,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border(
+                  top: BorderSide(
+                    color: isDark ? AppColors.cardBorderDark : AppColors.cardBorderLight,
+                    width: 1.5,
+                  ),
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white30 : Colors.black12,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Text(
+                    'Chọn tiêu chí tối ưu sạc AI',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.headingMd,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'AI sẽ tự động phân tích và lựa chọn trụ sạc phù hợp nhất dựa trên tiêu chí của bạn.',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.bodyMd.copyWith(color: AppColors.grey600),
+                  ),
+                  const SizedBox(height: 24),
+                  _buildPreferenceOption(
+                    context,
+                    icon: Icons.wallet_outlined,
+                    title: 'Tối ưu chi phí sạc',
+                    description: 'Tiết kiệm chi phí nhất trong phạm vi khoảng cách hợp lý.',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _getAiSuggestion(preference: 'cost');
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  _buildPreferenceOption(
+                    context,
+                    icon: Icons.navigation_outlined,
+                    title: 'Tối ưu khoảng cách',
+                    description: 'Gần vị trí của bạn nhất và đảm bảo giá sạc tối ưu.',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _getAiSuggestion(preference: 'distance');
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  _buildPreferenceOption(
+                    context,
+                    icon: Icons.auto_awesome_outlined,
+                    title: 'Đề xuất cân bằng (Tối ưu nhất)',
+                    description: 'Cân bằng hoàn hảo giữa thời gian di chuyển, tiền và thời gian chờ.',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _getAiSuggestion(preference: null);
+                    },
+                    isFeatured: true,
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPreferenceOption(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String description,
+    required VoidCallback onTap,
+    bool isFeatured = false,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isFeatured
+                  ? AppColors.primaryCyan.withValues(alpha: 0.5)
+                  : (isDark ? AppColors.cardBorderDark : AppColors.cardBorderLight),
+              width: isFeatured ? 1.5 : 1.0,
+            ),
+            color: isFeatured
+                ? AppColors.primaryCyan.withValues(alpha: 0.08)
+                : (isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.02)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isFeatured
+                      ? AppColors.primaryCyan.withValues(alpha: 0.15)
+                      : (isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05)),
+                ),
+                child: Icon(
+                  icon,
+                  color: isFeatured ? AppColors.primaryCyan : (isDark ? Colors.white70 : AppColors.grey600),
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: AppTypography.bodyMd.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: isFeatured ? AppColors.primaryCyan : null,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: AppTypography.caption.copyWith(
+                        color: isDark ? Colors.white60 : AppColors.grey600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: isDark ? Colors.white30 : Colors.black26,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _getAiSuggestion({String? preference}) async {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => Center(
-        child: Card(
-          color: Theme.of(context).cardColor.withValues(alpha: 0.95),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(color: AppColors.primaryCyan),
-                SizedBox(height: 16),
-                Text(
-                  'Đang tối ưu hóa vị trí sạc bằng AI...',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-          ),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: GlassContainer(
+          borderRadius: BorderRadius.circular(24),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+          child: const _AiLoadingIndicator(),
         ),
       ),
     );
@@ -356,6 +521,7 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
       lat: _userLocation?.latitude ?? center.latitude,
       lng: _userLocation?.longitude ?? center.longitude,
       connectorType: connectorType,
+      preference: preference,
     );
 
     if (mounted) Navigator.of(context, rootNavigator: true).pop();
@@ -705,7 +871,7 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
               right: AppLayout.sidePadding,
               child: GestureDetector(
                 key: const ValueKey('ai_optimizer_btn'),
-                onTap: _getAiSuggestion,
+                onTap: _showAiPreferenceSelection,
                 child: Container(
                   width: 44,
                   height: 44,
@@ -756,8 +922,122 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
      ),
     );
   }
+}
 
+class _AiLoadingIndicator extends StatefulWidget {
+  const _AiLoadingIndicator();
+  @override
+  State<_AiLoadingIndicator> createState() => _AiLoadingIndicatorState();
+}
 
+class _AiLoadingIndicatorState extends State<_AiLoadingIndicator> with TickerProviderStateMixin {
+  late AnimationController _rotateCtrl;
+  late AnimationController _pulseCtrl;
+  late Animation<double> _pulseAnimation;
 
+  @override
+  void initState() {
+    super.initState();
+    _rotateCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat();
 
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+
+    _pulseAnimation = Tween<double>(begin: 0.85, end: 1.15).animate(
+      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _rotateCtrl.dispose();
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            // Outer glowing rotating ring
+            RotationTransition(
+              turns: _rotateCtrl,
+              child: Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.transparent,
+                    width: 3.5,
+                  ),
+                  gradient: const SweepGradient(
+                    colors: [
+                      AppColors.primaryCyan,
+                      AppColors.primaryLime,
+                      Colors.transparent,
+                      AppColors.primaryCyan,
+                    ],
+                    stops: [0.0, 0.45, 0.5, 1.0],
+                  ),
+                ),
+              ),
+            ),
+            // Inner pulsing AI icon with glowing shadow
+            ScaleTransition(
+              scale: _pulseAnimation,
+              child: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.primaryCyan.withValues(alpha: 0.12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primaryCyan.withValues(alpha: 0.3),
+                      blurRadius: 16,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.auto_awesome,
+                  color: AppColors.primaryCyan,
+                  size: 26,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Text(
+          'Đang tối ưu hóa bằng AI...',
+          textAlign: TextAlign.center,
+          style: AppTypography.bodyMd.copyWith(
+            fontWeight: FontWeight.w800,
+            color: isDark ? Colors.white : AppColors.black,
+            letterSpacing: 0.3,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Thuật toán đang phân tích lưu lượng trạm & biểu phí TOU',
+          textAlign: TextAlign.center,
+          style: AppTypography.caption.copyWith(
+            color: isDark ? Colors.white60 : AppColors.textFaded,
+          ),
+        ),
+      ],
+    );
+  }
 }

@@ -16,9 +16,15 @@ final class BookingLoading extends BookingState {
 
 final class BookingHistoryLoaded extends BookingState {
   final List<BookingEntity> bookings;
-  const BookingHistoryLoaded({required this.bookings});
+  final bool hasMorePages;
+
+  const BookingHistoryLoaded({
+    required this.bookings,
+    this.hasMorePages = false,
+  });
+
   @override
-  List<Object?> get props => [bookings];
+  List<Object?> get props => [bookings, hasMorePages];
 }
 
 final class BookingAvailabilityLoaded extends BookingState {

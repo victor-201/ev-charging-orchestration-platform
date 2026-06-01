@@ -81,6 +81,7 @@ abstract class ApiPaths {
   static const String walletTopup = '/wallet/topup';
   static const String walletPay = '/wallet/pay';
   static const String walletPayArrears = '/wallet/pay-arrears';
+  static const String walletPayArrearsVNPay = '/wallet/pay-arrears-vnpay';
   static const String transactions = '/transactions';
 
   // [63-71] Notification Service

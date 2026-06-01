@@ -13,6 +13,11 @@ import '../../../../core/design_system/widgets/liquid_glass_card.dart';
 import '../../../../core/design_system/widgets/liquid_glass_scaffold.dart';
 import '../../../../core/design_system/widgets/ev_header.dart';
 import '../../../../core/utils/vnd_formatter.dart';
+import '../../../../core/di/injection.dart';
+import '../../../../core/utils/date_utils.dart' as ev_date;
+import '../../../map/domain/entities/station_entity.dart';
+import '../../../map/domain/repositories/i_station_repository.dart';
+import '../../domain/repositories/i_charging_session_repository.dart';
 
 /// Unified Charging Hub Main Dashboard Screen
 class ChargingHubScreen extends StatefulWidget {
@@ -299,24 +304,370 @@ class _ActiveSessionCard extends StatelessWidget {
   }
 }
 
-class _ChargingHistoryTab extends StatelessWidget {
+class _ChargingHistoryTab extends StatefulWidget {
   const _ChargingHistoryTab({super.key});
 
   @override
+  State<_ChargingHistoryTab> createState() => _ChargingHistoryTabState();
+}
+
+class _ChargingHistoryTabState extends State<_ChargingHistoryTab> {
+  final ScrollController _scrollController = ScrollController();
+  final List<ChargingSessionEntity> _sessions = [];
+  final Map<String, StationEntity> _stationCache = {};
+  final Set<String> _loadingChargerIds = {};
+  final Set<String> _failedChargerIds = {};
+
+  String _filter = 'ALL'; // 'ALL', 'BILLED', 'ERROR'
+  int _offset = 0;
+  bool _isLoading = false;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    _loadHistory(isRefresh: true);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      if (_hasMore && !_isLoadingMore && !_isLoading) {
+        _loadHistory(isRefresh: false);
+      }
+    }
+  }
+
+  Future<void> _loadHistory({required bool isRefresh}) async {
+    if (isRefresh) {
+      setState(() {
+        _isLoading = true;
+        _sessions.clear();
+        _offset = 0;
+        _hasMore = true;
+      });
+    } else {
+      setState(() {
+        _isLoadingMore = true;
+      });
+    }
+
+    final repository = getIt<IChargingSessionRepository>();
+    final result = await repository.getSessionHistory(
+      limit: 20,
+      offset: _offset,
+      status: _filter == 'ALL' ? null : _filter,
+    );
+
+    if (mounted) {
+      result.fold(
+        (failure) {
+          setState(() {
+            _isLoading = false;
+            _isLoadingMore = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(failure.message)),
+          );
+        },
+        (newSessions) {
+          setState(() {
+            _isLoading = false;
+            _isLoadingMore = false;
+            _sessions.addAll(newSessions);
+            _offset = _sessions.length;
+            if (newSessions.length < 20) {
+              _hasMore = false;
+            }
+          });
+          _loadStationsForSessions(newSessions);
+        },
+      );
+    }
+  }
+
+  void _loadStationsForSessions(List<ChargingSessionEntity> sessions) {
+    final repo = getIt<IStationRepository>();
+    final uniqueChargerIds = sessions.map((s) => s.chargerId).toSet();
+    for (final chargerId in uniqueChargerIds) {
+      if (!_stationCache.containsKey(chargerId) &&
+          !_loadingChargerIds.contains(chargerId) &&
+          !_failedChargerIds.contains(chargerId)) {
+        _loadingChargerIds.add(chargerId);
+        repo.getStationByChargerId(chargerId).then((result) {
+          if (mounted) {
+            setState(() {
+              _loadingChargerIds.remove(chargerId);
+              result.fold(
+                (failure) => _failedChargerIds.add(chargerId),
+                (station) => _stationCache[chargerId] = station,
+              );
+            });
+          }
+        });
+      }
+    }
+  }
+
+  void _onFilterChanged(String filter) {
+    setState(() {
+      _filter = filter;
+    });
+    _loadHistory(isRefresh: true);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Center(
-      child: LiquidGlassCard(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Filter Pills ──────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppLayout.sidePadding),
+          child: Row(
+            children: [
+              GlassPill(
+                label: 'Tất cả',
+                isActive: _filter == 'ALL',
+                onTap: () => _onFilterChanged('ALL'),
+              ),
+              const SizedBox(width: 8),
+              GlassPill(
+                label: 'Hoàn thành',
+                isActive: _filter == 'BILLED',
+                onTap: () => _onFilterChanged('BILLED'),
+              ),
+              const SizedBox(width: 8),
+              GlassPill(
+                label: 'Lỗi',
+                isActive: _filter == 'ERROR',
+                onTap: () => _onFilterChanged('ERROR'),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+
+        // ── List / View ───────────────────────────────────────────
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () => _loadHistory(isRefresh: true),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _sessions.isEmpty
+                    ? SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: AppLayout.paddingWithNavbar(context),
+                        child: Center(
+                          child: LiquidGlassCard(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.history_outlined, size: 56, color: AppColors.textMuted),
+                                const SizedBox(height: AppSpacing.lg),
+                                Text('Lịch sử sạc', style: AppTypography.headingMd),
+                                const SizedBox(height: AppSpacing.sm),
+                                Text(
+                                  'Không có phiên sạc nào',
+                                  style: AppTypography.bodyMd.copyWith(color: AppColors.textMuted),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: _scrollController,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: AppLayout.paddingWithNavbar(context),
+                        itemCount: _sessions.length + (_isLoadingMore ? 1 : 0),
+                        itemBuilder: (context, index) {
+                          if (index == _sessions.length) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 16.0),
+                              child: Center(child: CircularProgressIndicator()),
+                            );
+                          }
+
+                          final session = _sessions[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                            child: _ChargingSessionCard(
+                              session: session,
+                              station: _stationCache[session.chargerId],
+                              isDark: isDark,
+                            ),
+                          );
+                        },
+                      ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ChargingSessionCard extends StatelessWidget {
+  final ChargingSessionEntity session;
+  final StationEntity? station;
+  final bool isDark;
+
+  const _ChargingSessionCard({
+    required this.session,
+    this.station,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    Color statusColor;
+    String statusLabel;
+
+    switch (session.status.toLowerCase()) {
+      case 'billed':
+      case 'completed':
+        statusColor = AppColors.chargerAvailable;
+        statusLabel = 'Hoàn thành';
+        break;
+      case 'active':
+      case 'charging':
+        statusColor = AppColors.cyan;
+        statusLabel = 'Đang sạc';
+        break;
+      case 'init':
+      case 'initiated':
+      case 'authorized':
+        statusColor = AppColors.amber;
+        statusLabel = 'Khởi tạo';
+        break;
+      case 'error':
+      case 'interrupted':
+        statusColor = AppColors.error;
+        statusLabel = 'Lỗi';
+        break;
+      default:
+        statusColor = AppColors.grey400;
+        statusLabel = session.status;
+    }
+
+    final stationName = station?.name ?? 'Trạm sạc EV';
+
+    return GestureDetector(
+      onTap: () => context.push('/charging/session/${session.id}'),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : Colors.white.withValues(alpha: 0.65),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: isDark ? 0.1 : 0.6),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: statusColor.withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
           children: [
-            const Icon(Icons.history_outlined, size: 56, color: AppColors.textMuted),
-            const SizedBox(height: AppSpacing.lg),
-            Text('Lịch sử sạc', style: AppTypography.headingMd),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              'Các phiên sạc trước đây\nsẽ hiển thị ở đây',
-              style: AppTypography.bodyMd.copyWith(color: AppColors.textMuted),
-              textAlign: TextAlign.center,
+            // Status bar
+            Container(
+              width: 4,
+              height: 64,
+              decoration: BoxDecoration(
+                color: statusColor,
+                borderRadius: BorderRadius.circular(2),
+                boxShadow: [
+                  BoxShadow(
+                    color: statusColor.withValues(alpha: 0.4),
+                    blurRadius: 8,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    stationName,
+                    style: AppTypography.bodyMd.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : AppColors.pillTextLight,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.bolt_outlined, size: 14, color: AppColors.textMuted),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${session.energyKwh.toStringAsFixed(1)} kWh',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.textMuted,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(AppRadius.full),
+                          border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+                        ),
+                        child: Text(
+                          statusLabel,
+                          style: AppTypography.caption.copyWith(
+                            color: statusColor,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${ev_date.DateUtils.formatDateTime(session.startedAt)}'
+                    '${session.endedAt != null ? ' → ${ev_date.DateUtils.formatTimeHm(session.endedAt!)}' : ''}',
+                    style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  VndFormatter.format(session.amountDue),
+                  style: AppTypography.bodyMd.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : AppColors.pillTextLight,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 20),
+              ],
             ),
           ],
         ),

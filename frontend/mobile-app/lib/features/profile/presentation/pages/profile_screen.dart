@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,7 +10,7 @@ import '../../../../core/design_system/theme/app_layout.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
 import '../../../../core/design_system/widgets/glass_square.dart';
-import '../../../../core/design_system/widgets/liquid_glass_card.dart';
+import '../../../../core/design_system/widgets/glass_container.dart';
 import '../../../../core/design_system/widgets/liquid_glass_scaffold.dart';
 import '../../../../core/design_system/widgets/ev_toast.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -44,44 +45,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Theme.of(context).brightness == Brightness.dark ? AppColors.bgDark : AppColors.bgLight,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        contentPadding: EdgeInsets.zero,
-        content: Stack(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Center(
-                    child: Text('Xác nhận ảnh đại diện', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  ),
-                  const SizedBox(height: 16),
-                  ClipOval(
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: GlassContainer(
+            borderRadius: BorderRadius.circular(24),
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Xác nhận ảnh đại diện',
+                      style: AppTypography.headingMd.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? Colors.white : AppColors.black,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx, false),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Center(
+                  child: ClipOval(
                     child: Image.memory(bytes, width: 200, height: 200, fit: BoxFit.cover),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                EVButton(
+                  label: 'Xác nhận',
+                  onPressed: () => Navigator.pop(ctx, true),
+                ),
+              ],
             ),
-            Positioned(
-              top: 0,
-              right: 0,
-              child: IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.pop(ctx, false),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          EVButton(
-            label: 'Xác nhận',
-            onPressed: () => Navigator.pop(ctx, true),
           ),
-        ],
-      ),
+        );
+      },
     );
 
     if (confirmed == true && mounted) {
@@ -449,7 +458,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _MenuPill(
                         label: 'Đăng xuất',
                         isDanger: true,
-                        isDarkVariant: true,
                         onTap: () => _confirmLogout(context),
                       ),
                     ],
@@ -487,199 +495,254 @@ class _ProfileScreenState extends State<ProfileScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) => StatefulBuilder(
-        builder: (ctx, setModalState) => Container(
-          margin: const EdgeInsets.all(AppSpacing.md),
-          child: LiquidGlassCard(
-            padding: EdgeInsets.only(
-              left: AppSpacing.lg,
-              right: AppSpacing.lg,
-              top: AppSpacing.lg,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom > 0
-                  ? (MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.lg)
-                  : (AppLayout.bottomPadding(ctx) + AppSpacing.lg),
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Chỉnh sửa hồ sơ', style: AppTypography.headingMd),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'Họ tên và Email được đặt cố định lúc đăng ký.',
-                    style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+        builder: (ctx, setModalState) {
+          final isDark = Theme.of(ctx).brightness == Brightness.dark;
+          return ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.card)),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.cardDark : AppColors.cardLight,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.card)),
+                  border: Border(
+                    top: BorderSide(
+                      color: isDark ? AppColors.cardBorderDark : AppColors.cardBorderLight,
+                      width: 1.5,
+                    ),
                   ),
-                  const SizedBox(height: AppSpacing.lg),
-                  
-                  // Beautiful Avatar Picker Row
-                  Row(
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.08),
+                      blurRadius: 24,
+                      offset: const Offset(0, -6),
+                    ),
+                  ],
+                ),
+                padding: AppLayout.paddingForBottomSheetWithKeyboard(ctx),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.cyan.withValues(alpha: 0.5), width: 2),
-                          color: Colors.white.withValues(alpha: 0.1),
-                        ),
-                        child: ClipOval(
-                          child: pendingAvatarBytes != null
-                              ? Image.memory(pendingAvatarBytes!, fit: BoxFit.cover)
-                              : currentAvatarUrl.isNotEmpty
-                                  ? CachedNetworkImage(
-                                      imageUrl: currentAvatarUrl,
-                                      fit: BoxFit.cover,
-                                      placeholder: (_, __) => const Center(
-                                        child: SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(AppColors.cyan)),
-                                        ),
-                                      ),
-                                      errorWidget: (_, __, ___) => const Icon(Icons.person, color: AppColors.textMuted, size: 30),
-                                    )
-                                  : const Icon(Icons.person, color: AppColors.textMuted, size: 30),
+                      // Handle
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white30 : Colors.black12,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
                         ),
                       ),
-                      const SizedBox(width: AppSpacing.md),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Ảnh đại diện', style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 4),
-                            GestureDetector(
-                              onTap: () async {
-                                final xFile = await getIt<CloudinaryService>().pickAvatarImage();
-                                if (xFile == null) return;
-                                final bytes = await xFile.readAsBytes();
-                                setModalState(() {
-                                  pendingAvatarBytes = bytes;
-                                  pendingAvatarFilename = xFile.name;
-                                  currentAvatarUrl = '';
-                                });
-                              },
-                              child: Text(
-                                'Thay đổi ảnh đại diện',
-                                style: TextStyle(
-                                  color: AppColors.cyan,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
+                      Text('Chỉnh sửa hồ sơ', style: AppTypography.headingMd),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        'Họ tên và Email được đặt cố định lúc đăng ký.',
+                        style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      
+                      // Beautiful Avatar Picker Row
+                      Row(
+                        children: [
+                          Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: AppColors.cyan.withValues(alpha: 0.5), width: 2),
+                              color: Colors.white.withValues(alpha: 0.1),
                             ),
-                          ],
+                            child: ClipOval(
+                              child: pendingAvatarBytes != null
+                                  ? Image.memory(pendingAvatarBytes!, fit: BoxFit.cover)
+                                  : currentAvatarUrl.isNotEmpty
+                                      ? CachedNetworkImage(
+                                          imageUrl: currentAvatarUrl,
+                                          fit: BoxFit.cover,
+                                          placeholder: (_, __) => const Center(
+                                            child: SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(AppColors.cyan)),
+                                            ),
+                                          ),
+                                          errorWidget: (_, __, ___) => const Icon(Icons.person, color: AppColors.textMuted, size: 30),
+                                        )
+                                      : const Icon(Icons.person, color: AppColors.textMuted, size: 30),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Ảnh đại diện', style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 4),
+                                GestureDetector(
+                                  onTap: () async {
+                                    final xFile = await getIt<CloudinaryService>().pickAvatarImage();
+                                    if (xFile == null) return;
+                                    final bytes = await xFile.readAsBytes();
+                                    setModalState(() {
+                                      pendingAvatarBytes = bytes;
+                                      pendingAvatarFilename = xFile.name;
+                                      currentAvatarUrl = '';
+                                    });
+                                  },
+                                  child: Text(
+                                    'Thay đổi ảnh đại diện',
+                                    style: TextStyle(
+                                      color: AppColors.cyan,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      
+                      // Phone Number Field
+                      TextField(
+                        controller: phoneCtrl,
+                        keyboardType: TextInputType.phone,
+                        decoration: const InputDecoration(
+                          labelText: 'Số điện thoại',
+                          prefixIcon: Icon(Icons.phone_outlined),
                         ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+
+                      // Date of Birth Field (Read-only click triggers datepicker)
+                      TextField(
+                        controller: dobCtrl,
+                        readOnly: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Ngày sinh',
+                          prefixIcon: Icon(Icons.cake_outlined),
+                          suffixIcon: Icon(Icons.calendar_today_outlined),
+                        ),
+                        onTap: () async {
+                          final now = DateTime.now();
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: selectedDate ?? DateTime(2000, 1, 1),
+                            firstDate: DateTime(1900),
+                            lastDate: DateTime(now.year - 18, now.month, now.day), // minimum age 18
+                            builder: (context, child) {
+                              return Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: ColorScheme.dark(
+                                    primary: AppColors.primary,
+                                    onPrimary: Colors.white,
+                                    surface: Theme.of(context).brightness == Brightness.dark
+                                        ? AppColors.bgDark
+                                        : AppColors.bgLight,
+                                    onSurface: Theme.of(context).brightness == Brightness.dark
+                                        ? Colors.white
+                                        : Colors.black,
+                                  ),
+                                ),
+                                child: child!,
+                              );
+                            },
+                          );
+                          if (picked != null) {
+                            setModalState(() {
+                              selectedDate = picked;
+                              dobCtrl.text = "${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+
+                      // Address Field
+                      TextField(
+                        controller: addressCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Địa chỉ',
+                          prefixIcon: Icon(Icons.location_on_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
+                      EVButton(
+                        label: 'Lưu thay đổi',
+                        onPressed: () {
+                          Navigator.pop(sheetContext);
+                          context.read<ProfileBloc>().add(ProfileUpdate(
+                            address: addressCtrl.text.isNotEmpty ? addressCtrl.text : null,
+                            phone: phoneCtrl.text.isNotEmpty ? phoneCtrl.text : null,
+                            dateOfBirth: dobCtrl.text.isNotEmpty ? dobCtrl.text : null,
+                            avatarBytes: pendingAvatarBytes,
+                            avatarFilename: pendingAvatarFilename,
+                          ));
+                        },
                       ),
                     ],
                   ),
-                  const SizedBox(height: AppSpacing.lg),
-                  
-                  // Phone Number Field
-                  TextField(
-                    controller: phoneCtrl,
-                    keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(
-                      labelText: 'Số điện thoại',
-                      prefixIcon: Icon(Icons.phone_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-
-                  // Date of Birth Field (Read-only click triggers datepicker)
-                  TextField(
-                    controller: dobCtrl,
-                    readOnly: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Ngày sinh',
-                      prefixIcon: Icon(Icons.cake_outlined),
-                      suffixIcon: Icon(Icons.calendar_today_outlined),
-                    ),
-                    onTap: () async {
-                      final now = DateTime.now();
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: selectedDate ?? DateTime(2000, 1, 1),
-                        firstDate: DateTime(1900),
-                        lastDate: DateTime(now.year - 18, now.month, now.day), // minimum age 18
-                        builder: (context, child) {
-                          return Theme(
-                            data: Theme.of(context).copyWith(
-                              colorScheme: ColorScheme.dark(
-                                primary: AppColors.primary,
-                                onPrimary: Colors.white,
-                                surface: Theme.of(context).brightness == Brightness.dark
-                                    ? AppColors.bgDark
-                                    : AppColors.bgLight,
-                                onSurface: Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.white
-                                    : Colors.black,
-                              ),
-                            ),
-                            child: child!,
-                          );
-                        },
-                      );
-                      if (picked != null) {
-                        setModalState(() {
-                          selectedDate = picked;
-                          dobCtrl.text = "${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-
-                  // Address Field
-                  TextField(
-                    controller: addressCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Địa chỉ',
-                      prefixIcon: Icon(Icons.location_on_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
-                  EVButton(
-                    label: 'Lưu thay đổi',
-                    onPressed: () {
-                      Navigator.pop(sheetContext);
-                      context.read<ProfileBloc>().add(ProfileUpdate(
-                        address: addressCtrl.text.isNotEmpty ? addressCtrl.text : null,
-                        phone: phoneCtrl.text.isNotEmpty ? phoneCtrl.text : null,
-                        dateOfBirth: dobCtrl.text.isNotEmpty ? dobCtrl.text : null,
-                        avatarBytes: pendingAvatarBytes,
-                        avatarFilename: pendingAvatarFilename,
-                      ));
-                    },
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
 
   void _confirmLogout(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Đăng xuất?'),
-        content: const Text('Bạn có chắc muốn đăng xuất khỏi ứng dụng?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Huỷ'),
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: GlassContainer(
+          borderRadius: BorderRadius.circular(24),
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Đăng xuất?',
+                style: AppTypography.headingMd.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? Colors.white : AppColors.black,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                'Bạn có chắc muốn đăng xuất khỏi ứng dụng?',
+                style: AppTypography.bodyMd.copyWith(
+                  color: isDark ? Colors.white70 : Colors.black87,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              EVButton(
+                label: 'Đăng xuất',
+                variant: EVButtonVariant.danger,
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                  context.read<AuthBloc>().add(const AuthLogoutRequested());
+                },
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              EVButton(
+                label: 'Huỷ bỏ',
+                variant: EVButtonVariant.secondary,
+                onPressed: () => Navigator.pop(dialogContext),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              context.read<AuthBloc>().add(const AuthLogoutRequested());
-            },
-            child: const Text('Đăng xuất', style: TextStyle(color: AppColors.error)),
-          ),
-        ],
+        ),
       ),
     );
   }

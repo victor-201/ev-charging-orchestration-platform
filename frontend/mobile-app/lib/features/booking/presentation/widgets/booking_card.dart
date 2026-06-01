@@ -24,9 +24,9 @@ class BookingCard extends StatelessWidget {
     Color statusColor;
     String statusLabel;
     switch (booking.status) {
-      case 'CONFIRMED':       statusColor = AppColors.chargerAvailable; statusLabel = 'Đã xác nhận'; break;
-      case 'PENDING_PAYMENT': statusColor = AppColors.amber;            statusLabel = 'Chờ thanh toán'; break;
-      case 'COMPLETED':       statusColor = AppColors.secondary;        statusLabel = 'Hoàn thành'; break;
+      case 'CONFIRMED':       statusColor = AppColors.cyan;             statusLabel = 'Đã xác nhận'; break;
+      case 'PENDING_PAYMENT': statusColor = AppColors.warning;          statusLabel = 'Chờ thanh toán'; break;
+      case 'COMPLETED':       statusColor = AppColors.success;          statusLabel = 'Hoàn thành'; break;
       case 'CANCELLED':       statusColor = AppColors.grey400;          statusLabel = 'Đã hủy'; break;
       case 'EXPIRED':         statusColor = AppColors.grey400;          statusLabel = 'Hết hạn'; break;
       case 'NO_SHOW':         statusColor = AppColors.error;            statusLabel = 'Không đến'; break;

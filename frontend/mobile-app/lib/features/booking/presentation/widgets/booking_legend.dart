@@ -18,10 +18,10 @@ class BookingLegend extends StatelessWidget {
           children: [
             _legendItem(
               context,
-              fill: AppColors.primary.withValues(alpha: 0.08),
-              border: AppColors.primary.withValues(alpha: 0.35),
+              fill: AppColors.success.withValues(alpha: 0.12),
+              border: AppColors.success.withValues(alpha: 0.4),
               label: 'Còn trống',
-              textColor: AppColors.primary,
+              textColor: AppColors.success,
             ),
             const SizedBox(width: AppSpacing.sm),
             _legendItem(
@@ -35,10 +35,10 @@ class BookingLegend extends StatelessWidget {
             const SizedBox(width: AppSpacing.sm),
             _legendItem(
               context,
-              fill: AppColors.error.withValues(alpha: 0.06),
-              border: AppColors.error.withValues(alpha: 0.3),
+              fill: AppColors.warning.withValues(alpha: 0.12),
+              border: AppColors.warning.withValues(alpha: 0.5),
               label: 'Đã bận',
-              textColor: AppColors.error,
+              textColor: AppColors.warning,
               icon: Icons.lock_outline_rounded,
             ),
             const SizedBox(width: AppSpacing.sm),

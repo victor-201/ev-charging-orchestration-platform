@@ -79,7 +79,7 @@ class _QueueStatusScreenState extends State<QueueStatusScreen>
           constraints: BoxConstraints(minHeight: constraints.maxHeight),
           child: IntrinsicHeight(
             child: Padding(
-              padding: AppLayout.paddingWithHeaderAndNavbar(context),
+              padding: AppLayout.paddingWithHeader(context),
               child: Column(
                 children: [
                   const SizedBox(height: AppSpacing.xxxl),

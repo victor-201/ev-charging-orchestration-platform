@@ -14,7 +14,11 @@ abstract class IBookingRepository {
   });
 
   /// Queries all reservation history records linked to the current customer.
-  Future<Either<Failure, List<BookingEntity>>> getMyBookings();
+  Future<Either<Failure, List<BookingEntity>>> getMyBookings({
+    int page = 1,
+    int limit = 20,
+    String? status,
+  });
 
   /// Submits a request to create a new reservation for an EV charging connector.
   Future<Either<Failure, BookingEntity>> createBooking({

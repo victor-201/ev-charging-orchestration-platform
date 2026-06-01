@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/booking_entity.dart';
@@ -57,148 +58,160 @@ class _PaymentBottomSheetState extends State<PaymentBottomSheet> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final depositAmount = widget.booking.depositAmount;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
-          )
-        ],
-      ),
-      padding: AppLayout.paddingWithNavbar(context),
-      child: BlocBuilder<WalletBloc, WalletState>(
-        builder: (context, walletState) {
-          final WalletEntity? wallet =
-              walletState is WalletLoaded ? walletState.wallet : null;
-          final bool loadingWallet = walletState is WalletLoading;
-          final double balance = wallet?.balance ?? 0;
-          final bool insufficientBalance =
-              !loadingWallet && _selectedMethod == 'wallet' && balance < depositAmount;
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.card)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.cardDark : AppColors.cardLight,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.card)),
+            border: Border(
+              top: BorderSide(
+                color: isDark ? AppColors.cardBorderDark : AppColors.cardBorderLight,
+                width: 1.5,
+              ),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.08),
+                blurRadius: 24,
+                offset: const Offset(0, -6),
+              )
+            ],
+          ),
+          padding: AppLayout.paddingForBottomSheet(context),
+          child: BlocBuilder<WalletBloc, WalletState>(
+            builder: (context, walletState) {
+              final WalletEntity? wallet =
+                  walletState is WalletLoaded ? walletState.wallet : null;
+              final bool loadingWallet = walletState is WalletLoading;
+              final double balance = wallet?.balance ?? 0;
+              final bool insufficientBalance =
+                  !loadingWallet && _selectedMethod == 'wallet' && balance < depositAmount;
 
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Handle bar
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Title
-              Text(
-                'Thanh toán Đặt lịch',
-                style: AppTypography.headingMd,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Vui lòng thanh toán cọc để xác nhận lịch sạc.',
-                style: AppTypography.bodyMd.copyWith(color: AppColors.textMuted),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-
-              // Deposit amount card
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Số tiền cọc', style: AppTypography.bodyLg),
-                    Text(
-                      VndFormatter.format(depositAmount),
-                      style: AppTypography.headingLg.copyWith(color: AppColors.primary),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Phương thức thanh toán',
-                style: AppTypography.labelMd.copyWith(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Wallet method
-              _buildMethodTile(
-                id: 'wallet',
-                title: 'Ví EVolt (Ưu tiên)',
-                subtitle: loadingWallet
-                    ? 'Đang tải số dư...'
-                    : 'Số dư: ${VndFormatter.format(balance)}',
-                icon: Icons.account_balance_wallet_rounded,
-                iconColor: insufficientBalance ? AppColors.error : AppColors.primary,
-                badge: insufficientBalance
-                    ? 'Không đủ số dư'
-                    : null,
-              ),
-              const SizedBox(height: 12),
-
-              // Gateway method
-              _buildMethodTile(
-                id: 'gateway',
-                title: 'Thẻ tín dụng / VNPay',
-                subtitle: 'Thanh toán qua cổng VNPay',
-                icon: Icons.credit_card_rounded,
-                iconColor: AppColors.warning,
-              ),
-
-              // Insufficient balance warning
-              if (insufficientBalance) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: AppColors.error.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(children: [
-                    const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Số dư ví không đủ. Vui lòng nạp thêm hoặc chọn VNPay.',
-                        style: AppTypography.caption.copyWith(color: AppColors.error),
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Handle bar
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white30 : Colors.black12,
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                  ]),
-                ),
-              ],
+                  ),
+                  const SizedBox(height: 24),
 
-              const SizedBox(height: 32),
-              BlocBuilder<BookingBloc, BookingState>(
-                builder: (context, bookingState) {
-                  final isLoading = bookingState is BookingLoading;
-                  return EVButton(
-                    label: isLoading ? 'Đang xử lý...' : 'Xác nhận thanh toán',
-                    isLoading: isLoading,
-                    onPressed: (loadingWallet || insufficientBalance || isLoading) ? null : _onPay,
-                  );
-                },
-              ),
-            ],
-          );
-        },
+                  // Title
+                  Text(
+                    'Thanh toán Đặt lịch',
+                    style: AppTypography.headingMd,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Vui lòng thanh toán cọc để xác nhận lịch sạc.',
+                    style: AppTypography.bodyMd.copyWith(color: AppColors.textMuted),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Deposit amount card
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Số tiền cọc', style: AppTypography.bodyLg),
+                        Text(
+                          VndFormatter.format(depositAmount),
+                          style: AppTypography.headingLg.copyWith(color: AppColors.primary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Phương thức thanh toán',
+                    style: AppTypography.labelMd.copyWith(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Wallet method
+                  _buildMethodTile(
+                    id: 'wallet',
+                    title: 'Ví EVolt (Ưu tiên)',
+                    subtitle: loadingWallet
+                        ? 'Đang tải số dư...'
+                        : 'Số dư: ${VndFormatter.format(balance)}',
+                    icon: Icons.account_balance_wallet_rounded,
+                    iconColor: insufficientBalance ? AppColors.error : AppColors.primary,
+                    badge: insufficientBalance
+                        ? 'Không đủ số dư'
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Gateway method
+                  _buildMethodTile(
+                    id: 'gateway',
+                    title: 'Thẻ tín dụng / VNPay',
+                    subtitle: 'Thanh toán qua cổng VNPay',
+                    icon: Icons.credit_card_rounded,
+                    iconColor: AppColors.warning,
+                  ),
+
+                  // Insufficient balance warning
+                  if (insufficientBalance) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(children: [
+                        const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Số dư ví không đủ. Vui lòng nạp thêm hoặc chọn VNPay.',
+                            style: AppTypography.caption.copyWith(color: AppColors.error),
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ],
+
+                  const SizedBox(height: 32),
+                  BlocBuilder<BookingBloc, BookingState>(
+                    builder: (context, bookingState) {
+                      final isLoading = bookingState is BookingLoading;
+                      return EVButton(
+                        label: isLoading ? 'Đang xử lý...' : 'Xác nhận thanh toán',
+                        isLoading: isLoading,
+                        onPressed: (loadingWallet || insufficientBalance || isLoading) ? null : _onPay,
+                      );
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -221,12 +234,12 @@ class _PaymentBottomSheetState extends State<PaymentBottomSheet> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppColors.primary.withValues(alpha: 0.1)
-              : (isDark ? Colors.grey[800] : Colors.grey[50]),
+              ? AppColors.primary.withValues(alpha: 0.12)
+              : (isDark ? AppColors.pillBgDark : AppColors.pillBgLight),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? AppColors.primary : Colors.transparent,
-            width: 2,
+            color: isSelected ? AppColors.primary : (isDark ? AppColors.pillBorderDark : AppColors.pillBorderLight),
+            width: isSelected ? 2 : 1,
           ),
         ),
         child: Row(
