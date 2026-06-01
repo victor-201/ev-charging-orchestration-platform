@@ -53,9 +53,26 @@ export class NotificationController {
   async list(
     @CurrentUser() user: AuthenticatedUser,
     @Query('limit',      new DefaultValuePipe(20), ParseIntPipe)    limit:      number,
+    @Query('offset',     new DefaultValuePipe(0), ParseIntPipe)     offset:     number,
     @Query('unreadOnly', new DefaultValuePipe(false), ParseBoolPipe) unreadOnly: boolean,
   ) {
-    return this.getUC.execute(user.id, Math.min(limit, 100), unreadOnly);
+    const result = await this.getUC.execute(user.id, Math.min(limit, 100), offset, unreadOnly);
+    return {
+      items: result.items.map(n => ({
+        id: n.id,
+        userId: n.userId,
+        type: n.type,
+        channel: n.channel,
+        title: n.title,
+        body: n.body,
+        status: n.status,
+        isRead: !!n.readAt,
+        readAt: n.readAt,
+        createdAt: n.createdAt,
+      })),
+      total: result.total,
+      unreadCount: result.unreadCount,
+    };
   }
 
   @Get('unread')
@@ -63,7 +80,7 @@ export class NotificationController {
     @CurrentUser() user: AuthenticatedUser,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
   ) {
-    return this.getUC.execute(user.id, Math.min(limit, 100), true);
+    return this.getUC.execute(user.id, Math.min(limit, 100), 0, true);
   }
 
   @Patch(':id/read')

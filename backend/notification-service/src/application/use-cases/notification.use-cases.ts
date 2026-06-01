@@ -27,23 +27,33 @@ export class GetNotificationsUseCase {
     private readonly repo: Repository<NotificationOrmEntity>,
   ) {}
 
-  async execute(userId: string, limit = 20, unreadOnly = false): Promise<{
+  async execute(userId: string, limit = 20, offset = 0, unreadOnly = false): Promise<{
     items:       NotificationOrmEntity[];
+    total:       number;
     unreadCount: number;
   }> {
     const qb = this.repo.createQueryBuilder('n')
       .where('n.user_id = :uid', { uid: userId })
       .orderBy('n.created_at', 'DESC')
-      .take(limit);
+      .take(limit)
+      .skip(offset);
 
     if (unreadOnly) qb.andWhere('n.read_at IS NULL');
 
-    const [items, unreadCount] = await Promise.all([
+    const countQb = this.repo.createQueryBuilder('n')
+      .where('n.user_id = :uid', { uid: userId });
+
+    if (unreadOnly) countQb.andWhere('n.read_at IS NULL');
+
+    const [items, total, unreadCount] = await Promise.all([
       qb.getMany(),
-      this.repo.count({ where: { userId } }),  // total unread count
+      countQb.getCount(),
+      this.repo.createQueryBuilder('n')
+        .where('n.user_id = :uid AND n.read_at IS NULL', { uid: userId })
+        .getCount(),
     ]);
 
-    return { items, unreadCount };
+    return { items, total, unreadCount };
   }
 
   async markRead(notificationId: string, userId: string): Promise<void> {
