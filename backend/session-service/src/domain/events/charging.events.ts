@@ -44,10 +44,14 @@ export class SessionTelemetryEvent extends ChargingDomainEvent {
 
   constructor(
     public readonly sessionId: string,
+    public readonly userId: string,
     public readonly chargerId: string,
     public readonly powerKw: number | null,
     public readonly meterWh: number | null,
     public readonly socPercent: number | null,
+    public readonly voltageV: number | null,
+    public readonly currentA: number | null,
+    public readonly temperatureC: number | null,
     public readonly recordedAt: Date,
   ) {
     super();
