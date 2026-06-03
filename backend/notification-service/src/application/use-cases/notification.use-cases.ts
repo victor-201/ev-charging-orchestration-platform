@@ -113,7 +113,8 @@ export class DeviceManagementUseCase {
       return updated!;
     }
 
-    // New device registration
+    // New device registration — race-safe: if another request inserted this
+    // token between our check and save, fall back to update.
     const device = Device.register(params);
     const row = this.repo.create({
       id:           device.id,
@@ -123,7 +124,23 @@ export class DeviceManagementUseCase {
       deviceName:   device.deviceName,
       lastActiveAt: device.lastActiveAt,
     });
-    await this.repo.save(row);
+
+    try {
+      await this.repo.save(row);
+    } catch (err: any) {
+      if (err?.code === '23505') {
+        // Unique violation: token was registered concurrently
+        await this.repo.update(
+          { pushToken: params.pushToken },
+          { userId: params.userId, lastActiveAt: new Date(), deviceName: params.deviceName ?? null },
+        );
+        const updated = await this.repo.findOneBy({ pushToken: params.pushToken });
+        this.logger.log(`Device re-registered (concurrent): token=...${params.pushToken.slice(-8)} user=${params.userId}`);
+        return updated!;
+      }
+      throw err;
+    }
+
     this.logger.log(`Device registered: id=${device.id} user=${params.userId} platform=${params.platform}`);
     return row;
   }
@@ -185,5 +202,13 @@ export class NotificationPreferenceUseCase {
   }): Promise<NotificationPreferenceOrmEntity> {
     await this.repo.upsert({ userId, ...update }, ['userId']);
     return this.getOrCreate(userId);
+  }
+
+  /** Ensure push notification is enabled for user (called on device registration) */
+  async ensurePushEnabled(userId: string): Promise<void> {
+    await this.repo.upsert(
+      { userId, enablePush: true },
+      ['userId'],
+    );
   }
 }

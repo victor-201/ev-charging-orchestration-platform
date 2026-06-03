@@ -2,8 +2,9 @@ import {
   Controller, Get, Post, Patch, Delete,
   Body, Param, Query,
   ParseUUIDPipe, DefaultValuePipe, ParseIntPipe, ParseBoolPipe,
-  HttpCode, HttpStatus, Logger, UseGuards,
+  HttpCode, HttpStatus, Logger, UseGuards, BadRequestException,
 } from '@nestjs/common';
+import { IsString, IsNotEmpty, IsIn, IsOptional } from 'class-validator';
 import {
   GetNotificationsUseCase,
   DeviceManagementUseCase,
@@ -16,8 +17,15 @@ import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 import type { AuthenticatedUser }   from '../../shared/guards/jwt-auth.guard';
 
 class RegisterDeviceDto {
+  @IsIn(['ios', 'android', 'web'])
   platform:   DevicePlatform;
+
+  @IsString()
+  @IsNotEmpty()
   pushToken:  string;
+
+  @IsOptional()
+  @IsString()
   deviceName?: string;
 }
 
@@ -69,6 +77,7 @@ export class NotificationController {
         isRead: !!n.readAt,
         readAt: n.readAt,
         createdAt: n.createdAt,
+        data: n.metadata,
       })),
       total: result.total,
       unreadCount: result.unreadCount,
@@ -110,7 +119,10 @@ export class NotificationController {
 export class DeviceController {
   private readonly logger = new Logger(DeviceController.name);
 
-  constructor(private readonly deviceUC: DeviceManagementUseCase) {}
+  constructor(
+    private readonly deviceUC: DeviceManagementUseCase,
+    private readonly prefUC: NotificationPreferenceUseCase,
+  ) {}
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
@@ -118,12 +130,15 @@ export class DeviceController {
     @Body() body: RegisterDeviceDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
+    // Class-validator decorators handle validation; these are safety nets
     if (!['ios', 'android', 'web'].includes(body.platform)) {
-      return { error: "Platform must be 'ios', 'android', or 'web'" };
+      throw new BadRequestException("Platform must be 'ios', 'android', or 'web'");
     }
     if (!body.pushToken) {
-      return { error: 'Push token (FCM token) is required' };
+      throw new BadRequestException('Push token (FCM token) is required');
     }
+    // Device registration = explicit opt-in to push notifications
+    await this.prefUC.ensurePushEnabled(user.id);
     const device = await this.deviceUC.register({
       userId:     user.id,
       platform:   body.platform,
@@ -169,7 +184,8 @@ export class PreferenceController {
 
   @Get()
   async get(@CurrentUser() user: AuthenticatedUser) {
-    return this.prefUC.getOrCreate(user.id);
+    const prefs = await this.prefUC.getOrCreate(user.id);
+    return { data: prefs };
   }
 
   @Patch()
