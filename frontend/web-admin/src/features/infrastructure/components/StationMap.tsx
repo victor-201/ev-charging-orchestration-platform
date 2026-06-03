@@ -9,35 +9,29 @@ type Station = {
   latitude: number; longitude: number; availableChargers: number; totalChargers: number;
 };
 
-const STATUS_PALETTE: Record<string, { glow: string; bar: string; text: string }> = {
-  active:      { glow: '#22c55e55', bar: '#22c55e', text: '#22c55e' },
-  maintenance: { glow: '#f59e0b55', bar: '#f59e0b', text: '#f59e0b' },
-  inactive:    { glow: '#6b728055', bar: '#6b7280', text: '#9ca3af' },
-  closed:      { glow: '#ef444455', bar: '#ef4444', text: '#ef4444' },
-};
-
 function resolvePin(station: Station) {
   const st = station.status.toLowerCase();
+  
   if (st === 'closed') {
     return {
-      gradientA: '#ef4444', gradientB: '#dc2626',
-      shadow: 'rgba(239,68,68,0.5)',
+      status: 'closed',
+      color: '#4B5563', // Solid dark grey — Closed
       icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
       label: 'CLOSE',
     };
   }
   if (st === 'maintenance') {
     return {
-      gradientA: '#f59e0b', gradientB: '#d97706',
-      shadow: 'rgba(245,158,11,0.5)',
+      status: 'maintenance',
+      color: '#F59E0B', // Solid amber — Under maintenance
       icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
       label: 'MAINT',
     };
   }
   if (st === 'inactive') {
     return {
-      gradientA: '#6b7280', gradientB: '#4b5563',
-      shadow: 'rgba(107,114,128,0.5)',
+      status: 'inactive',
+      color: '#9CA3AF', // Solid grey — Inactive
       icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64A9 9 0 0 1 20.77 15"/><path d="M6.16 6.16a9 9 0 0 0 12.68 12.68"/><path d="M12 2v4"/><path d="m2 2 20 20"/></svg>`,
       label: 'INACT',
     };
@@ -47,46 +41,116 @@ function resolvePin(station: Station) {
   const available = station.availableChargers;
   const inUse = total - available;
 
+  const cyanHex = '#10BFC9';
+  const limeHex = '#19BE4B';
+
   if (total === 0 || available === 0) {
     return {
-      gradientA: '#f97316', gradientB: '#ea580c',
-      shadow: 'rgba(249,115,22,0.5)',
+      status: 'active_full',
+      color: '#EF4444', // Solid danger red — Fully occupied
       icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M12 18h.01"/></svg>`,
       label: `${total}/${total}`,
     };
   }
 
+  if (available === total) {
+    return {
+      status: 'active_empty',
+      color: limeHex,   // Solid lime — All slots available
+      icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M12 18h.01"/></svg>`,
+      label: `0/${total}`,
+    };
+  }
+
   return {
-    gradientA: '#22c55e', gradientB: '#16a34a',
-    shadow: 'rgba(34,197,94,0.5)',
+    status: 'active_partial',
+    color: cyanHex,   // Solid cyan — Some slots available
     icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M12 18h.01"/></svg>`,
     label: `${inUse}/${total}`,
   };
 }
 
-function buildTeardropSvg(pin: ReturnType<typeof resolvePin>, isSelected: boolean) {
-  const w = 46;
-  const h = 63;
-  const bodyR = 20;
-  const cx = w / 2;
-  const cy = bodyR + 2;
-  const tipY = h - 3;
-  const strokeW = isSelected ? 2.5 : 1.5;
-  const strokeCol = isSelected ? '#ffffff' : 'rgba(255,255,255,0.3)';
+function getStationMarkerSvg({
+  status,
+  text,
+  isSelected = false,
+}: {
+  status: string;
+  text: string;
+  isSelected?: boolean;
+}) {
+  let gradientId = 'grad_inactive';
+  let stop1 = '#9CA3AF';
+  let stop2 = '#4B5563';
 
-  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="${pin.gradientA}"/>
-        <stop offset="100%" stop-color="${pin.gradientB}"/>
-      </linearGradient>
-      <filter id="s">
-        <feDropShadow dx="0" dy="2" stdDeviation="${isSelected ? 4 : 2}" flood-color="${pin.shadow}"/>
-      </filter>
-    </defs>
-    <path d="M${cx},${tipY} C${cx + 12},${cy + 10} ${w - 2},${cy + 5} ${w - 2},${cy} A${bodyR},${bodyR} 0 1,0 ${2},${cy} C${2},${cy + 5} ${cx - 12},${cy + 10} ${cx},${tipY}Z"
-      fill="url(#g)" stroke="${strokeCol}" stroke-width="${strokeW}" filter="url(#s)"/>
-  </svg>`;
+  const cyanHex = '#10BFC9';
+  const limeHex = '#19BE4B';
+
+  switch (status) {
+    case 'closed':
+      gradientId = 'grad_closed';
+      stop1 = '#4B5563'; // Solid dark grey — Closed
+      stop2 = '#4B5563';
+      break;
+    case 'active_full':
+      gradientId = 'grad_active_full';
+      stop1 = '#EF4444'; // Solid danger red — Fully occupied
+      stop2 = '#EF4444';
+      break;
+    case 'active_empty':
+      gradientId = 'grad_active_empty';
+      stop1 = limeHex;   // Solid lime — All slots available
+      stop2 = limeHex;
+      break;
+    case 'active_partial':
+      gradientId = 'grad_active_partial';
+      stop1 = cyanHex;   // Solid cyan — Some slots available
+      stop2 = cyanHex;
+      break;
+    case 'maintenance':
+      gradientId = 'grad_maint';
+      stop1 = '#F59E0B'; // Solid amber — Under maintenance
+      stop2 = '#F59E0B';
+      break;
+    case 'inactive':
+    default:
+      gradientId = 'grad_inactive';
+      stop1 = '#9CA3AF'; // Solid grey — Inactive
+      stop2 = '#9CA3AF';
+      break;
+  }
+
+  // Determine font size
+  let fontSize = text.length > 3 ? '10' : '14';
+  if (text === 'CLOSE') fontSize = '12';
+  if (text === 'MAINT') fontSize = '10';
+
+  return `
+<svg width="72" height="92" viewBox="-6 -6 72 92" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="${gradientId}" x1="30" y1="0" x2="30" y2="66" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="${stop1}"/>
+      <stop offset="50%" stop-color="${stop1}"/>
+      <stop offset="100%" stop-color="${stop2}"/>
+    </linearGradient>
+  </defs>
+  <!-- Ambient Shadow for selected pin -->
+  ${isSelected ? `<circle cx="30" cy="30" r="28" fill="${stop1}" fill-opacity="0.25"/>` : ''}
+  <!-- Main Pin Body -->
+  <path d="M30 80C30 80 60 52.4183 60 30C60 13.4315 46.5685 0 30 0C13.4315 0 0 13.4315 0 30C0 52.4183 30 80 30 80Z" fill="url(#${gradientId})"/>
+  <!-- Highlight stroke when selected -->
+  ${isSelected ? `<path d="M30 80C30 80 60 52.4183 60 30C60 13.4315 46.5685 0 30 0C13.4315 0 0 13.4315 0 30C0 52.4183 30 80 30 80Z" stroke="white" stroke-width="3" stroke-linecap="round"/>` : ''}
+  <!-- Inner translucent circle -->
+  <circle cx="30" cy="30" r="24" fill="white" fill-opacity="0.2"/>
+  <!-- Decorative highlight ring -->
+  <circle cx="30" cy="30" r="26" stroke="white" stroke-width="1.2" stroke-opacity="0.4"/>
+  <!-- Charger Icon -->
+  <rect x="23" y="16" width="10" height="16" rx="2" fill="white"/>
+  <path d="M33 22H35C36.1046 22 37 22.8954 37 24V30C37 31.1046 36.1046 32 35 32H33" stroke="white" stroke-width="2.2" stroke-linecap="round"/>
+  <!-- Text representation of availability/state -->
+  <text x="30" y="55" text-anchor="middle" font-family="Inter, sans-serif" font-weight="bold" font-size="${fontSize}" fill="white">${text}</text>
+</svg>
+`;
 }
 
 export default function StationMap({ 
@@ -205,27 +269,26 @@ export default function StationMap({
       stations.forEach((s) => {
         if (!s) return;
         const pin = resolvePin(s);
-        const palette = STATUS_PALETTE[s.status.toLowerCase()] || STATUS_PALETTE.inactive;
         const isEditing = editingStationId === s.id;
 
-        const markerSvg = buildTeardropSvg(pin, isEditing);
+        const markerSvg = getStationMarkerSvg({
+          status: pin.status,
+          text: pin.label,
+          isSelected: isEditing,
+        });
 
         const containerHtml = `
-          <div class="ev-pin" style="cursor:pointer;width:46px;height:63px;position:relative;">
+          <div class="ev-pin" style="cursor:pointer;width:72px;height:92px;position:relative;">
             ${markerSvg}
-            <div style="position:absolute;top:5px;left:0;right:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;">
-              ${pin.icon}
-              <span style="color:white;font-weight:900;font-size:9px;letter-spacing:-0.3px;line-height:1;margin-top:1px;">${pin.label}</span>
-            </div>
           </div>
         `;
 
-        // Precise anchoring: pin height is 63px, tip is mathematically at tipY (60px)
+        // Precise anchoring: pin height is 92px, tip is mathematically at y = 86px, x = 36px
         const icon = L.divIcon({
           className: '',
           html: containerHtml,
-          iconSize: [46, 63],
-          iconAnchor: [23, 60],
+          iconSize: [72, 92],
+          iconAnchor: [36, 86],
         });
 
         bounds.push([s.latitude, s.longitude]);
@@ -264,7 +327,7 @@ export default function StationMap({
           marker.bindPopup(`
             <div style="font-family:Inter,sans-serif;padding:8px;min-width:200px;color:var(--text-main);">
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-                <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:${palette.bar}22;border:1px solid ${palette.bar};">
+                <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:${pin.color}22;border:1px solid ${pin.color};">
                   ${pin.icon}
                 </span>
                 <div>
@@ -273,7 +336,7 @@ export default function StationMap({
                 </div>
               </div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <span style="font-size:10px;font-weight:700;text-transform:uppercase;color:${palette.bar};padding:2px 8px;border-radius:4px;background:${palette.bar}15;">${pin.label}</span>
+                <span style="font-size:10px;font-weight:700;text-transform:uppercase;color:${pin.color};padding:2px 8px;border-radius:4px;background:${pin.color}15;">${pin.label}</span>
                 <span style="font-size:10px;color:var(--text-faded);">Sẵn sàng: ${s.availableChargers}/${s.totalChargers}</span>
               </div>
             </div>

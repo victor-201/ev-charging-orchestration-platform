@@ -61,7 +61,7 @@
     "staff_empty": "Bạn chưa được phân công trạm sạc nào"
   },
   "map": {
-    "title": "Bản đồ Trạm sạc",
+    "title": "Quản lý Trạm sạc",
     "subtitle": "{{total}} trạm trên toàn mạng lưới",
     "filter_all": "Tất cả",
     "filter_active": "Hoạt động",
@@ -69,7 +69,42 @@
     "filter_inactive": "Không hoạt động",
     "add_station": "Thêm trạm",
     "station_list": "Danh sách trạm",
-    "chargers_available": "{{available}}/{{total}} trụ trống"
+    "chargers_available": "{{available}}/{{total}} trụ trống",
+    "force_stop": "Dừng sạc",
+    "force_stop_confirm": "Bạn có chắc chắn muốn ép buộc dừng phiên sạc này? Hành động này sẽ ngắt kết nối sạc ngay lập tức và không thể hoàn tác.",
+    "force_stop_success": "Đã gửi lệnh dừng sạc thành công!",
+    "force_stop_failed": "Dừng sạc thất bại!",
+    "telemetry_title": "Telemetry đang chạy",
+    "telemetry_power": "Công suất",
+    "telemetry_energy": "Năng lượng",
+    "telemetry_voltage": "Điện áp",
+    "telemetry_current": "Dòng điện",
+    "telemetry_soc": "SOC",
+    "telemetry_temp": "Nhiệt độ",
+    "telemetry_empty": "Chưa có dữ liệu telemetry",
+    "checkin_title": "Điểm danh trạm",
+    "checkin_station": "Điểm danh tại trạm",
+    "charger_detail": "Chi tiết trụ sạc",
+    "charger_actions": "Thao tác",
+    "charger_report": "Báo cáo sự cố",
+    "charger_edit_status": "Sửa trạng thái"
+  },
+  "staff_calendar": {
+    "title": "Lịch Check-In",
+    "subtitle": "Lịch sử điểm danh của bạn",
+    "today": "Hôm nay",
+    "present": "Có mặt",
+    "late": "Đi muộn",
+    "absent": "Vắng",
+    "leave": "Nghỉ phép",
+    "no_data": "Chưa có dữ liệu chấm công",
+    "checkin_time": "Giờ check-in",
+    "checkout_time": "Giờ check-out",
+    "status_label": "Trạng thái",
+    "view_all": "Xem tất cả",
+    "month": "Tháng {{month}}",
+    "week": "Tuần",
+    "day": "Ngày"
   },
   "sessions": {
     "title": "Phiên sạc",
@@ -192,7 +227,11 @@
       "ERROR": "Lỗi",
       "SUCCESS": "Thành công",
       "PENDING": "Đang chờ",
-      "RESOLVED": "Đã xử lý"
+      "IN_PROGRESS": "Đang xử lý",
+      "RESOLVED": "Đã xử lý",
+      "REJECTED": "Từ chối",
+      "PENDING_CONFIRMATION": "Chờ xác nhận",
+      "SCHEDULED": "Đã lên lịch"
     },
     "severity": {
       "CRITICAL": "Khẩn cấp",
@@ -209,6 +248,8 @@
     "staff": {
       "POSITION_TECHNICIAN": "Kỹ thuật viên",
       "POSITION_OPERATOR": "Nhân viên vận hành",
+      "POSITION_SUPERVISOR": "Giám sát viên",
+      "POSITION_MANAGER": "Quản lý",
       "SHIFT_MORNING": "Ca sáng",
       "SHIFT_AFTERNOON": "Ca chiều",
       "SHIFT_NIGHT": "Ca đêm"

@@ -20,12 +20,14 @@ export default function CustomSelect({
   options,
   placeholder = 'Chọn...',
   className = '',
+  disabled = false,
 }: {
   value: string;
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [pos, setPos] = useState<DropdownPos | null>(null);
@@ -134,8 +136,9 @@ export default function CustomSelect({
         <button
           ref={triggerRef}
           type="button"
-          onClick={isOpen ? closeDropdown : openDropdown}
-          className="ev-input w-full h-full min-h-[32px] px-3 text-xs flex items-center justify-between text-left focus:border-cyan transition-all"
+          disabled={disabled}
+          onClick={disabled ? undefined : (isOpen ? closeDropdown : openDropdown)}
+          className="ev-input w-full h-full min-h-[32px] px-3 text-xs flex items-center justify-between text-left focus:border-cyan transition-all disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <span className="truncate text-text-main">
             {selectedOption ? selectedOption.label : placeholder}

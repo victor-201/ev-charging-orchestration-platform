@@ -1,17 +1,21 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/services/api-client';
 import { relativeTimeLocale } from '@/i18n/formatter';
 import { motion } from 'framer-motion';
-import { StopCircle, Filter, Search, ShieldAlert, X, Eye, Copy, Zap, Clock } from 'lucide-react';
+import { StopCircle, Filter, Search, ShieldAlert, Eye, Copy, Zap, Clock, Power, PowerOff, Activity, Gauge, Battery, Thermometer } from 'lucide-react';
 import Pagination from '@/core/components/ui/Pagination';
 import CustomSelect from '@/core/components/ui/CustomSelect';
-import { useState } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/i18n/formatter';
 import { useAuthStore } from '@/features/auth/store/auth.store';
+import GlassCard from '@/core/theme/GlassCard';
+import GlassModal, { ModalHeader, ModalField, ModalValue, ModalCopyValue } from '@/core/theme/GlassModal';
+import { useTelemetrySocket } from '@/features/charging/hooks/useTelemetrySocket';
+import type { TelemetryReading } from '@/features/charging/hooks/useTelemetrySocket';
 
 type ChargingSession = {
   id: string;
@@ -22,6 +26,7 @@ type ChargingSession = {
   startTime: string;
   endTime: string | null;
   startMeterWh: number;
+  startSocPercent: number | null;
   endMeterWh: number | null;
   createdAt: string;
 };
@@ -57,6 +62,23 @@ function calcKwh(session: ChargingSession): number | null {
   return (session.endMeterWh - session.startMeterWh) / 1000;
 }
 
+function calcDuration(session: ChargingSession): string | null {
+  if (!session.endTime) return null;
+  const diffMs = new Date(session.endTime).getTime() - new Date(session.startTime).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 60) return `${mins} phút`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m > 0 ? `${h}h ${m}ph` : `${h}h`;
+}
+
+function calcEndSocPercent(session: ChargingSession): number | null {
+  if (session.startSocPercent == null || session.endMeterWh == null) return null;
+  const batteryCapacityWh = 60_000;
+  const socGain = ((session.endMeterWh - session.startMeterWh) / batteryCapacityWh) * 100;
+  return Math.min(100, Math.max(0, Math.round(session.startSocPercent + socGain)));
+}
+
 export default function SessionsPage() {
   const { t } = useTranslation(['dashboard', 'common']);
   const { user } = useAuthStore();
@@ -76,6 +98,25 @@ export default function SessionsPage() {
   const [isSubmittingStop, setIsSubmittingStop] = useState<boolean>(false);
 
   const resetPage = () => setPage(1);
+
+  // Telemetry socket for live readings
+  const [telemetrySessionId, setTelemetrySessionId] = useState<string | null>(null);
+  const [telemetryReadings, setTelemetryReadings] = useState<TelemetryReading[]>([]);
+
+  const handleTelemetry = useCallback((data: TelemetryReading) => {
+    setTelemetryReadings(prev => [...prev.slice(-29), data]);
+  }, []);
+
+  useTelemetrySocket({
+    sessionId: telemetrySessionId,
+    enabled: telemetrySessionId !== null,
+    onTelemetry: handleTelemetry,
+  });
+
+  const openTelemetry = (sessionId: string) => {
+    setTelemetryReadings([]);
+    setTelemetrySessionId(sessionId);
+  };
 
   // Fetch users for mapping userId to fullName
   const { data: usersData } = useQuery({
@@ -146,14 +187,10 @@ export default function SessionsPage() {
   const assignedStations = stations.filter((s: any) => staffStationIds.includes(s.id));
   const assignedChargerIds = new Set(assignedStations.flatMap((s: any) => s.chargers?.map((c: any) => c.id) ?? []));
 
-  // Filter visible sessions
-  const visibleSessions = !isAdmin
-    ? assignedChargerIds.size > 0
-      ? allSessions.filter((s) => assignedChargerIds.has(s.chargerId))
-      : []
-    : allSessions;
+  // Visible sessions (Backend already filtered them if user is staff)
+  const visibleSessions = allSessions;
 
-  const total = !isAdmin ? visibleSessions.length : (data?.total ?? 0);
+  const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
   const handleForceStopSubmit = async () => {
@@ -320,6 +357,15 @@ export default function SessionsPage() {
                               >
                                 <Eye className="w-4 h-4" />
                               </button>
+                              {s.status === 'active' && (
+                                <button
+                                  onClick={() => openTelemetry(s.id)}
+                                  className="p-1 text-chart-2 hover:text-chart-2/80 transition-colors"
+                                  title="Telemetry real-time"
+                                >
+                                  <Activity className="w-4 h-4" />
+                                </button>
+                              )}
                               {(isAdmin || user?.roles?.includes('staff')) && s.status === 'active' && (
                                 <button
                                   onClick={() => {
@@ -363,175 +409,158 @@ export default function SessionsPage() {
        </div>
 
       {/* Dynamic Session Details Modal */}
-      {selectedSession && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div 
-            className="w-full max-w-sm p-6 rounded-2xl relative border shadow-2xl space-y-4 bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 animate-scale-up"
-          >
-            <div className="corner-marker cm-tl" />
-            <div className="corner-marker cm-tr" />
-            <div className="corner-marker cm-bl" />
-            <div className="corner-marker cm-br" />
-
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-2.5">
-              <div className="flex items-center gap-2">
+      <GlassModal open={!!selectedSession} onClose={() => setSelectedSession(null)} className="max-w-md">
+        {selectedSession && (
+          <>
+            <ModalHeader onClose={() => setSelectedSession(null)}>
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(16,191,201,0.15)' }}>
                 <Zap className="w-4 h-4 text-cyan" />
-                <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">
-                  Chi tiết phiên sạc
-                </h3>
               </div>
-              <button 
-                type="button"
-                onClick={() => setSelectedSession(null)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-0.5 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+              <h3 className="font-bold text-xs uppercase tracking-wider" style={{ color: 'var(--text-main)' }}>
+                Chi tiết phiên sạc
+              </h3>
+            </ModalHeader>
 
             <div className="space-y-3.5 text-xs max-h-[60vh] overflow-y-auto pr-1 scrollbar-thin">
-              <div className="flex flex-col gap-1">
-                <label className="text-slate-500 dark:text-slate-400 font-semibold">Mã phiên sạc (Session ID)</label>
-                <div className="flex items-center justify-between font-mono text-[11px] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2 text-slate-900 dark:text-white">
-                  <span className="truncate pr-2">{selectedSession.id}</span>
-                  <button 
-                    onClick={() => {
-                      navigator.clipboard.writeText(selectedSession.id);
-                      toast.success("Đã sao chép mã phiên sạc");
-                    }}
-                    className="text-cyan hover:text-cyan/85 shrink-0"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
+              <ModalField label="Mã phiên sạc (Session ID)">
+                <ModalCopyValue text={selectedSession.id} onCopy={() => toast.success('Đã sao chép mã phiên sạc')} />
+              </ModalField>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Trạng thái</label>
-                  <div>
-                    <span className={`badge ${STATUS_BADGE[selectedSession.status] || 'badge-muted'}`}>
-                      {t(`dashboard:data.status.${STATUS_TRANSLATE_KEY[selectedSession.status] || selectedSession.status.toUpperCase()}`, { defaultValue: selectedSession.status })}
-                    </span>
-                  </div>
-                </div>
+                <ModalField label="Trạng thái">
+                  <span className={`badge ${STATUS_BADGE[selectedSession.status] || 'badge-muted'}`}>
+                    {t(`dashboard:data.status.${STATUS_TRANSLATE_KEY[selectedSession.status] || selectedSession.status.toUpperCase()}`, { defaultValue: selectedSession.status })}
+                  </span>
+                </ModalField>
 
-                <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Năng lượng đã tiêu thụ</label>
-                  <div className="font-bold text-cyan flex items-center gap-1">
-                    <Zap className="w-3.5 h-3.5 text-cyan shrink-0" />
+                <ModalField label="Năng lượng đã tiêu thụ">
+                  <ModalValue className="text-cyan flex items-center gap-1">
+                    <Zap className="w-3.5 h-3.5 shrink-0" />
                     <span>{calcKwh(selectedSession) != null ? `${calcKwh(selectedSession)?.toFixed(2)} kWh` : '—'}</span>
+                  </ModalValue>
+                </ModalField>
+
+                {selectedSession.startSocPercent != null && (
+                  <ModalField label="SOC ban đầu">
+                    <ModalValue className="text-chart-2 flex items-center gap-1">
+                      <Battery className="w-3.5 h-3.5 shrink-0" />
+                      <span>{selectedSession.startSocPercent}%</span>
+                    </ModalValue>
+                  </ModalField>
+                )}
+              </div>
+
+              <ModalField label="Khách hàng">
+                {userMap.has(selectedSession.userId) ? (
+                  <div className="rounded-xl px-3 py-2.5 space-y-1.5" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--card-border)' }}>
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-xs" style={{ color: 'var(--text-main)' }}>
+                        {userMap.get(selectedSession.userId)?.fullName}
+                      </span>
+                      <span className="font-mono text-[10px]" style={{ color: 'var(--text-faded)' }}>
+                        {selectedSession.userId.slice(0, 8)}…
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-[11px] pt-1" style={{ borderTop: '1px solid var(--card-border)' }}>
+                      <span style={{ color: 'var(--text-faded)' }}>Email:</span>
+                      <span className="font-medium" style={{ color: 'var(--text-main)' }}>{userMap.get(selectedSession.userId)?.email}</span>
+                    </div>
+                    <div className="flex justify-between text-[11px]">
+                      <span style={{ color: 'var(--text-faded)' }}>Số điện thoại:</span>
+                      <span className="font-medium" style={{ color: 'var(--text-main)' }}>{userMap.get(selectedSession.userId)?.phone || '—'}</span>
+                    </div>
                   </div>
-                </div>
-              </div>
+                ) : (
+                  <ModalCopyValue text={selectedSession.userId} onCopy={() => toast.success('Đã sao chép mã người dùng')} />
+                )}
+              </ModalField>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-slate-500 dark:text-slate-400 font-semibold">Khách hàng (User Details)</label>
-                <div className="bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2 text-slate-900 dark:text-white">
-                  {userMap.has(selectedSession.userId) ? (
-                    <div className="flex flex-col gap-1">
-                      <div className="flex justify-between items-center py-0.5">
-                        <span className="font-semibold text-slate-900 dark:text-white text-xs">
-                          {userMap.get(selectedSession.userId)?.fullName}
-                        </span>
-                        <span className="font-mono text-[10px] text-text-muted">
-                          {selectedSession.userId.slice(0, 8)}…
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-[11px] py-0.5 border-t border-slate-100 dark:border-white/5 pt-1">
-                        <span className="text-slate-500 dark:text-slate-400">Email:</span>
-                        <span className="font-medium text-slate-850 dark:text-slate-200">{userMap.get(selectedSession.userId)?.email}</span>
-                      </div>
-                      <div className="flex justify-between text-[11px] py-0.5">
-                        <span className="text-slate-500 dark:text-slate-400">Số điện thoại:</span>
-                        <span className="font-medium text-slate-850 dark:text-slate-200">{userMap.get(selectedSession.userId)?.phone || '—'}</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between font-mono text-[11px]">
-                      <span className="truncate pr-2">{selectedSession.userId}</span>
-                      <button 
-                        onClick={() => {
-                          navigator.clipboard.writeText(selectedSession.userId);
-                          toast.success("Đã sao chép mã người dùng");
-                        }}
-                        className="text-cyan hover:text-cyan/85 shrink-0"
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-slate-500 dark:text-slate-400 font-semibold">Mã trụ sạc (Charger ID)</label>
-                <div className="flex items-center justify-between font-mono text-[11px] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2 text-slate-900 dark:text-white">
-                  <span className="truncate pr-2">{selectedSession.chargerId}</span>
-                  <button 
-                    onClick={() => {
-                      navigator.clipboard.writeText(selectedSession.chargerId);
-                      toast.success("Đã sao chép mã trụ sạc");
-                    }}
-                    className="text-cyan hover:text-cyan/85 shrink-0"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
+              <ModalField label="Mã trụ sạc (Charger ID)">
+                <ModalCopyValue text={selectedSession.chargerId} onCopy={() => toast.success('Đã sao chép mã trụ sạc')} />
+              </ModalField>
 
               {selectedSession.bookingId && (
-                <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Mã đặt lịch liên kết (Booking ID)</label>
-                  <div className="flex items-center justify-between font-mono text-[11px] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2 text-slate-900 dark:text-white">
-                    <span className="truncate pr-2">{selectedSession.bookingId}</span>
-                    <button 
-                      onClick={() => {
-                        navigator.clipboard.writeText(selectedSession.bookingId || '');
-                        toast.success("Đã sao chép mã đặt lịch");
-                      }}
-                      className="text-cyan hover:text-cyan/85 shrink-0"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
+                <ModalField label="Mã đặt lịch liên kết (Booking ID)">
+                  <ModalCopyValue text={selectedSession.bookingId} onCopy={() => toast.success('Đã sao chép mã đặt lịch')} />
+                </ModalField>
               )}
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Chỉ số bắt đầu</label>
-                  <div className="font-semibold text-slate-900 dark:text-white">
-                    {selectedSession.startMeterWh} Wh
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Chỉ số kết thúc</label>
-                  <div className="font-semibold text-slate-900 dark:text-white">
-                    {selectedSession.endMeterWh != null ? `${selectedSession.endMeterWh} Wh` : '—'}
-                  </div>
-                </div>
+                <ModalField label="Chỉ số bắt đầu">
+                  <ModalValue>{selectedSession.startMeterWh} Wh</ModalValue>
+                </ModalField>
+                <ModalField label="Chỉ số kết thúc">
+                  <ModalValue>{selectedSession.endMeterWh != null ? `${selectedSession.endMeterWh} Wh` : '—'}</ModalValue>
+                </ModalField>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Giờ bắt đầu</label>
-                  <div className="font-medium text-slate-900 dark:text-white">
-                    {formatDate(selectedSession.startTime, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', second: '2-digit' })}
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Giờ kết thúc</label>
-                  <div className="font-medium text-slate-900 dark:text-white">
-                    {selectedSession.endTime ? formatDate(selectedSession.endTime, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', second: '2-digit' }) : '—'}
-                  </div>
-                </div>
+                <ModalField label="Giờ bắt đầu">
+                  <ModalValue>{formatDate(selectedSession.startTime, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', second: '2-digit' })}</ModalValue>
+                </ModalField>
+                <ModalField label="Giờ kết thúc">
+                  <ModalValue>{selectedSession.endTime ? formatDate(selectedSession.endTime, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', second: '2-digit' }) : '—'}</ModalValue>
+                </ModalField>
               </div>
+
+              {/* Telemetry link for active sessions */}
+              {selectedSession.status === 'active' && (
+                <button
+                  onClick={() => { openTelemetry(selectedSession.id); setSelectedSession(null); }}
+                  className="w-full py-2.5 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors"
+                  style={{ background: 'rgba(16,191,201,0.1)', color: 'var(--brand-cyan)', border: '1px solid rgba(16,191,201,0.2)' }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(16,191,201,0.2)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(16,191,201,0.1)'}
+                >
+                  <Activity className="w-4 h-4" /> Xem telemetry real-time
+                </button>
+              )}
+
+              {/* Completed session summary */}
+              {(selectedSession.status === 'completed' || selectedSession.status === 'stopped' || selectedSession.status === 'interrupted') && selectedSession.endMeterWh != null && (
+                <div className="rounded-xl p-3 space-y-2" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--card-border)' }}>
+                  <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-faded)' }}>
+                    <Gauge className="w-3.5 h-3.5" /> Kết quả phiên sạc
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span style={{ color: 'var(--text-faded)' }}>Thời lượng</span>
+                      <p className="font-semibold" style={{ color: 'var(--text-main)' }}>{calcDuration(selectedSession) || '—'}</p>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-faded)' }}>Năng lượng</span>
+                      <p className="font-semibold text-cyan">{calcKwh(selectedSession)?.toFixed(2)} kWh</p>
+                    </div>
+                    {selectedSession.startSocPercent != null && (
+                      <>
+                        <div>
+                          <span style={{ color: 'var(--text-faded)' }}>SOC đầu</span>
+                          <p className="font-semibold text-chart-2">{selectedSession.startSocPercent}%</p>
+                        </div>
+                        <div>
+                          <span style={{ color: 'var(--text-faded)' }}>SOC cuối (ước lượng)</span>
+                          <p className="font-semibold text-chart-2">{calcEndSocPercent(selectedSession)}%</p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2 pt-4" style={{ borderTop: '1px solid var(--card-border)' }}>
+              {selectedSession.status === 'active' && (
+                <button
+                  type="button"
+                  onClick={() => { openTelemetry(selectedSession.id); setSelectedSession(null); }}
+                  className="px-3.5 py-1.5 text-xs font-semibold transition-colors rounded-xl flex items-center gap-1"
+                  style={{ background: 'rgba(16,191,201,0.1)', color: 'var(--brand-cyan)', border: '1px solid rgba(16,191,201,0.2)' }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(16,191,201,0.2)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(16,191,201,0.1)'}
+                >
+                  <Activity className="w-3.5 h-3.5" /> Telemetry
+                </button>
+              )}
               {(isAdmin || user?.roles?.includes('staff')) && selectedSession.status === 'active' && (
                 <button
                   type="button"
@@ -541,7 +570,10 @@ export default function SessionsPage() {
                     setStopReasonInput('Admin can thiệp khẩn cấp');
                     setSelectedSession(null);
                   }}
-                  className="px-3.5 py-1.5 bg-danger/10 hover:bg-danger/25 border border-danger/20 text-danger text-xs font-semibold transition-colors rounded-xl flex items-center gap-1"
+                  className="px-3.5 py-1.5 text-xs font-semibold transition-colors rounded-xl flex items-center gap-1"
+                  style={{ background: 'rgba(239,68,68,0.12)', color: 'var(--brand-danger)', border: '1px solid rgba(239,68,68,0.25)' }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239,68,68,0.25)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(239,68,68,0.12)'}
                 >
                   <StopCircle className="w-3.5 h-3.5" /> Dừng khẩn cấp
                 </button>
@@ -549,79 +581,172 @@ export default function SessionsPage() {
               <button
                 type="button"
                 onClick={() => setSelectedSession(null)}
-                className="px-3.5 py-1.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white text-xs font-semibold transition-colors rounded-xl"
+                className="px-3.5 py-1.5 text-xs font-semibold transition-colors rounded-xl"
+                style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-main)', border: '1px solid var(--card-border)' }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
               >
                 Đóng
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </GlassModal>
+
+      {/* Telemetry Real-time Modal */}
+      <GlassModal open={!!telemetrySessionId} onClose={() => setTelemetrySessionId(null)} className="max-w-md">
+        {telemetrySessionId && (
+          <>
+            <ModalHeader onClose={() => setTelemetrySessionId(null)}>
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(16,191,201,0.15)' }}>
+                <Activity className="w-4 h-4 text-cyan" />
+              </div>
+              <h3 className="font-bold text-xs uppercase tracking-wider" style={{ color: 'var(--text-main)' }}>
+                Telemetry real-time
+              </h3>
+            </ModalHeader>
+
+            {telemetryReadings.length === 0 ? (
+              <div className="flex items-center justify-center py-12 text-text-muted text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full border border-cyan border-t-transparent animate-spin shrink-0" />
+                  Đang kết nối...
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Latest reading cards */}
+                {(() => {
+                  const latest = telemetryReadings[telemetryReadings.length - 1];
+                  return (
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(16,191,201,0.08)', border: '1px solid rgba(16,191,201,0.15)' }}>
+                        <p className="text-[10px] uppercase tracking-wider text-text-faded">Công suất</p>
+                        <p className="text-lg font-bold text-cyan">{latest.powerKw?.toFixed(1) ?? '—'} <span className="text-xs font-normal">kW</span></p>
+                      </div>
+                      <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(16,191,201,0.08)', border: '1px solid rgba(16,191,201,0.15)' }}>
+                        <p className="text-[10px] uppercase tracking-wider text-text-faded">SOC</p>
+                        <p className="text-lg font-bold text-chart-2">{latest.socPercent != null ? `${Math.round(latest.socPercent)}%` : '—'}</p>
+                      </div>
+                      <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(16,191,201,0.08)', border: '1px solid rgba(16,191,201,0.15)' }}>
+                        <p className="text-[10px] uppercase tracking-wider text-text-faded">Điện áp</p>
+                        <p className="text-lg font-bold text-text-main">{latest.voltageV?.toFixed(0) ?? '—'} <span className="text-xs font-normal">V</span></p>
+                      </div>
+                      <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(16,191,201,0.08)', border: '1px solid rgba(16,191,201,0.15)' }}>
+                        <p className="text-[10px] uppercase tracking-wider text-text-faded">Dòng điện</p>
+                        <p className="text-lg font-bold text-text-main">{latest.currentA?.toFixed(1) ?? '—'} <span className="text-xs font-normal">A</span></p>
+                      </div>
+                      <div className="rounded-xl p-3 text-center col-span-2" style={{ background: 'rgba(16,191,201,0.08)', border: '1px solid rgba(16,191,201,0.15)' }}>
+                        <p className="text-[10px] uppercase tracking-wider text-text-faded">Nhiệt độ</p>
+                        <p className="text-lg font-bold text-danger">{latest.temperatureC?.toFixed(1) ?? '—'} <span className="text-xs font-normal">°C</span></p>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Readings history */}
+                <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--card-border)' }}>
+                  <div className="px-3 py-2 text-[10px] uppercase tracking-wider font-semibold" style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-faded)', borderBottom: '1px solid var(--card-border)' }}>
+                    Lịch sử ({telemetryReadings.length})
+                  </div>
+                  <div className="max-h-40 overflow-y-auto scrollbar-thin">
+                    <table className="w-full text-[10px]">
+                      <thead>
+                        <tr style={{ color: 'var(--text-faded)', borderBottom: '1px solid var(--card-border)' }}>
+                          <th className="text-left px-2 py-1 font-medium">Giờ</th>
+                          <th className="text-right px-2 py-1 font-medium">kW</th>
+                          <th className="text-right px-2 py-1 font-medium">SOC</th>
+                          <th className="text-right px-2 py-1 font-medium">V</th>
+                          <th className="text-right px-2 py-1 font-medium">A</th>
+                          <th className="text-right px-2 py-1 font-medium">°C</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...telemetryReadings].reverse().map((r) => (
+                          <tr key={r.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                            <td className="px-2 py-1 text-left font-mono text-text-muted">
+                              {new Date(r.recordedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            </td>
+                            <td className="px-2 py-1 text-right text-cyan">{r.powerKw?.toFixed(1) ?? '—'}</td>
+                            <td className="px-2 py-1 text-right text-chart-2">{r.socPercent != null ? `${Math.round(r.socPercent)}%` : '—'}</td>
+                            <td className="px-2 py-1 text-right text-text-main">{r.voltageV?.toFixed(0) ?? '—'}</td>
+                            <td className="px-2 py-1 text-right text-text-main">{r.currentA?.toFixed(1) ?? '—'}</td>
+                            <td className="px-2 py-1 text-right text-danger">{r.temperatureC?.toFixed(1) ?? '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="flex justify-end gap-2 pt-4" style={{ borderTop: '1px solid var(--card-border)' }}>
+              <button
+                type="button"
+                onClick={() => setTelemetrySessionId(null)}
+                className="px-3.5 py-1.5 text-xs font-semibold transition-colors rounded-xl"
+                style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-main)', border: '1px solid var(--card-border)' }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+              >
+                Đóng
+              </button>
+            </div>
+          </>
+        )}
+      </GlassModal>
 
       {/* Confirmation Force Stop Modal */}
-      {stoppingSession && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div 
-            className="w-full max-w-sm p-6 rounded-2xl relative border shadow-2xl space-y-4 bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 animate-scale-up"
-          >
-            {/* Corner Markers */}
-            <div className="corner-marker cm-tl" />
-            <div className="corner-marker cm-tr" />
-            <div className="corner-marker cm-bl" />
-            <div className="corner-marker cm-br" />
-
-            <div className="flex items-center gap-2.5 border-b border-slate-100 dark:border-white/10 pb-2.5">
-              <div className="w-8 h-8 rounded-full bg-danger/10 border border-danger/20 flex items-center justify-center shrink-0">
+      <GlassModal open={!!stoppingSession} onClose={() => setStoppingSession(null)} className="max-w-sm">
+        {stoppingSession && (
+          <>
+            <ModalHeader onClose={() => setStoppingSession(null)}>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.25)' }}>
                 <ShieldAlert className="w-4 h-4 text-danger animate-pulse" />
               </div>
-              <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">
+              <h3 className="font-bold text-xs uppercase tracking-wider" style={{ color: 'var(--text-main)' }}>
                 Xác nhận dừng khẩn cấp
               </h3>
-            </div>
+            </ModalHeader>
 
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--text-faded)' }}>
               Hành động này sẽ gửi tín hiệu can thiệp trực tiếp đến trụ sạc để dừng ngay lập tức phiên sạc đang hoạt động.
             </p>
 
             <div className="space-y-3.5 text-xs">
-              <div className="flex flex-col gap-1">
-                <label className="text-slate-500 dark:text-slate-400 font-semibold">Mã phiên sạc (Session ID)</label>
-                <div className="font-mono text-[11px] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2 text-slate-900 dark:text-white truncate">
+              <ModalField label="Mã phiên sạc (Session ID)">
+                <div className="font-mono text-xs rounded-xl px-3 py-2 truncate" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--card-border)', color: 'var(--text-main)' }}>
                   {stoppingSession.id}
                 </div>
-              </div>
+              </ModalField>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Chỉ số bắt đầu</label>
-                  <div className="font-semibold text-slate-900 dark:text-white">
-                    {stoppingSession.startMeterWh} Wh
-                  </div>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Trạng thái</label>
+                <ModalField label="Chỉ số bắt đầu">
+                  <ModalValue>{stoppingSession.startMeterWh} Wh</ModalValue>
+                </ModalField>
+                <ModalField label="Trạng thái">
                   <div className="font-semibold text-success flex items-center gap-1 uppercase tracking-wide text-[10px]">
                     <span className="glow-dot bg-success animate-ping w-1.5 h-1.5 shrink-0" />
                     Đang sạc
                   </div>
-                </div>
+                </ModalField>
               </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-slate-500 dark:text-slate-400 font-semibold">Chỉ số điện năng cuối (End Meter Wh) <span className="text-danger">*</span></label>
+              <ModalField label="Chỉ số điện năng cuối (End Meter Wh)">
+                <span className="text-danger text-[10px]">* Bắt buộc</span>
                 <input 
                   type="number"
                   min={stoppingSession.startMeterWh}
                   value={endMeterWhInput}
                   onChange={(e) => setEndMeterWhInput(e.target.value)}
-                  className="ev-input w-full h-8 px-2.5 text-xs"
+                  className="ev-input w-full h-8 px-2.5 text-xs mt-1"
                   placeholder="Ví dụ: 2500"
                   required
                 />
-              </div>
+              </ModalField>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-slate-500 dark:text-slate-400 font-semibold">Lý do dừng</label>
+              <ModalField label="Lý do dừng">
                 <input 
                   type="text"
                   value={stopReasonInput}
@@ -629,15 +754,18 @@ export default function SessionsPage() {
                   className="ev-input w-full h-8 px-2.5 text-xs"
                   placeholder="Nhập lý do dừng..."
                 />
-              </div>
+              </ModalField>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2 pt-4" style={{ borderTop: '1px solid var(--card-border)' }}>
               <button 
                 type="button"
                 disabled={isSubmittingStop}
                 onClick={() => setStoppingSession(null)}
-                className="px-3.5 py-1.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white text-xs font-semibold transition-colors rounded-xl"
+                className="px-3.5 py-1.5 text-xs font-semibold transition-colors rounded-xl"
+                style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-main)', border: '1px solid var(--card-border)' }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
               >
                 Hủy bỏ
               </button>
@@ -645,7 +773,10 @@ export default function SessionsPage() {
                 type="button"
                 disabled={isSubmittingStop}
                 onClick={handleForceStopSubmit}
-                className="px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-danger/20 rounded-xl transition-all flex items-center gap-1 bg-danger hover:bg-danger/90"
+                className="px-3.5 py-1.5 text-xs font-bold text-white rounded-xl transition-all flex items-center gap-1 shadow-md"
+                style={{ background: 'var(--brand-danger)', boxShadow: '0 4px 16px rgba(239,68,68,0.3)' }}
+                onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.1)'}
+                onMouseLeave={(e) => e.currentTarget.style.filter = 'none'}
               >
                 {isSubmittingStop && (
                   <div className="w-3.5 h-3.5 rounded-full border border-white border-t-transparent animate-spin shrink-0" />
@@ -653,9 +784,9 @@ export default function SessionsPage() {
                 Xác nhận dừng
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </GlassModal>
     </div>
   );
 }

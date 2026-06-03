@@ -4,11 +4,12 @@
   },
   "nav": {
     "dashboard": "Dashboard",
-    "map": "Bản đồ",
+    "map": "Trạm sạc",
     "sessions": "Phiên sạc",
     "bookings": "Đặt lịch",
     "billing": "Tài chính",
     "staff": "Nhân viên",
+    "users": "Người dùng",
     "notifications": "Thông báo",
     "maintenance": "Bảo trì",
     "analytics": "Analytics",

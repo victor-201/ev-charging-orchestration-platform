@@ -25,10 +25,11 @@ type Incident = {
 type Maintenance = {
   id: string;
   stationId: string;
-  scheduledStartTime: string;
-  scheduledEndTime: string;
-  status: string;
+  startTime: string;
+  endTime: string;
   reason: string;
+  scheduledBy: string;
+  createdAt: string;
 };
 
 type PagedIncidents = { items: Incident[]; total: number };
@@ -73,9 +74,7 @@ export default function MaintenancePage() {
       const params: Record<string, any> = { limit: LIMIT, offset };
       if (incSeverity) params.severity = incSeverity;
       if (incStatus) params.status = incStatus;
-      if (!isAdmin && staffStationIds.length) {
-        params.stationIds = staffStationIds.join(',');
-      } else if (incStationId.trim()) {
+      if (incStationId.trim()) {
         params.stationId = incStationId.trim();
       }
       
@@ -95,9 +94,7 @@ export default function MaintenancePage() {
       const offset = (maintPage - 1) * LIMIT;
       const params: Record<string, any> = { limit: LIMIT, offset };
       if (maintStatus) params.status = maintStatus;
-      if (!isAdmin && staffStationIds.length) {
-        params.stationIds = staffStationIds.join(',');
-      } else if (maintStationId.trim()) {
+      if (maintStationId.trim()) {
         params.stationId = maintStationId.trim();
       }
 
@@ -209,7 +206,9 @@ export default function MaintenancePage() {
                 options={[
                   { value: '', label: 'Tất cả trạng thái' },
                   { value: 'pending_confirmation', label: 'Chờ xác nhận' },
+                  { value: 'in_progress', label: 'Đang xử lý' },
                   { value: 'resolved', label: 'Đã giải quyết' },
+                  { value: 'rejected', label: 'Từ chối' },
                 ]}
                 className="w-40 h-9"
               />
@@ -300,8 +299,8 @@ export default function MaintenancePage() {
                         </td>
                         <td className="max-w-xs truncate" title={inc.description}>{inc.description}</td>
                         <td>
-                          <span className={`badge ${inc.severity === 'CRITICAL' || inc.severity === 'HIGH' ? 'badge-danger' : 'badge-warning'}`}>
-                            {t(`dashboard:data.severity.${inc.severity}`) || inc.severity}
+                          <span className={`badge ${['CRITICAL', 'HIGH'].includes(inc.severity.toUpperCase()) ? 'badge-danger' : 'badge-warning'}`}>
+                            {t(`dashboard:data.severity.${inc.severity.toUpperCase()}`) || inc.severity}
                           </span>
                         </td>
                         <td>
@@ -363,32 +362,38 @@ export default function MaintenancePage() {
                       </tr>
                     ))
                   ) : maintenanceList.length ? (
-                    maintenanceList.map((m) => (
-                      <motion.tr key={m.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                        <td className="font-mono text-xs text-text-main" title={m.stationId}>
-                          {m.stationId.slice(0, 8)}…
-                        </td>
-                        <td>{m.reason}</td>
-                        <td className="text-xs">{new Date(m.scheduledStartTime).toLocaleString()}</td>
-                        <td className="text-xs text-text-muted">{new Date(m.scheduledEndTime).toLocaleString()}</td>
-                        <td>
-                          <span className={`badge ${m.status === 'IN_PROGRESS' ? 'badge-warning' : m.status === 'COMPLETED' ? 'badge-success' : 'badge-muted'}`}>
-                            {t(`dashboard:data.status.${m.status}`) || m.status}
-                          </span>
-                        </td>
-                        <td>
-                          {(isAdmin || user?.roles?.includes('staff')) && m.status !== 'COMPLETED' && (
-                            <button
-                              onClick={() => handleCompleteMaint(m.id)}
-                              disabled={completeMaintMutation.isPending}
-                              className="text-success text-xs font-medium hover:underline flex items-center gap-1 disabled:opacity-50"
-                            >
-                              <CheckCircle2 className="w-3.5 h-3.5" /> {t('dashboard:maintenance.complete')}
-                            </button>
-                          )}
-                        </td>
-                      </motion.tr>
-                    ))
+                    maintenanceList.map((m) => {
+                      const now = Date.now();
+                      const start = new Date(m.startTime).getTime();
+                      const end = new Date(m.endTime).getTime();
+                      const maintStatus = start > now ? 'SCHEDULED' : now >= start && now <= end ? 'IN_PROGRESS' : 'COMPLETED';
+                      return (
+                        <motion.tr key={m.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                          <td className="font-mono text-xs text-text-main" title={m.stationId}>
+                            {m.stationId.slice(0, 8)}…
+                          </td>
+                          <td>{m.reason}</td>
+                          <td className="text-xs">{new Date(m.startTime).toLocaleString()}</td>
+                          <td className="text-xs text-text-muted">{new Date(m.endTime).toLocaleString()}</td>
+                          <td>
+                            <span className={`badge ${maintStatus === 'IN_PROGRESS' ? 'badge-warning' : maintStatus === 'COMPLETED' ? 'badge-success' : 'badge-muted'}`}>
+                              {t(`dashboard:data.status.${maintStatus}`) || maintStatus}
+                            </span>
+                          </td>
+                          <td>
+                            {(isAdmin || user?.roles?.includes('staff')) && maintStatus !== 'COMPLETED' && (
+                              <button
+                                onClick={() => handleCompleteMaint(m.id)}
+                                disabled={completeMaintMutation.isPending}
+                                className="text-success text-xs font-medium hover:underline flex items-center gap-1 disabled:opacity-50"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" /> {t('dashboard:maintenance.complete')}
+                              </button>
+                            )}
+                          </td>
+                        </motion.tr>
+                      );
+                    })
                   ) : (
                     <tr>
                       <td colSpan={6} className="text-center py-8 text-text-muted">{t('common:common.no_data')}</td>

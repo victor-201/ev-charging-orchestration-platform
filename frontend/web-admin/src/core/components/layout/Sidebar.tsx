@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Zap, LayoutDashboard, MapPin, Battery, CreditCard,
   Users, BarChart3, Bell, Settings, LogOut,
-  Wrench, ShieldAlert,
+  Wrench, ShieldAlert, User,
 } from 'lucide-react';
 import { cn } from '@/core/utils/cn';
 
@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { key: 'sessions', href: '/dashboard/sessions', icon: Battery },
   { key: 'bookings', href: '/dashboard/bookings', icon: ShieldAlert },
   { key: 'billing', href: '/dashboard/billing', icon: CreditCard },
+  { key: 'users', href: '/dashboard/users', icon: User },
   { key: 'staff', href: '/dashboard/staff', icon: Users },
   { key: 'notifications', href: '/dashboard/notifications', icon: Bell },
   { key: 'maintenance', href: '/dashboard/maintenance', icon: Wrench },
@@ -96,7 +97,7 @@ export default function Sidebar() {
       <nav className="flex-1 flex flex-col gap-1 overflow-hidden">
         {NAV_ITEMS.filter(({ key }) => {
           const isAdmin = user?.roles?.includes('admin');
-          if (!isAdmin && ['staff', 'analytics', 'settings', 'billing'].includes(key)) {
+          if (!isAdmin && ['staff', 'analytics', 'settings', 'billing', 'users'].includes(key)) {
             return false;
           }
           return true;

@@ -61,7 +61,7 @@
     "staff_empty": "You have not been assigned any station yet"
   },
   "map": {
-    "title": "Station Map",
+    "title": "Station Management",
     "subtitle": "{{total}} stations across the network",
     "filter_all": "All",
     "filter_active": "Active",
@@ -69,7 +69,42 @@
     "filter_inactive": "Inactive",
     "add_station": "Add Station",
     "station_list": "Station List",
-    "chargers_available": "{{available}}/{{total}} available"
+    "chargers_available": "{{available}}/{{total}} available",
+    "force_stop": "Force Stop",
+    "force_stop_confirm": "Are you sure you want to force stop this charging session? This action will immediately disconnect the charge and cannot be undone.",
+    "force_stop_success": "Force stop command sent successfully!",
+    "force_stop_failed": "Force stop failed!",
+    "telemetry_title": "Live Telemetry",
+    "telemetry_power": "Power",
+    "telemetry_energy": "Energy",
+    "telemetry_voltage": "Voltage",
+    "telemetry_current": "Current",
+    "telemetry_soc": "SOC",
+    "telemetry_temp": "Temperature",
+    "telemetry_empty": "No telemetry data yet",
+    "checkin_title": "Station Check-in",
+    "checkin_station": "Check-in at station",
+    "charger_detail": "Charger Details",
+    "charger_actions": "Actions",
+    "charger_report": "Report Incident",
+    "charger_edit_status": "Edit Status"
+  },
+  "staff_calendar": {
+    "title": "Check-In Calendar",
+    "subtitle": "Your attendance history",
+    "today": "Today",
+    "present": "Present",
+    "late": "Late",
+    "absent": "Absent",
+    "leave": "Leave",
+    "no_data": "No attendance data",
+    "checkin_time": "Check-in time",
+    "checkout_time": "Check-out time",
+    "status_label": "Status",
+    "view_all": "View All",
+    "month": "Month {{month}}",
+    "week": "Week",
+    "day": "Day"
   },
   "sessions": {
     "title": "Charging Sessions",
@@ -192,7 +227,11 @@
       "ERROR": "Error",
       "SUCCESS": "Success",
       "PENDING": "Pending",
-      "RESOLVED": "Resolved"
+      "IN_PROGRESS": "In Progress",
+      "RESOLVED": "Resolved",
+      "REJECTED": "Rejected",
+      "PENDING_CONFIRMATION": "Pending Confirmation",
+      "SCHEDULED": "Scheduled"
     },
     "severity": {
       "CRITICAL": "Critical",
@@ -209,6 +248,8 @@
     "staff": {
       "POSITION_TECHNICIAN": "Technician",
       "POSITION_OPERATOR": "Operator",
+      "POSITION_SUPERVISOR": "Supervisor",
+      "POSITION_MANAGER": "Manager",
       "SHIFT_MORNING": "Morning",
       "SHIFT_AFTERNOON": "Afternoon",
       "SHIFT_NIGHT": "Night"

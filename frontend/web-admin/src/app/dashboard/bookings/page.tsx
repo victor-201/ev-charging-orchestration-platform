@@ -11,6 +11,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/i18n/formatter';
 import { useAuthStore } from '@/features/auth/store/auth.store';
+import GlassModal, { ModalHeader, ModalField, ModalValue, ModalCopyValue } from '@/core/theme/GlassModal';
 
 type Booking = {
   id: string;
@@ -130,22 +131,20 @@ export default function BookingsPage() {
   const assignedStations = stations.filter((s: any) => staffStationIds.includes(s.id));
   const assignedChargerIds = new Set(assignedStations.flatMap((s: any) => s.chargers?.map((c: any) => c.id) ?? []));
 
-  // Filter visible bookings
-  const visibleBookings = !isAdmin
-    ? assignedChargerIds.size > 0
-      ? bookings.filter((b) => assignedChargerIds.has(b.chargerId))
-      : []
-    : bookings;
+  // Visible bookings (Backend already filtered them if user is staff)
+  const visibleBookings = bookings;
 
-  const total = !isAdmin ? visibleBookings.length : (data?.total ?? 0);
+  const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / LIMIT) || 1;
 
   const handleCancelBooking = async (bookingId: string) => {
     if (!window.confirm('Bạn có chắc chắn muốn hủy lịch đặt này không?')) return;
     setIsCancelling(true);
     try {
+      const isStaff = user?.roles?.includes('staff');
+      const reason = isStaff ? 'Nhân viên can thiệp hủy đặt lịch' : 'Admin can thiệp hủy đặt lịch';
       await apiClient.delete(`/bookings/${bookingId}`, {
-        data: { reason: 'Admin can thiệp hủy đặt lịch' },
+        data: { reason },
       });
       toast.success('Đã hủy đặt lịch thành công');
       setSelectedBooking(null);
@@ -325,7 +324,7 @@ export default function BookingsPage() {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          {isAdmin && ['pending', 'confirmed'].includes(b.status.toLowerCase()) && (
+                          {(isAdmin || user?.roles?.includes('staff')) && ['pending', 'confirmed'].includes(b.status.toLowerCase()) && (
                             <button
                               onClick={() => handleCancelBooking(b.id)}
                               className="p-1 text-danger hover:text-danger/80 transition-colors"
@@ -364,185 +363,115 @@ export default function BookingsPage() {
         />
       </div>
 
-      {/* Details Modal - Styled exactly like the station edit modal */}
-      {selectedBooking && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div 
-            className="w-full max-w-sm p-6 rounded-2xl relative border shadow-2xl space-y-4 bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 animate-scale-up"
-          >
-            <div className="corner-marker cm-tl" />
-            <div className="corner-marker cm-tr" />
-            <div className="corner-marker cm-bl" />
-            <div className="corner-marker cm-br" />
-
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-2.5">
-              <div className="flex items-center gap-2">
+      {/* Details Modal */}
+      <GlassModal open={!!selectedBooking} onClose={() => setSelectedBooking(null)} className="max-w-md">
+        {selectedBooking && (
+          <>
+            <ModalHeader onClose={() => setSelectedBooking(null)}>
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(16,191,201,0.15)' }}>
                 <CalendarCheck className="w-4 h-4 text-cyan" />
-                <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">
-                  Chi tiết đặt lịch
-                </h3>
               </div>
-              <button 
-                type="button"
-                onClick={() => setSelectedBooking(null)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-0.5 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+              <h3 className="font-bold text-xs uppercase tracking-wider" style={{ color: 'var(--text-main)' }}>
+                Chi tiết đặt lịch
+              </h3>
+            </ModalHeader>
 
             <div className="space-y-3.5 text-xs max-h-[60vh] overflow-y-auto pr-1 scrollbar-thin">
-              <div className="flex flex-col gap-1">
-                <label className="text-slate-500 dark:text-slate-400 font-semibold">Mã đặt lịch (Booking ID)</label>
-                <div className="flex items-center justify-between font-mono text-[11px] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2 text-slate-900 dark:text-white">
-                  <span className="truncate pr-2">{selectedBooking.id}</span>
-                  <button 
-                    onClick={() => {
-                      navigator.clipboard.writeText(selectedBooking.id);
-                      toast.success("Đã sao chép mã đặt lịch");
-                    }}
-                    className="text-cyan hover:text-cyan/85 shrink-0"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
+              <ModalField label="Mã đặt lịch (Booking ID)">
+                <ModalCopyValue text={selectedBooking.id} onCopy={() => toast.success('Đã sao chép mã đặt lịch')} />
+              </ModalField>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Trạng thái</label>
-                  <div>
-                    <span className={`badge ${getStatusBadgeAndLabel(selectedBooking.status, t).className}`}>
-                      {getStatusBadgeAndLabel(selectedBooking.status, t).label}
-                    </span>
-                  </div>
-                </div>
+                <ModalField label="Trạng thái">
+                  <span className={`badge ${getStatusBadgeAndLabel(selectedBooking.status, t).className}`}>
+                    {getStatusBadgeAndLabel(selectedBooking.status, t).label}
+                  </span>
+                </ModalField>
 
-                <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Loại đầu cắm</label>
-                  <div className="flex items-center gap-1 font-medium text-slate-900 dark:text-white">
+                <ModalField label="Loại đầu cắm">
+                  <ModalValue className="flex items-center gap-1">
                     <Zap className="w-3.5 h-3.5 text-cyan shrink-0" />
                     <span>{selectedBooking.connectorType}</span>
+                  </ModalValue>
+                </ModalField>
+              </div>
+
+              <ModalField label="Khách hàng">
+                {userMap.has(selectedBooking.userId) ? (
+                  <div className="rounded-xl px-3 py-2.5 space-y-1.5" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--card-border)' }}>
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-xs" style={{ color: 'var(--text-main)' }}>
+                        {userMap.get(selectedBooking.userId)?.fullName}
+                      </span>
+                      <span className="font-mono text-[10px]" style={{ color: 'var(--text-faded)' }}>
+                        {selectedBooking.userId.slice(0, 8)}…
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-[11px] pt-1" style={{ borderTop: '1px solid var(--card-border)' }}>
+                      <span style={{ color: 'var(--text-faded)' }}>Email:</span>
+                      <span className="font-medium" style={{ color: 'var(--text-main)' }}>{userMap.get(selectedBooking.userId)?.email}</span>
+                    </div>
+                    <div className="flex justify-between text-[11px]">
+                      <span style={{ color: 'var(--text-faded)' }}>Số điện thoại:</span>
+                      <span className="font-medium" style={{ color: 'var(--text-main)' }}>{userMap.get(selectedBooking.userId)?.phone || '—'}</span>
+                    </div>
                   </div>
-                </div>
-              </div>
+                ) : (
+                  <ModalCopyValue text={selectedBooking.userId} onCopy={() => toast.success('Đã sao chép mã người dùng')} />
+                )}
+              </ModalField>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-slate-500 dark:text-slate-400 font-semibold">Khách hàng (User Details)</label>
-                <div className="bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2 text-slate-900 dark:text-white">
-                  {userMap.has(selectedBooking.userId) ? (
-                    <div className="flex flex-col gap-1">
-                      <div className="flex justify-between items-center py-0.5">
-                        <span className="font-semibold text-slate-900 dark:text-white text-xs">
-                          {userMap.get(selectedBooking.userId)?.fullName}
-                        </span>
-                        <span className="font-mono text-[10px] text-text-muted">
-                          {selectedBooking.userId.slice(0, 8)}…
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-[11px] py-0.5 border-t border-slate-100 dark:border-white/5 pt-1">
-                        <span className="text-slate-500 dark:text-slate-400">Email:</span>
-                        <span className="font-medium text-slate-850 dark:text-slate-200">{userMap.get(selectedBooking.userId)?.email}</span>
-                      </div>
-                      <div className="flex justify-between text-[11px] py-0.5">
-                        <span className="text-slate-500 dark:text-slate-400">Số điện thoại:</span>
-                        <span className="font-medium text-slate-850 dark:text-slate-200">{userMap.get(selectedBooking.userId)?.phone || '—'}</span>
-                      </div>
+              <ModalField label="Trạm & Trụ sạc">
+                {chargerStationMap.has(selectedBooking.chargerId) ? (
+                  <div className="rounded-xl px-3 py-2.5" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--card-border)' }}>
+                    <div className="font-semibold" style={{ color: 'var(--text-main)' }}>
+                      {chargerStationMap.get(selectedBooking.chargerId)?.stationName}
                     </div>
-                  ) : (
-                    <div className="flex items-center justify-between font-mono text-[11px]">
-                      <span className="truncate pr-2">{selectedBooking.userId}</span>
-                      <button 
-                        onClick={() => {
-                          navigator.clipboard.writeText(selectedBooking.userId);
-                          toast.success("Đã sao chép mã người dùng");
-                        }}
-                        className="text-cyan hover:text-cyan/85 shrink-0"
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                      </button>
+                    <div className="text-[11px] text-cyan flex items-center gap-1 mt-0.5">
+                      <Zap className="w-3 h-3 shrink-0" />
+                      {chargerStationMap.get(selectedBooking.chargerId)?.chargerCode}
                     </div>
-                  )}
-                </div>
-              </div>
+                  </div>
+                ) : (
+                  <ModalCopyValue text={selectedBooking.chargerId} onCopy={() => toast.success('Đã sao chép mã trụ sạc')} />
+                )}
+              </ModalField>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-slate-500 dark:text-slate-400 font-semibold">Trạm & Trụ sạc</label>
-                <div className="bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2">
-                  {chargerStationMap.has(selectedBooking.chargerId) ? (
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-semibold text-slate-900 dark:text-white">
-                        {chargerStationMap.get(selectedBooking.chargerId)?.stationName}
-                      </span>
-                      <span className="text-[11px] text-cyan flex items-center gap-1">
-                        <Zap className="w-3 h-3 text-cyan shrink-0" />
-                        {chargerStationMap.get(selectedBooking.chargerId)?.chargerCode}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between font-mono text-[11px] text-slate-900 dark:text-white">
-                      <span className="truncate pr-2">{selectedBooking.chargerId}</span>
-                      <button 
-                        onClick={() => {
-                          navigator.clipboard.writeText(selectedBooking.chargerId);
-                          toast.success("Đã sao chép mã trụ sạc");
-                        }}
-                        className="text-cyan hover:text-cyan/85 shrink-0"
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )}
-                </div>
+              <div className="grid grid-cols-2 gap-3">
+                <ModalField label="Thời gian bắt đầu">
+                  <ModalValue>{formatDate(selectedBooking.startTime, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</ModalValue>
+                </ModalField>
+                <ModalField label="Thời gian kết thúc">
+                  <ModalValue>{formatDate(selectedBooking.endTime, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</ModalValue>
+                </ModalField>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Thời gian bắt đầu</label>
-                  <div className="font-medium text-slate-900 dark:text-white">
-                    {formatDate(selectedBooking.startTime, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Thời gian kết thúc</label>
-                  <div className="font-medium text-slate-900 dark:text-white">
-                    {formatDate(selectedBooking.endTime, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
-                  </div>
-                </div>
+                <ModalField label="Thời lượng">
+                  <ModalValue className="text-cyan font-bold">{selectedBooking.durationMinutes} phút</ModalValue>
+                </ModalField>
+                <ModalField label="Tiền đặt cọc">
+                  <ModalValue className="text-success font-bold">{formatCurrency(Number(selectedBooking.depositAmount || 0))}</ModalValue>
+                </ModalField>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Thời lượng</label>
-                  <div className="font-bold text-cyan">
-                    {selectedBooking.durationMinutes} phút
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Tiền đặt cọc</label>
-                  <div className="font-bold text-success">
-                    {formatCurrency(Number(selectedBooking.depositAmount || 0))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-slate-500 dark:text-slate-400 font-semibold">Token kích hoạt QR</label>
-                <div className="font-mono text-[10px] break-all bg-slate-50 dark:bg-black/20 border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2 text-slate-900 dark:text-white/80 max-h-16 overflow-y-auto">
+              <ModalField label="Token kích hoạt QR">
+                <div className="font-mono text-[10px] break-all rounded-xl px-3 py-2 max-h-16 overflow-y-auto" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--card-border)', color: 'var(--text-faded)' }}>
                   {selectedBooking.qrToken || "Không có token (Chưa kích hoạt hoặc đã hoàn thành)"}
                 </div>
-              </div>
+              </ModalField>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
-              {isAdmin && ['pending', 'confirmed'].includes(selectedBooking.status.toLowerCase()) && (
+            <div className="flex justify-end gap-2 pt-4" style={{ borderTop: '1px solid var(--card-border)' }}>
+              {(isAdmin || user?.roles?.includes('staff')) && ['pending', 'confirmed'].includes(selectedBooking.status.toLowerCase()) && (
                 <button
                   type="button"
                   disabled={isCancelling}
                   onClick={() => handleCancelBooking(selectedBooking.id)}
-                  className="px-3.5 py-1.5 bg-danger/10 hover:bg-danger/25 border border-danger/20 text-danger text-xs font-semibold transition-colors rounded-xl flex items-center gap-1"
+                  className="px-3.5 py-1.5 text-xs font-semibold transition-colors rounded-xl flex items-center gap-1"
+                  style={{ background: 'rgba(239,68,68,0.12)', color: 'var(--brand-danger)', border: '1px solid rgba(239,68,68,0.25)' }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239,68,68,0.25)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(239,68,68,0.12)'}
                 >
                   <Trash2 className="w-3.5 h-3.5" /> Hủy đặt lịch
                 </button>
@@ -550,14 +479,17 @@ export default function BookingsPage() {
               <button
                 type="button"
                 onClick={() => setSelectedBooking(null)}
-                className="px-3.5 py-1.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white text-xs font-semibold transition-colors rounded-xl"
+                className="px-3.5 py-1.5 text-xs font-semibold transition-colors rounded-xl"
+                style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-main)', border: '1px solid var(--card-border)' }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
               >
                 Đóng
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </GlassModal>
     </div>
   );
 }

@@ -621,7 +621,7 @@ export default function MapPage() {
         <div 
           className={cn(
             "glass flex flex-col overflow-hidden transition-all duration-300 min-h-0", 
-            selectedStation ? "lg:col-span-1" : "lg:col-span-3"
+            selectedStation ? "lg:col-span-1" : "lg:col-span-3 w-full"
           )} 
         >
           {/* Staff GPS Checking Widget */}
@@ -687,6 +687,16 @@ export default function MapPage() {
           <div className="px-5 py-4 border-b border-white/5 shrink-0">
             <p className="font-semibold text-text-main text-sm">{t('dashboard:map.station_list')}</p>
           </div>
+          {!selectedStation && (
+            <div className="px-6 py-2 border-b border-white/5 text-[10px] font-bold uppercase tracking-wider text-text-muted shrink-0">
+              <div className="grid grid-cols-12 gap-4">
+                <div className="col-span-5 text-center">Trạm sạc</div>
+                <div className="col-span-4 text-center">Địa chỉ</div>
+                <div className="col-span-1 text-center">Số trụ</div>
+                <div className="col-span-2 text-center">Trạng thái</div>
+              </div>
+            </div>
+          )}
           <div className="flex-1 overflow-y-auto min-h-0">
             {isLoading ? (
               <div className="flex flex-col gap-2 p-4">
@@ -707,33 +717,50 @@ export default function MapPage() {
                       onClick={() => setSelectedStation(s)}
                       className={cn(
                         "px-4 py-3.5 transition-colors cursor-pointer border-l-[3px] relative",
+                        !selectedStation && "px-6 py-5",
                         isSelected
                           ? "bg-gradient-to-r from-cyan/[0.08] to-transparent border-cyan shadow-[inset_0_0_20px_-10px_rgba(16,191,201,0.15)]"
                           : "border-transparent hover:bg-white/5"
                       )}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex items-center gap-2">
-                          {isSelected && (
-                            <CheckCircle2 className="w-4 h-4 text-cyan shrink-0" />
-                          )}
-                          <div>
-                            <p className={cn("text-sm font-medium truncate", isSelected ? "text-cyan" : "text-text-main")}>
-                              {s.name}
-                            </p>
-                            <p className="text-text-muted text-xs truncate mt-0.5">{s.address}</p>
+                      {!selectedStation ? (
+                        <div className="grid grid-cols-12 gap-4 items-center">
+                          <div className="col-span-5 flex items-center gap-3 min-w-0">
+                            <div className="w-10 h-10 rounded-xl bg-cyan/10 border border-cyan/20 flex items-center justify-center shrink-0">
+                              <Zap className="w-5 h-5 text-cyan" />
+                            </div>
+                            <p className="text-sm font-medium text-text-main truncate text-left">{s.name}</p>
                           </div>
+                          <div className="col-span-4 text-text-muted text-xs truncate text-left">{s.address}</div>
+                          <div className="col-span-1 text-xs text-text-muted text-right">{t('dashboard:map.chargers_available', { available: s.availableChargers, total: s.totalChargers })}</div>
+                          <div className="col-span-2 text-left"><span className={`badge ${statusObj.cls}`}>{statusObj.label}</span></div>
                         </div>
-                        <span className={`badge ${statusObj.cls} shrink-0`}>
-                          {statusObj.label}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-4 mt-2">
-                        <div className="flex items-center gap-1.5 text-xs text-text-muted">
-                          {s.availableChargers > 0 ? <Wifi className="w-3.5 h-3.5 text-success" /> : <WifiOff className="w-3.5 h-3.5 text-danger" />}
-                          {t('dashboard:map.chargers_available', { available: s.availableChargers, total: s.totalChargers })}
-                        </div>
-                      </div>
+                      ) : (
+                        <>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex items-center gap-2">
+                              {isSelected && (
+                                <CheckCircle2 className="w-4 h-4 text-cyan shrink-0" />
+                              )}
+                              <div>
+                                <p className={cn("text-sm font-medium truncate", isSelected ? "text-cyan" : "text-text-main")}>
+                                  {s.name}
+                                </p>
+                                <p className="text-text-muted text-xs truncate mt-0.5">{s.address}</p>
+                              </div>
+                            </div>
+                            <span className={`badge ${statusObj.cls} shrink-0`}>
+                              {statusObj.label}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-4 mt-2">
+                            <div className="flex items-center gap-1.5 text-xs text-text-muted">
+                              {s.availableChargers > 0 ? <Wifi className="w-3.5 h-3.5 text-success" /> : <WifiOff className="w-3.5 h-3.5 text-danger" />}
+                              {t('dashboard:map.chargers_available', { available: s.availableChargers, total: s.totalChargers })}
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </motion.div>
                   );
                 })}

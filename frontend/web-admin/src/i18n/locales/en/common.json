@@ -4,11 +4,12 @@
   },
   "nav": {
     "dashboard": "Dashboard",
-    "map": "Map View",
+    "map": "Stations",
     "sessions": "Sessions",
     "bookings": "Bookings",
     "billing": "Billing",
     "staff": "Staff",
+    "users": "Users",
     "notifications": "Notifications",
     "maintenance": "Maintenance",
     "analytics": "Analytics",
