@@ -30,6 +30,8 @@ export class StaffController {
     private readonly attendanceRepo: Repository<AttendanceOrmEntity>,
     @InjectRepository(UsersCacheOrmEntity)
     private readonly usersCacheRepo: Repository<UsersCacheOrmEntity>,
+    @InjectRepository(UserOrmEntity)
+    private readonly userRepo: Repository<UserOrmEntity>,
   ) {}
 
   /**
@@ -39,6 +41,83 @@ export class StaffController {
   @Get('users')
   @Roles('admin')
   async listUsers(@Query('limit') limit?: string, @Query('offset') offset?: string) {
+    try {
+      // 1. Fetch all master users and their first role name in one single query
+      const masterUsers: Array<{
+        userId: string;
+        email: string;
+        fullName: string;
+        phone: string | null;
+        status: string;
+        emailVerified: boolean;
+        roleName: string | null;
+      }> = await this.userRepo.query(`
+        SELECT 
+          u.id AS "userId", 
+          u.email, 
+          u.full_name AS "fullName", 
+          u.phone, 
+          u.status, 
+          u.email_verified AS "emailVerified",
+          r.name AS "roleName"
+        FROM users u
+        LEFT JOIN (
+          SELECT DISTINCT ON (user_id) user_id, role_id FROM user_roles ORDER BY user_id, assigned_at DESC
+        ) ur ON u.id = ur.user_id
+        LEFT JOIN roles r ON ur.role_id = r.id
+      `);
+
+      // 2. Fetch all cache records
+      const cacheRecords = await this.usersCacheRepo.find();
+      const cacheMap = new Map(cacheRecords.map(c => [c.userId, c]));
+
+      const toSave: UsersCacheOrmEntity[] = [];
+
+      for (const mu of masterUsers) {
+        const roleName = mu.roleName || 'user';
+        const cached = cacheMap.get(mu.userId);
+
+        if (!cached) {
+          const newCache = this.usersCacheRepo.create({
+            userId: mu.userId,
+            email: mu.email,
+            fullName: mu.fullName,
+            phone: mu.phone,
+            roleName: roleName,
+            status: mu.status,
+            emailVerified: mu.emailVerified,
+            hasOutstandingDebt: false,
+            arrearsAmount: 0,
+            syncedAt: new Date()
+          });
+          toSave.push(newCache);
+        } else {
+          const needsUpdate = 
+            cached.roleName !== roleName ||
+            cached.status !== mu.status ||
+            cached.fullName !== mu.fullName ||
+            cached.phone !== mu.phone ||
+            cached.emailVerified !== mu.emailVerified;
+
+          if (needsUpdate) {
+            cached.roleName = roleName;
+            cached.status = mu.status;
+            cached.fullName = mu.fullName;
+            cached.phone = mu.phone;
+            cached.emailVerified = mu.emailVerified;
+            cached.syncedAt = new Date();
+            toSave.push(cached);
+          }
+        }
+      }
+
+      if (toSave.length > 0) {
+        await this.usersCacheRepo.save(toSave);
+      }
+    } catch (err) {
+      console.warn('Failed to sync users cache with master table on-the-fly:', err);
+    }
+
     const limitNum = limit ? parseInt(limit, 10) : 1000;
     const offsetNum = offset ? parseInt(offset, 10) : 0;
     const [items, total] = await this.usersCacheRepo.findAndCount({
