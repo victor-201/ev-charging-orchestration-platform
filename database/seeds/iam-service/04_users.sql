@@ -753,7 +753,7 @@ INSERT INTO users (id, email, full_name, phone, date_of_birth, password_hash, st
   ('22222222-0000-4000-8000-000000000239', 'hoaihoa6@gmail.com', 'Lê Hoài Hoa', '0849933145', '1998-07-11', '$2b$10$VPk42B6xgQO4n4zTx5Aiae0xXMhk7plrPwLNB0OMj6nq33u8v3TGG', 'active', true, false, 0),
   ('22222222-0000-4000-8000-000000000240', 'hoaiphuc6@gmail.com', 'Phạm Hoài Phúc', '0887110312', '1999-08-12', '$2b$10$VPk42B6xgQO4n4zTx5Aiae0xXMhk7plrPwLNB0OMj6nq33u8v3TGG', 'active', true, false, 0),
   ('22222222-0000-4000-8000-000000000241', 'hoaithinh6@gmail.com', 'Hoàng Hoài Thịnh', '0823506882', '1990-09-13', '$2b$10$VPk42B6xgQO4n4zTx5Aiae0xXMhk7plrPwLNB0OMj6nq33u8v3TGG', 'active', true, false, 0),
-  ('22222222-0000-4000-8000-000000000242', 'nhuquyen6@gmail.com', 'Huỳnh Như Quyên', '0873896940', '1991-10-14', '$2b$10$VPk42B6xgQO4n4zTx5Aiae0xXMhk7plrPwLNB0OMj6nq33u8v3TGG', 'active', true, false, 0),
+  ('22222222-0000-4000-8000-000000000242', 'minhmanh@gmail.com', 'Huỳnh Minh Mạnh', '0873896940', '1991-10-14', '$2b$10$VPk42B6xgQO4n4zTx5Aiae0xXMhk7plrPwLNB0OMj6nq33u8v3TGG', 'active', true, false, 0),
   ('22222222-0000-4000-8000-000000000243', 'nhutam6@gmail.com', 'Phan Như Tâm', '0888008660', '1992-11-15', '$2b$10$VPk42B6xgQO4n4zTx5Aiae0xXMhk7plrPwLNB0OMj6nq33u8v3TGG', 'active', true, false, 0),
   ('22222222-0000-4000-8000-000000000244', 'nhuhoa6@gmail.com', 'Vũ Như Hoa', '0830270170', '1993-12-16', '$2b$10$VPk42B6xgQO4n4zTx5Aiae0xXMhk7plrPwLNB0OMj6nq33u8v3TGG', 'active', true, false, 0),
   ('22222222-0000-4000-8000-000000000245', 'nhuthinh6@gmail.com', 'Võ Như Thịnh', '0824015045', '1994-01-17', '$2b$10$VPk42B6xgQO4n4zTx5Aiae0xXMhk7plrPwLNB0OMj6nq33u8v3TGG', 'active', true, false, 0),

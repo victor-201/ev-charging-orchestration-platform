@@ -753,7 +753,7 @@ INSERT INTO users_cache (user_id, email, full_name, phone, role_name, status, em
   ('22222222-0000-4000-8000-000000000239', 'hoaihoa6@gmail.com', 'Lê Hoài Hoa', '0849933145', 'user', 'active', true, false, 0),
   ('22222222-0000-4000-8000-000000000240', 'hoaiphuc6@gmail.com', 'Phạm Hoài Phúc', '0887110312', 'user', 'active', true, false, 0),
   ('22222222-0000-4000-8000-000000000241', 'hoaithinh6@gmail.com', 'Hoàng Hoài Thịnh', '0823506882', 'user', 'active', true, false, 0),
-  ('22222222-0000-4000-8000-000000000242', 'nhuquyen6@gmail.com', 'Huỳnh Như Quyên', '0873896940', 'user', 'active', true, false, 0),
+  ('22222222-0000-4000-8000-000000000242', 'minhmanh@gmail.com', 'Huỳnh Minh Mạnh', '0873896940', 'user', 'active', true, false, 0),
   ('22222222-0000-4000-8000-000000000243', 'nhutam6@gmail.com', 'Phan Như Tâm', '0888008660', 'user', 'active', true, false, 0),
   ('22222222-0000-4000-8000-000000000244', 'nhuhoa6@gmail.com', 'Vũ Như Hoa', '0830270170', 'user', 'active', true, false, 0),
   ('22222222-0000-4000-8000-000000000245', 'nhuthinh6@gmail.com', 'Võ Như Thịnh', '0824015045', 'user', 'active', true, false, 0),
