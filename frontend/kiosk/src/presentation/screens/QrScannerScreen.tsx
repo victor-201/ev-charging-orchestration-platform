@@ -13,7 +13,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Html5QrcodeScanner, Html5QrcodeScanType } from "html5-qrcode";
+import { Html5Qrcode } from "html5-qrcode";
 import { QrCode, CheckCircle, XCircle, RotateCcw, Smartphone } from "lucide-react";
 
 interface QrScannerScreenProps {
@@ -28,7 +28,11 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
-    const payload = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
+    let base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    while (base64.length % 4) {
+      base64 += "=";
+    }
+    const payload = atob(base64);
     return JSON.parse(payload);
   } catch {
     return null;
@@ -40,7 +44,7 @@ const QrScannerScreen: React.FC<QrScannerScreenProps> = ({
   onCancel,
 }) => {
   const scannerContainerId = "kiosk-qr-scanner";
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
   const [scanState, setScanState] = useState<ScanState>("SCANNING");
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [scannedData, setScannedData] = useState<{
@@ -48,17 +52,37 @@ const QrScannerScreen: React.FC<QrScannerScreenProps> = ({
     qrToken: string;
   } | null>(null);
 
+  const scanStateRef = useRef<ScanState>(scanState);
+  scanStateRef.current = scanState;
+
+  const onScanSuccessRef = useRef(onScanSuccess);
+  onScanSuccessRef.current = onScanSuccess;
+
   const handleScanSuccess = useCallback(
     (decodedText: string) => {
-      if (scanState !== "SCANNING") return;
+      if (scanStateRef.current !== "SCANNING") return;
 
       // Stop scanner immediately
-      scannerRef.current?.clear().catch(() => {});
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        scannerRef.current.stop().catch((err) => {
+          console.error("Failed to stop scanner on success:", err);
+        });
+      }
 
-      // The QR in the user's app contains the raw JWT token (qrToken)
       const rawToken = decodedText.trim();
 
-      // Attempt to decode payload to extract bookingId
+      // 1. Check standard non-JWT format (EV-XXXX-XXXX)
+      if (rawToken.startsWith("EV-") || !rawToken.includes(".")) {
+        setScanState("SUCCESS");
+        setScannedData({ bookingId: "Đặt lịch", qrToken: rawToken });
+
+        setTimeout(() => {
+          onScanSuccessRef.current("", rawToken);
+        }, 1200);
+        return;
+      }
+
+      // 2. Legacy/Fallback check: attempt to decode payload to extract bookingId
       const payload = decodeJwtPayload(rawToken);
 
       if (!payload || typeof payload.bookingId !== "string") {
@@ -75,37 +99,63 @@ const QrScannerScreen: React.FC<QrScannerScreenProps> = ({
 
       // Slight delay for success animation, then start session
       setTimeout(() => {
-        onScanSuccess(bookingId, rawToken);
+        onScanSuccessRef.current(bookingId, rawToken);
       }, 1200);
     },
-    [scanState, onScanSuccess]
+    []
   );
 
   useEffect(() => {
-    const scanner = new Html5QrcodeScanner(
-      scannerContainerId,
-      {
-        fps: 10,
-        qrbox: { width: 320, height: 320 },
-        supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
-        rememberLastUsedCamera: true,
-        showTorchButtonIfSupported: true,
-        aspectRatio: 1.0,
-      },
-      false // verbose
-    );
+    const html5QrCode = new Html5Qrcode(scannerContainerId);
+    scannerRef.current = html5QrCode;
+    let isMounted = true;
 
-    scanner.render(handleScanSuccess, (errorMsg) => {
-      // Suppress continuous "No QR code" errors — they are expected
-      if (!errorMsg.includes("No MultiFormat Readers")) {
-        console.debug("[KioskQR] scan error:", errorMsg);
+    const startScanner = async () => {
+      try {
+        const devices = await Html5Qrcode.getCameras();
+        if (!isMounted) return;
+
+        let cameraConfig: string | MediaTrackConstraints;
+        if (devices && devices.length > 0) {
+          cameraConfig = devices[0].id;
+        } else {
+          cameraConfig = { facingMode: "environment" };
+        }
+
+        await html5QrCode.start(
+          cameraConfig,
+          {
+            fps: 10,
+            qrbox: { width: 320, height: 320 },
+            aspectRatio: 1.0,
+          },
+          handleScanSuccess,
+          (errorMsg) => {
+            if (!errorMsg.includes("No MultiFormat Readers")) {
+              console.debug("[KioskQR] scan error:", errorMsg);
+            }
+          }
+        );
+      } catch (err) {
+        console.error("Failed to start scanner:", err);
+        if (isMounted) {
+          setScanState("ERROR");
+          setErrorMsg(
+            "Không thể truy cập camera. Vui lòng kiểm tra kết nối thiết bị và cấp quyền truy cập camera."
+          );
+        }
       }
-    });
+    };
 
-    scannerRef.current = scanner;
+    startScanner();
 
     return () => {
-      scanner.clear().catch(() => {});
+      isMounted = false;
+      if (html5QrCode.isScanning) {
+        html5QrCode.stop().catch((err) => {
+          console.error("Failed to stop scanner on cleanup:", err);
+        });
+      }
     };
   }, [handleScanSuccess]);
 
@@ -113,22 +163,55 @@ const QrScannerScreen: React.FC<QrScannerScreenProps> = ({
     setScanState("SCANNING");
     setErrorMsg("");
     setScannedData(null);
-    // Re-render scanner
-    scannerRef.current?.clear().catch(() => {});
-    const scanner = new Html5QrcodeScanner(
-      scannerContainerId,
-      {
-        fps: 10,
-        qrbox: { width: 320, height: 320 },
-        supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
-        rememberLastUsedCamera: true,
-        showTorchButtonIfSupported: true,
-        aspectRatio: 1.0,
-      },
-      false
-    );
-    scanner.render(handleScanSuccess, () => {});
-    scannerRef.current = scanner;
+
+    const restartScanner = async () => {
+      if (scannerRef.current) {
+        if (scannerRef.current.isScanning) {
+          try {
+            await scannerRef.current.stop();
+          } catch (e) {}
+        }
+        try {
+          scannerRef.current.clear();
+        } catch (e) {}
+      }
+
+      const html5QrCode = new Html5Qrcode(scannerContainerId);
+      scannerRef.current = html5QrCode;
+
+      try {
+        const devices = await Html5Qrcode.getCameras();
+        let cameraConfig: string | MediaTrackConstraints;
+        if (devices && devices.length > 0) {
+          cameraConfig = devices[0].id;
+        } else {
+          cameraConfig = { facingMode: "environment" };
+        }
+
+        await html5QrCode.start(
+          cameraConfig,
+          {
+            fps: 10,
+            qrbox: { width: 320, height: 320 },
+            aspectRatio: 1.0,
+          },
+          handleScanSuccess,
+          (errorMsg) => {
+            if (!errorMsg.includes("No MultiFormat Readers")) {
+              console.debug("[KioskQR] scan error:", errorMsg);
+            }
+          }
+        );
+      } catch (err) {
+        console.error("Failed to restart scanner:", err);
+        setScanState("ERROR");
+        setErrorMsg(
+          "Không thể truy cập camera. Vui lòng kiểm tra kết nối thiết bị và cấp quyền truy cập camera."
+        );
+      }
+    };
+
+    restartScanner();
   };
 
   return (

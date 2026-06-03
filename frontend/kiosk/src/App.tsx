@@ -212,6 +212,7 @@ const App: React.FC = () => {
         {status === "RESERVED" && (
           <BookingConfirmationScreen 
             key="reserved" 
+            onScanSuccess={startBookingSession}
             onCancel={resetSession}
           />
         )}

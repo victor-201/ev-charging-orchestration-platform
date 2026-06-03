@@ -155,7 +155,7 @@ export const useSessionStateMachine = (): StateMachineReturn => {
    * Kiosk sends: POST /charging/start { chargerId, bookingId, qrToken } with kiosk JWT.
    */
   const startBookingSession = useCallback(async (bookingId: string, qrToken: string) => {
-    if (status !== 'SCAN_QR') return;
+    if (status !== 'SCAN_QR' && status !== 'RESERVED') return;
     setErrorMessage(null);
 
     if (!CHARGER_ID) {
