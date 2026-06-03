@@ -174,12 +174,14 @@ export class StartSessionUseCase {
         );
       }
 
+      const startSocPercent = ChargingSession.generateStartSoc();
       const session = ChargingSession.create({
-        userId:       cmd.userId,
-        chargerId:    cmd.chargerId,
-        bookingId:    cmd.bookingId,
-        startMeterWh: cmd.startMeterWh ?? 0,
-        initiatedBy:  'user',
+        userId:         cmd.userId,
+        chargerId:      cmd.chargerId,
+        bookingId:      cmd.bookingId,
+        startMeterWh:   cmd.startMeterWh ?? 0,
+        startSocPercent,
+        initiatedBy:    'user',
       });
       session.activate();
 
@@ -210,6 +212,7 @@ export class StartSessionUseCase {
         userId:                session.userId,
         chargerId:             session.chargerId,
         bookingId:             session.bookingId,
+        startSocPercent:       session.startSocPercent,
         startMeterWh:          session.startMeterWh,
         status:                session.status,
         startTime:             session.startTime,
@@ -415,13 +418,14 @@ export class StopSessionUseCase {
 
   private entityToDomain(e: SessionOrmEntity): ChargingSession {
     return ChargingSession.reconstitute({
-      id:           e.id,
-      userId:       e.userId,
-      chargerId:    e.chargerId,
-      bookingId:    e.bookingId,
-      initiatedBy:  (e.initiatedBy ?? 'user') as any,
-      startMeterWh: Number(e.startMeterWh),
-      status:       e.status as any,
+      id:              e.id,
+      userId:          e.userId,
+      chargerId:       e.chargerId,
+      bookingId:       e.bookingId,
+      initiatedBy:     (e.initiatedBy ?? 'user') as any,
+      startSocPercent: e.startSocPercent !== null ? Number(e.startSocPercent) : null,
+      startMeterWh:    Number(e.startMeterWh),
+      status:          e.status as any,
       startTime:    e.startTime,
       endTime:      e.endTime,
       endMeterWh:   e.endMeterWh !== null ? Number(e.endMeterWh) : null,
@@ -462,8 +466,18 @@ export class RecordTelemetryUseCase {
     voltage?:      number;
     currentA?:     number;
   }): Promise<TelemetryOrmEntity> {
-    // Validate via VO
     const reading = new TelemetryReading(data);
+
+    const sessionOrm = await this.sessionRepo.findOneBy({ id: sessionId });
+
+    let estimatedSoc = reading.socPercent;
+    if (estimatedSoc === null && sessionOrm?.startSocPercent != null && reading.meterWh != null) {
+      const energyDeltaWh = reading.meterWh - Number(sessionOrm.startMeterWh);
+      const batteryCapacityWh = Number(process.env.ESTIMATED_BATTERY_CAPACITY_WH || 60_000);
+      estimatedSoc = Math.min(100, Math.max(0,
+        Math.round(sessionOrm.startSocPercent + (energyDeltaWh / batteryCapacityWh) * 100)
+      ));
+    }
 
     // Persist telemetry
     const entry = this.telemetryRepo.create({
@@ -471,22 +485,25 @@ export class RecordTelemetryUseCase {
       sessionId,
       powerKw:      reading.powerKw,
       meterWh:      reading.meterWh,
-      socPercent:   reading.socPercent,
+      voltageV:     reading.voltage,
+      currentA:     reading.currentA,
+      socPercent:   estimatedSoc,
       temperatureC: reading.temperatureC,
       errorCode:    reading.errorCode,
     });
     await this.telemetryRepo.save(entry);
 
-    // Get chargerId to build event (needed for realtime routing)
-    const session = await this.sessionRepo.findOneBy({ id: sessionId });
-
     // Emit telemetry event (realtime gateway picks this up via outbox publisher)
     const event = new SessionTelemetryEvent(
       sessionId,
-      session?.chargerId ?? 'unknown',
+      sessionOrm?.userId ?? 'unknown',
+      sessionOrm?.chargerId ?? 'unknown',
       reading.powerKw,
       reading.meterWh,
-      reading.socPercent,
+      estimatedSoc,
+      reading.voltage,
+      reading.currentA,
+      reading.temperatureC,
       reading.recordedAt,
     );
     await this.outboxRepo.save(

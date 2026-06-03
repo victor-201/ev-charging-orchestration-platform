@@ -11,6 +11,7 @@ import {
   ProcessedEventOrmEntity,
 } from '../../infrastructure/persistence/typeorm/entities/session.orm-entities';
 import { ChargerReadModelOrmEntity } from '../../infrastructure/persistence/typeorm/entities/booking.orm-entities';
+import { ChargingSession } from '../../domain/entities/charging-session.aggregate';
 import { EntityManager } from 'typeorm';
 
 // Outbox helper (local copy)
@@ -125,12 +126,14 @@ export class AutoChargeUseCase {
 
       const sessionId = uuidv4();
       const now = new Date();
+      const startSocPercent = ChargingSession.generateStartSoc();
 
       await mgr.save(SessionOrmEntity, {
         id:                   sessionId,
         userId,
         chargerId:            payload.chargerId,
         bookingId:            null,
+        startSocPercent,
         startMeterWh:         payload.meterStart,
         status:               'active',
         startTime:            new Date(payload.timestamp),

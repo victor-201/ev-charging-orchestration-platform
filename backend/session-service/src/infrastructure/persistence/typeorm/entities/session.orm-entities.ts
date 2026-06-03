@@ -28,6 +28,9 @@ export class SessionOrmEntity {
   @Column({ name: 'end_time', type: 'timestamptz', nullable: true })
   endTime: Date | null;
 
+  @Column({ name: 'start_soc_percent', type: 'smallint', nullable: true })
+  startSocPercent: number | null;
+
   @Column({ name: 'start_meter_wh', type: 'bigint', default: 0 })
   startMeterWh: number;
 

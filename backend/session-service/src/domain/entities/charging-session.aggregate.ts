@@ -53,6 +53,7 @@ export class ChargingSession {
   readonly bookingId: string | null;
   readonly initiatedBy: SessionInitiator;
   readonly startMeterWh: number;
+  readonly startSocPercent: number | null;
   readonly createdAt: Date;
   readonly idempotencyKey: string | null;
 
@@ -77,6 +78,7 @@ export class ChargingSession {
     bookingId: string | null;
     initiatedBy: SessionInitiator;
     startMeterWh: number;
+    startSocPercent?: number | null;
     idempotencyKey?: string | null;
     status: SessionStatus;
     startTime: Date;
@@ -93,6 +95,7 @@ export class ChargingSession {
     this.bookingId       = props.bookingId;
     this.initiatedBy     = props.initiatedBy;
     this.startMeterWh    = props.startMeterWh;
+    this.startSocPercent = props.startSocPercent ?? null;
     this.idempotencyKey  = props.idempotencyKey ?? null;
     this._status         = props.status;
     this._startTime      = props.startTime;
@@ -107,32 +110,45 @@ export class ChargingSession {
     this._updatedAt      = props.updatedAt;
   }
 
+  /**
+   * Generates a realistic starting SOC using weighted random distribution.
+   * Most EVs charge when battery is between 10-60%. Mean ~35%, clamp 5-80%.
+   */
+  static generateStartSoc(): number {
+    const u1 = Math.random();
+    const u2 = Math.random();
+    const normal = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+    return Math.min(80, Math.max(5, Math.round(35 + normal * 15)));
+  }
+
   /** Factory: create new session - status = INIT */
   static create(props: {
     userId: string;
     chargerId: string;
     bookingId?: string;
     startMeterWh?: number;
+    startSocPercent?: number;
     initiatedBy?: SessionInitiator;
     idempotencyKey?: string;
   }): ChargingSession {
     const now = new Date();
     return new ChargingSession({
-      id:             crypto.randomUUID(),
-      userId:         props.userId,
-      chargerId:      props.chargerId,
-      bookingId:      props.bookingId ?? null,
-      initiatedBy:    props.initiatedBy ?? 'user',
-      startMeterWh:   props.startMeterWh ?? 0,
-      idempotencyKey: props.idempotencyKey ?? null,
-      status:         'init',
-      startTime:      now,
-      endTime:        null,
-      endMeterWh:     null,
-      errorReason:    null,
-      billedAt:       null,
-      createdAt:      now,
-      updatedAt:      now,
+      id:              crypto.randomUUID(),
+      userId:          props.userId,
+      chargerId:       props.chargerId,
+      bookingId:       props.bookingId ?? null,
+      initiatedBy:     props.initiatedBy ?? 'user',
+      startMeterWh:    props.startMeterWh ?? 0,
+      startSocPercent: props.startSocPercent ?? ChargingSession.generateStartSoc(),
+      idempotencyKey:  props.idempotencyKey ?? null,
+      status:          'init',
+      startTime:       now,
+      endTime:         null,
+      endMeterWh:      null,
+      errorReason:     null,
+      billedAt:        null,
+      createdAt:       now,
+      updatedAt:       now,
     });
   }
 
@@ -143,6 +159,7 @@ export class ChargingSession {
     bookingId: string | null;
     initiatedBy: SessionInitiator;
     startMeterWh: number;
+    startSocPercent?: number | null;
     idempotencyKey?: string | null;
     status: SessionStatus;
     startTime: Date;

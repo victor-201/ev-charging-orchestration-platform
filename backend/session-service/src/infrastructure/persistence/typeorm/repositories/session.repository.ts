@@ -117,6 +117,7 @@ export class SessionRepository implements ISessionRepository {
     e.chargerId          = s.chargerId;
     e.bookingId          = s.bookingId;
     e.initiatedBy        = s.initiatedBy;
+    e.startSocPercent    = s.startSocPercent;
     e.startMeterWh       = s.startMeterWh;
     e.status             = s.status;
     e.startTime          = s.startTime;
@@ -141,6 +142,7 @@ export class SessionRepository implements ISessionRepository {
       chargerId:       e.chargerId,
       bookingId:       e.bookingId,
       initiatedBy:     (e.initiatedBy ?? 'user') as SessionInitiator,
+      startSocPercent: e.startSocPercent !== null ? Number(e.startSocPercent) : null,
       startMeterWh:    Number(e.startMeterWh),
       idempotencyKey:  e.idempotencyKey ?? null,
       status:          e.status as SessionStatus,
