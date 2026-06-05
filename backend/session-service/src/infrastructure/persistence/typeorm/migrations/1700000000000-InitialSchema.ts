@@ -1,10 +1,10 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class InitialSchema1700000000000 implements MigrationInterface {
-  name = 'InitialSchema1700000000000';
+    name = 'InitialSchema1700000000000';
 
-  public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`
+    public async up(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TYPE bookings_status_enum AS ENUM ('pending', 'pending_payment', 'confirmed', 'cancelled', 'completed', 'expired', 'no_show');
@@ -117,6 +117,7 @@ CREATE TABLE charging_sessions (
     charger_id UUID NOT NULL,
     start_time TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     end_time TIMESTAMPTZ,
+    start_soc_percent SMALLINT,
     start_meter_wh BIGINT NOT NULL DEFAULT 0,
     end_meter_wh BIGINT,
     status charging_sessions_status_enum NOT NULL DEFAULT 'init',
@@ -168,6 +169,14 @@ CREATE TABLE charger_read_models (
     synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE connector_read_models (
+    connector_id UUID PRIMARY KEY,
+    charger_id UUID NOT NULL,
+    connector_type VARCHAR(20) NOT NULL,
+    max_power_kw NUMERIC(8, 2),
+    synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE vehicle_read_models (
     vehicle_id UUID PRIMARY KEY,
     owner_id UUID NOT NULL,
@@ -186,6 +195,14 @@ CREATE TABLE user_debt_read_models (
 );
 
 CREATE INDEX idx_debt_outstanding ON user_debt_read_models (has_outstanding_debt) WHERE has_outstanding_debt = true;
+
+CREATE TABLE user_read_models (
+    user_id UUID PRIMARY KEY,
+    email VARCHAR(255) NOT NULL,
+    full_name VARCHAR(100),
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 CREATE TABLE booking_read_models (
     booking_id UUID PRIMARY KEY,
@@ -229,9 +246,9 @@ CREATE TABLE processed_events (
 );
 
     `);
-  }
+    }
 
-  public async down(queryRunner: QueryRunner): Promise<void> {
-    // Revert schema
-  }
+    public async down(queryRunner: QueryRunner): Promise<void> {
+        // Revert schema
+    }
 }
