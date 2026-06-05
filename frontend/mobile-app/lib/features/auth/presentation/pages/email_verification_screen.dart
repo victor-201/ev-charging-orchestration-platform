@@ -108,11 +108,11 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               // Icon animation
-                  ScaleTransition(
+                   ScaleTransition(
                     scale: _pulseAnimation,
                     child: Container(
-                      width: 96,
-                      height: 96,
+                      width: 72,
+                      height: 72,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
@@ -131,7 +131,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                       child: const Icon(
                         Icons.mark_email_unread_outlined,
                         color: AppColors.primary,
-                        size: 48,
+                        size: 36,
                       ),
                     ),
                   ),
@@ -140,19 +140,20 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                   // Title
                   Text(
                     'Xác thực Email',
-                    style: AppTypography.displayMd.copyWith(
+                    style: AppTypography.headingLg.copyWith(
                       color: Theme.of(context).colorScheme.onSurface,
                       fontWeight: FontWeight.w700,
+                      fontSize: 22,
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: AppSpacing.sm),
+                  const SizedBox(height: AppSpacing.xs),
 
                   // Subtitle
                   RichText(
                     textAlign: TextAlign.center,
                     text: TextSpan(
-                      style: AppTypography.bodyMd.copyWith(
+                      style: AppTypography.caption.copyWith(
                         color: AppColors.grey600,
                         height: 1.5,
                       ),
@@ -160,7 +161,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                         const TextSpan(text: 'Chúng tôi đã gửi link xác thực đến\n'),
                         TextSpan(
                           text: widget.email,
-                          style: AppTypography.bodyMd.copyWith(
+                          style: AppTypography.caption.copyWith(
                             color: AppColors.primary,
                             fontWeight: FontWeight.w600,
                           ),
@@ -232,8 +233,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                   const SizedBox(height: AppSpacing.lg),
 
                   // Resend button
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text(
                         'Không nhận được email? ',

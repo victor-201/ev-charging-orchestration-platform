@@ -21,6 +21,7 @@ export default function SettingsPage() {
   const { t, i18n } = useTranslation(['dashboard', 'common']);
 
   const isAdmin = user?.roles?.includes('admin');
+  const isStaff = user?.roles?.includes('staff');
 
   if (isCheckingAuth) {
     return (
@@ -30,13 +31,13 @@ export default function SettingsPage() {
     );
   }
 
-  if (!isAdmin) {
+  if (!isAdmin && !isStaff) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
         <ShieldAlert className="w-16 h-16 text-danger animate-pulse" />
         <h2 className="text-xl font-bold text-text-main">Không có quyền truy cập</h2>
         <p className="text-text-muted text-sm max-w-sm text-center">
-          Bạn không có quyền quản trị để xem trang này. Vui lòng liên hệ với quản trị viên hệ thống để biết thêm chi tiết.
+          Bạn không có quyền truy cập để xem trang này. Vui lòng liên hệ với quản trị viên hệ thống.
         </p>
       </div>
     );

@@ -13,6 +13,8 @@ export interface StationFilter {
   radiusKm?: number;
   search?: string;        // full-text search: name ILIKE OR address ILIKE
   connectorType?: string; // filter stations that have at least one connector of this type
+  ids?: string[];         // batch lookup: return only stations with these IDs
+  chargerIds?: string[];  // batch lookup: return stations containing any of these charger IDs
   limit?: number;
   offset?: number;
 }

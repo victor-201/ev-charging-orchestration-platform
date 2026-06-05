@@ -398,6 +398,8 @@ export class DashboardUseCase {
       this.kpiRepo.findOne({ where: {}, order: { capturedAt: 'DESC' } }),
 
       // Top 5 stations by total sessions (last 30 days)
+      // Uses CURRENT_DATE as the anchor so all stations with recent data appear,
+      // not just those matching the single most-recent row in the table.
       this.ds.query(`
         SELECT
           station_id,
@@ -406,7 +408,7 @@ export class DashboardUseCase {
           SUM(total_revenue_vnd) AS total_revenue_vnd,
           COALESCE(AVG(utilization_rate), 0) * 100 AS utilization_rate
         FROM daily_station_metrics
-        WHERE metric_date >= (SELECT COALESCE(MAX(metric_date), CURRENT_DATE) FROM daily_station_metrics) - INTERVAL '30 days'
+        WHERE metric_date >= CURRENT_DATE - INTERVAL '30 days'
         GROUP BY station_id
         ORDER BY total_sessions DESC
         LIMIT 5
@@ -422,7 +424,7 @@ export class DashboardUseCase {
           SUM(total_revenue_vnd) AS revenue_vnd,
           SUM(total_sessions)    AS sessions
         FROM daily_station_metrics
-        WHERE metric_date >= (SELECT COALESCE(MAX(metric_date), CURRENT_DATE) FROM daily_station_metrics) - INTERVAL '30 days'
+        WHERE metric_date >= CURRENT_DATE - INTERVAL '30 days'
         GROUP BY metric_date
         ORDER BY metric_date ASC
       `),
@@ -431,7 +433,7 @@ export class DashboardUseCase {
       this.ds.query(`
         SELECT COUNT(DISTINCT user_id) AS cnt
         FROM daily_user_metrics
-        WHERE metric_date >= (SELECT COALESCE(MAX(metric_date), CURRENT_DATE) FROM daily_user_metrics) - INTERVAL '30 days'
+        WHERE metric_date >= CURRENT_DATE - INTERVAL '30 days'
       `),
     ]);
 

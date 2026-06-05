@@ -137,6 +137,25 @@ export class ListStationsQueryDto {
   @Min(0)
   @Type(() => Number)
   offset?: number;
+
+  /**
+   * Comma-separated list of station UUIDs for batch lookup.
+   * When provided, only the specified stations are returned — bypasses full-scan.
+   * Example: ?ids=uuid1,uuid2,uuid3
+   */
+  @IsOptional()
+  @IsString()
+  ids?: string;
+
+  /**
+   * Comma-separated list of charger (charging_point) UUIDs.
+   * Returns all stations that contain any of the specified charger IDs.
+   * Single query replaces N individual /stations/by-charger/:id calls.
+   * Example: ?chargerIds=uuid1,uuid2,uuid3
+   */
+  @IsOptional()
+  @IsString()
+  chargerIds?: string;
 }
 
 // List Incidents Query

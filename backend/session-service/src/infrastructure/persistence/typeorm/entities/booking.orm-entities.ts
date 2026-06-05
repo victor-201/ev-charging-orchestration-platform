@@ -322,3 +322,40 @@ export class OutboxOrmEntity {
   @Column({ name: 'processed_at', type: 'timestamptz', nullable: true })
   processedAt: Date | null;
 }
+
+@Entity('connector_read_models')
+export class ConnectorReadModelOrmEntity {
+  @PrimaryColumn({ name: 'connector_id', type: 'uuid' })
+  connectorId: string;
+
+  @Column({ name: 'charger_id', type: 'uuid' })
+  chargerId: string;
+
+  @Column({ name: 'connector_type', type: 'varchar', length: 20 })
+  connectorType: string;
+
+  @Column({ name: 'max_power_kw', type: 'numeric', precision: 8, scale: 2, nullable: true })
+  maxPowerKw: number | null;
+
+  @Column({ name: 'synced_at', type: 'timestamptz', default: () => 'NOW()' })
+  syncedAt: Date;
+}
+
+@Entity('user_read_models')
+export class UserReadModelOrmEntity {
+  @PrimaryColumn({ name: 'user_id', type: 'uuid' })
+  userId: string;
+
+  @Column({ type: 'varchar', length: 255 })
+  email: string;
+
+  @Column({ name: 'full_name', type: 'varchar', length: 100, nullable: true })
+  fullName: string | null;
+
+  @Column({ name: 'is_active', default: true })
+  isActive: boolean;
+
+  @Column({ name: 'synced_at', type: 'timestamptz', default: () => 'NOW()' })
+  syncedAt: Date;
+}
+

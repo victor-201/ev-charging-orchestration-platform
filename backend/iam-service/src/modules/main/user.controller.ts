@@ -3,6 +3,7 @@ import {
   UseGuards, NotFoundException, BadRequestException, ConflictException,
   ParseUUIDPipe, Query, Header, UseInterceptors, UploadedFile,
   UnsupportedMediaTypeException, PayloadTooLargeException,
+  Inject,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Express } from 'express';
@@ -27,6 +28,8 @@ import { RolesGuard }   from '../../shared/guards/roles.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../shared/guards/jwt-auth.guard';
+import { IUserRepository, USER_REPOSITORY } from '../../domain/repositories/auth.repository.interface';
+import { IUsersCacheRepository, USERS_CACHE_REPOSITORY } from '../../domain/repositories/user-profile.repository.interface';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -44,6 +47,8 @@ export class UserController {
     private readonly getVehicleAuditUC: GetVehicleAuditLogUseCase,
     private readonly setupAutochargeUC: SetupAutochargeUseCase,
     private readonly uploadAvatarUC: UploadAvatarUseCase,
+    @Inject(USER_REPOSITORY) private readonly userRepo: IUserRepository,
+    @Inject(USERS_CACHE_REPOSITORY) private readonly cacheRepo: IUsersCacheRepository,
   ) {}
 
 
@@ -230,5 +235,51 @@ export class UserController {
       if (e instanceof DuplicateVinNumberException) throw new ConflictException(e.message);
       throw e;
     }
+  }
+
+  @Patch(':id/status')
+  @Roles('admin')
+  @HttpCode(HttpStatus.OK)
+  async updateStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('status') status: string,
+  ) {
+    const user = await this.userRepo.findById(id);
+    if (!user) throw new NotFoundException('User not found');
+    
+    if (status === 'suspended') {
+      user.suspend();
+    } else if (status === 'active') {
+      user.reactivate();
+    } else if (status === 'inactive') {
+      user.deactivate();
+    } else {
+      throw new BadRequestException(`Invalid status: ${status}`);
+    }
+    
+    await this.userRepo.save(user);
+    
+    // Update cache
+    const cache = await this.cacheRepo.findByUserId(id);
+    if (cache) {
+      cache.status = status;
+      cache.syncedAt = new Date();
+      await this.cacheRepo.upsert(cache);
+    }
+    
+    return { id, status: user.status };
+  }
+
+  @Delete(':id')
+  @Roles('admin')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteUser(@Param('id', ParseUUIDPipe) id: string) {
+    const user = await this.userRepo.findById(id);
+    if (!user) throw new NotFoundException('User not found');
+    
+    user.deactivate();
+    await this.userRepo.save(user);
+    
+    await this.softDeleteUserUC.execute(id);
   }
 }

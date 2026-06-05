@@ -38,9 +38,20 @@ export class SuggestChargerResponseDto {
   distanceKm: number;
 }
 
+export class QueueEntryResponseDto {
+  position: number;
+  userId: string;
+  fullName: string | null;
+  email: string | null;
+  joinedAt: Date;
+  isCurrentUser: boolean;
+}
+
 export class QueuePositionResponseDto {
   position: number;
   userId: string;
   chargerId: string;
   estimatedWaitMinutes: number;
+  waitingList?: QueueEntryResponseDto[];
 }
+

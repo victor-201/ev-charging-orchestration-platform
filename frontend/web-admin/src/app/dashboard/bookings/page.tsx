@@ -3,15 +3,16 @@
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/services/api-client';
 import { motion } from 'framer-motion';
-import { CalendarCheck, Clock, MapPin, Zap, Filter, Eye, Copy, X, Search, Trash2 } from 'lucide-react';
+import { CalendarCheck, Clock, MapPin, Zap, Filter, Eye, Copy, X, Search, Trash2, CheckCircle2, Loader2, ShieldAlert } from 'lucide-react';
 import Pagination from '@/core/components/ui/Pagination';
 import CustomSelect from '@/core/components/ui/CustomSelect';
 import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { formatCurrency, formatDate } from '@/i18n/formatter';
+import { formatCurrency, formatDate, tSafe, translateMessage } from '@/i18n/formatter';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import GlassModal, { ModalHeader, ModalField, ModalValue, ModalCopyValue } from '@/core/theme/GlassModal';
+import { KIOSK_GUEST_USER_ID, filterGuestFromUserIds, injectKioskGuest } from '@/lib/kiosk-guest';
 
 type Booking = {
   id: string;
@@ -60,49 +61,13 @@ export default function BookingsPage() {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
 
+  // Admin action states
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isDeletingRecord, setIsDeletingRecord] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<null | 'confirm' | 'delete_record'>(null);
+  const [actionTarget, setActionTarget] = useState<Booking | null>(null);
+
   const resetPage = () => setPage(1);
-
-  // Fetch users for mapping userId to fullName
-  const { data: usersData } = useQuery({
-    queryKey: ['users-list-lookup'],
-    queryFn: async () => {
-      const res = await apiClient.get('/users', { params: { limit: 1000 } });
-      return res.data?.items ?? [];
-    },
-  });
-
-  const users = usersData || [];
-
-  const userMap = new Map<string, { fullName: string; email: string; phone: string | null }>();
-  users.forEach((u: any) => {
-    userMap.set(u.userId, {
-      fullName: u.fullName,
-      email: u.email,
-      phone: u.phone,
-    });
-  });
-
-  // Fetch stations for lookup mapping
-  const { data: stationsData } = useQuery({
-    queryKey: ['stations-list-lookup'],
-    queryFn: async () => {
-      const res = await apiClient.get('/stations', { params: { limit: 1000 } });
-      return res.data?.items ?? [];
-    },
-  });
-
-  const stations = stationsData || [];
-
-  // Build a map of chargerId -> stationName & chargerCode
-  const chargerStationMap = new Map<string, { stationName: string; chargerCode: string }>();
-  stations.forEach((station: any) => {
-    station.chargers?.forEach((charger: any, idx: number) => {
-      chargerStationMap.set(charger.id, {
-        stationName: station.name,
-        chargerCode: `Trụ ${idx + 1} (${charger.maxPowerKw || 0}kW)`,
-      });
-    });
-  });
 
   const { data, isLoading, refetch } = useQuery<{ items: Booking[]; total: number }>({
     queryKey: ['bookings', page, statusFilter, userIdFilter, chargerIdFilter],
@@ -117,6 +82,41 @@ export default function BookingsPage() {
     refetchInterval: 15_000,
   });
 
+  const bookings = data?.items ?? [];
+
+  const uniqueUserIds = Array.from(new Set(bookings.map((b: any) => b.userId).filter(Boolean))) as string[];
+  const lookupUserIds = filterGuestFromUserIds(uniqueUserIds);
+
+  // Fetch users for mapping userId to fullName in a batch
+  const { data: usersData } = useQuery({
+    queryKey: ['users-list-lookup-batch', lookupUserIds.join(',')],
+    queryFn: async () => {
+      if (lookupUserIds.length === 0) return [];
+      const res = await apiClient.get('/users', {
+        params: {
+          ids: lookupUserIds.join(','),
+          role: 'all',
+          limit: lookupUserIds.length,
+        }
+      });
+      return res.data?.items ?? [];
+    },
+    enabled: lookupUserIds.length > 0,
+  });
+
+  const users = usersData || [];
+
+  const userMap = new Map<string, { fullName: string; email: string; phone: string | null }>();
+  users.forEach((u: any) => {
+    userMap.set(u.userId, {
+      fullName: u.fullName,
+      email: u.email,
+      phone: u.phone,
+    });
+  });
+  // Inject kiosk guest profile nếu trang này có booking của khách vãng lai
+  injectKioskGuest(uniqueUserIds, userMap);
+
   const staffStationIds: string[] = user?.stationIds?.length
     ? user.stationIds
     : user?.stationId
@@ -125,10 +125,43 @@ export default function BookingsPage() {
 
   const assignedStationId = staffStationIds[0] || null;
 
-  const bookings = data?.items ?? [];
+  // Collect unique charger IDs visible on this page
+  const uniqueChargerIds = Array.from(
+    new Set(bookings.map((b: any) => b.chargerId).filter(Boolean))
+  ) as string[];
 
-  // Find assigned chargers set
-  const assignedStations = stations.filter((s: any) => staffStationIds.includes(s.id));
+  // Single batch request: GET /stations?chargerIds=id1,id2,...
+  // Returns all stations containing any of those chargers — 1 request instead of N
+  const { data: chargerStationsData } = useQuery({
+    queryKey: ['charger-stations-batch-bookings', uniqueChargerIds.join(',')],
+    queryFn: async () => {
+      if (uniqueChargerIds.length === 0) return [];
+      const res = await apiClient.get('/stations', {
+        params: {
+          chargerIds: uniqueChargerIds.join(','),
+          limit: uniqueChargerIds.length,
+        },
+      });
+      return res.data?.items ?? [];
+    },
+    enabled: uniqueChargerIds.length > 0,
+  });
+
+  const chargerStations = chargerStationsData || [];
+
+  // Build a map of chargerId -> stationName & chargerCode
+  const chargerStationMap = new Map<string, { stationName: string; chargerCode: string }>();
+  chargerStations.forEach((station: any) => {
+    station.chargers?.forEach((charger: any, idx: number) => {
+      chargerStationMap.set(charger.id, {
+        stationName: station.name,
+        chargerCode: `Trụ ${idx + 1} (${charger.maxPowerKw || 0}kW)`,
+      });
+    });
+  });
+
+  // Find assigned chargers set (staff restriction)
+  const assignedStations = chargerStations.filter((s: any) => staffStationIds.includes(s.id));
   const assignedChargerIds = new Set(assignedStations.flatMap((s: any) => s.chargers?.map((c: any) => c.id) ?? []));
 
   // Visible bookings (Backend already filtered them if user is staff)
@@ -138,7 +171,7 @@ export default function BookingsPage() {
   const totalPages = Math.ceil(total / LIMIT) || 1;
 
   const handleCancelBooking = async (bookingId: string) => {
-    if (!window.confirm('Bạn có chắc chắn muốn hủy lịch đặt này không?')) return;
+    if (!window.confirm(tSafe('dashboard:bookings.confirm_cancel', 'Bạn có chắc chắn muốn hủy lịch đặt này không?'))) return;
     setIsCancelling(true);
     try {
       const isStaff = user?.roles?.includes('staff');
@@ -146,13 +179,47 @@ export default function BookingsPage() {
       await apiClient.delete(`/bookings/${bookingId}`, {
         data: { reason },
       });
-      toast.success('Đã hủy đặt lịch thành công');
+      toast.success(tSafe('dashboard:bookings.cancel_success', 'Đã hủy đặt lịch thành công'));
       setSelectedBooking(null);
       refetch();
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Có lỗi xảy ra khi hủy đặt lịch');
+      toast.error(translateMessage(err?.response?.data?.message, 'dashboard:bookings.cancel_error'));
     } finally {
       setIsCancelling(false);
+    }
+  };
+
+  const handleAdminConfirm = async () => {
+    if (!actionTarget) return;
+    setIsConfirming(true);
+    setConfirmAction(null);
+    try {
+      await apiClient.post(`/bookings/${actionTarget.id}/confirm`);
+      toast.success('Đã xác nhận đặt lịch thủ công thành công!');
+      setSelectedBooking(null);
+      refetch();
+    } catch (err: any) {
+      toast.error(translateMessage(err?.response?.data?.message, 'Xác nhận đặt lịch thất bại'));
+    } finally {
+      setIsConfirming(false);
+      setActionTarget(null);
+    }
+  };
+
+  const handleHardDelete = async () => {
+    if (!actionTarget) return;
+    setIsDeletingRecord(true);
+    setConfirmAction(null);
+    try {
+      await apiClient.delete(`/bookings/${actionTarget.id}/record`);
+      toast.success('Đã xóa bản ghi đặt lịch thành công!');
+      setSelectedBooking(null);
+      refetch();
+    } catch (err: any) {
+      toast.error(translateMessage(err?.response?.data?.message, 'Xóa bản ghi thất bại'));
+    } finally {
+      setIsDeletingRecord(false);
+      setActionTarget(null);
     }
   };
 
@@ -324,6 +391,16 @@ export default function BookingsPage() {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
+                          {(isAdmin || user?.roles?.includes('staff')) && ['pending', 'pending_payment'].includes(b.status.toLowerCase()) && (
+                            <button
+                              onClick={() => { setActionTarget(b); setConfirmAction('confirm'); }}
+                              disabled={isConfirming}
+                              className="p-1 text-success hover:text-success/80 transition-colors"
+                              title="Xác nhận thủ công"
+                            >
+                              {isConfirming && actionTarget?.id === b.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                            </button>
+                          )}
                           {(isAdmin || user?.roles?.includes('staff')) && ['pending', 'confirmed'].includes(b.status.toLowerCase()) && (
                             <button
                               onClick={() => handleCancelBooking(b.id)}
@@ -331,6 +408,16 @@ export default function BookingsPage() {
                               title="Hủy đặt lịch"
                             >
                               <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                          {isAdmin && ['cancelled', 'completed', 'no_show'].includes(b.status.toLowerCase()) && (
+                            <button
+                              onClick={() => { setActionTarget(b); setConfirmAction('delete_record'); }}
+                              disabled={isDeletingRecord}
+                              className="p-1 text-text-muted hover:text-danger transition-colors"
+                              title="Xóa bản ghi vĩnh viễn"
+                            >
+                              {isDeletingRecord && actionTarget?.id === b.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                             </button>
                           )}
                         </div>
@@ -378,7 +465,7 @@ export default function BookingsPage() {
 
             <div className="space-y-3.5 text-xs max-h-[60vh] overflow-y-auto pr-1 scrollbar-thin">
               <ModalField label="Mã đặt lịch (Booking ID)">
-                <ModalCopyValue text={selectedBooking.id} onCopy={() => toast.success('Đã sao chép mã đặt lịch')} />
+                <ModalCopyValue text={selectedBooking.id} onCopy={() => toast.success(tSafe('common:common.copied_booking_id', 'Đã sao chép mã đặt lịch'))} />
               </ModalField>
 
               <div className="grid grid-cols-2 gap-3">
@@ -403,9 +490,11 @@ export default function BookingsPage() {
                       <span className="font-semibold text-xs" style={{ color: 'var(--text-main)' }}>
                         {userMap.get(selectedBooking.userId)?.fullName}
                       </span>
-                      <span className="font-mono text-[10px]" style={{ color: 'var(--text-faded)' }}>
-                        {selectedBooking.userId.slice(0, 8)}…
-                      </span>
+                      {selectedBooking.userId !== KIOSK_GUEST_USER_ID && (
+                        <span className="font-mono text-[10px]" style={{ color: 'var(--text-faded)' }}>
+                          {selectedBooking.userId.slice(0, 8)}…
+                        </span>
+                      )}
                     </div>
                     <div className="flex justify-between text-[11px] pt-1" style={{ borderTop: '1px solid var(--card-border)' }}>
                       <span style={{ color: 'var(--text-faded)' }}>Email:</span>
@@ -417,7 +506,7 @@ export default function BookingsPage() {
                     </div>
                   </div>
                 ) : (
-                  <ModalCopyValue text={selectedBooking.userId} onCopy={() => toast.success('Đã sao chép mã người dùng')} />
+                  <ModalCopyValue text={selectedBooking.userId} onCopy={() => toast.success(tSafe('common:common.copied_user_id', 'Đã sao chép mã người dùng'))} />
                 )}
               </ModalField>
 
@@ -433,7 +522,7 @@ export default function BookingsPage() {
                     </div>
                   </div>
                 ) : (
-                  <ModalCopyValue text={selectedBooking.chargerId} onCopy={() => toast.success('Đã sao chép mã trụ sạc')} />
+                  <ModalCopyValue text={selectedBooking.chargerId} onCopy={() => toast.success(tSafe('common:common.copied_charger_id', 'Đã sao chép mã trụ sạc'))} />
                 )}
               </ModalField>
 
@@ -463,6 +552,21 @@ export default function BookingsPage() {
             </div>
 
             <div className="flex justify-end gap-2 pt-4" style={{ borderTop: '1px solid var(--card-border)' }}>
+              {/* Admin/Staff manual confirm */}
+              {(isAdmin || user?.roles?.includes('staff')) && ['pending', 'pending_payment'].includes(selectedBooking.status.toLowerCase()) && (
+                <button
+                  type="button"
+                  disabled={isConfirming}
+                  onClick={() => { setActionTarget(selectedBooking); setConfirmAction('confirm'); setSelectedBooking(null); }}
+                  className="px-3.5 py-1.5 text-xs font-semibold transition-colors rounded-xl flex items-center gap-1"
+                  style={{ background: 'rgba(34,197,94,0.12)', color: 'var(--color-success)', border: '1px solid rgba(34,197,94,0.25)' }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(34,197,94,0.25)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(34,197,94,0.12)'}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Xác nhận thủ công
+                </button>
+              )}
+              {/* Cancel booking */}
               {(isAdmin || user?.roles?.includes('staff')) && ['pending', 'confirmed'].includes(selectedBooking.status.toLowerCase()) && (
                 <button
                   type="button"
@@ -476,6 +580,20 @@ export default function BookingsPage() {
                   <Trash2 className="w-3.5 h-3.5" /> Hủy đặt lịch
                 </button>
               )}
+              {/* Hard delete terminal-state booking */}
+              {isAdmin && ['cancelled', 'completed', 'no_show'].includes(selectedBooking.status.toLowerCase()) && (
+                <button
+                  type="button"
+                  disabled={isDeletingRecord}
+                  onClick={() => { setActionTarget(selectedBooking); setConfirmAction('delete_record'); setSelectedBooking(null); }}
+                  className="px-3.5 py-1.5 text-xs font-semibold transition-colors rounded-xl flex items-center gap-1"
+                  style={{ background: 'rgba(239,68,68,0.08)', color: 'var(--text-muted)', border: '1px solid var(--card-border)' }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239,68,68,0.2)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(239,68,68,0.08)'}
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Xóa bản ghi
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setSelectedBooking(null)}
@@ -485,6 +603,60 @@ export default function BookingsPage() {
                 onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
               >
                 Đóng
+              </button>
+            </div>
+          </>
+        )}
+      </GlassModal>
+
+      {/* Confirm Admin Action Modal */}
+      <GlassModal open={confirmAction !== null} onClose={() => { setConfirmAction(null); setActionTarget(null); }} className="max-w-sm">
+        {confirmAction && actionTarget && (
+          <>
+            <ModalHeader onClose={() => { setConfirmAction(null); setActionTarget(null); }}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                confirmAction === 'delete_record' ? 'bg-danger/15 border border-danger/25' : 'bg-success/15 border border-success/25'
+              }`}>
+                {confirmAction === 'delete_record' ? <Trash2 className="w-4 h-4 text-danger" /> : <CheckCircle2 className="w-4 h-4 text-success" />}
+              </div>
+              <h3 className="font-bold text-xs uppercase tracking-wider text-text-main">
+                {confirmAction === 'delete_record' ? 'Xác nhận xóa bản ghi' : 'Xác nhận đặt lịch thủ công'}
+              </h3>
+            </ModalHeader>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3 bg-white/[0.03] border border-white/5 rounded-xl">
+                <p className="text-text-faded mb-0.5">Mã đặt lịch</p>
+                <p className="font-mono text-text-main">{actionTarget.id}</p>
+                <p className="text-text-muted mt-1">Trạng thái: <span className="font-semibold">{actionTarget.status}</span></p>
+              </div>
+              <p className="text-text-muted leading-relaxed">
+                {confirmAction === 'delete_record'
+                  ? 'Hành động này sẽ xóa vĩnh viễn bản ghi khỏi cơ sở dữ liệu. Thao tác không thể hoàn tác.'
+                  : 'Xác nhận đặt lịch này mà không qua cổng thanh toán deposit. Hệ thống sẽ tự động tạo mã QR kích hoạt.'}
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4" style={{ borderTop: '1px solid var(--card-border)' }}>
+              <button
+                onClick={() => { setConfirmAction(null); setActionTarget(null); }}
+                className="px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-colors"
+                style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-main)', border: '1px solid var(--card-border)' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+              >
+                Hủy bỏ
+              </button>
+              <button
+                onClick={confirmAction === 'delete_record' ? handleHardDelete : handleAdminConfirm}
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 ${
+                  confirmAction === 'delete_record'
+                    ? 'bg-danger/15 border border-danger/25 text-danger hover:bg-danger/25'
+                    : 'bg-success/15 border border-success/25 text-success hover:bg-success/25'
+                }`}
+              >
+                {confirmAction === 'delete_record' ? <Trash2 className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                {confirmAction === 'delete_record' ? 'Xóa vĩnh viễn' : 'Xác nhận đặt lịch'}
               </button>
             </div>
           </>

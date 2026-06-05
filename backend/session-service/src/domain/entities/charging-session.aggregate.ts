@@ -16,6 +16,7 @@ export type SessionStatus =
   | 'active'      // Hardware started charging
   | 'stopped'     // Charging ended, pending billing
   | 'billed'      // Payment processed
+  | 'completed'   // Fully completed
   | 'error'
   | 'interrupted';
 
@@ -23,6 +24,7 @@ export type SessionInitiator = 'user' | 'system' | 'staff';
 
 const TERMINAL_SESSION_STATUSES: SessionStatus[] = [
   'billed',
+  'completed',
   'error',
   'interrupted',
 ];
@@ -225,6 +227,15 @@ export class ChargingSession {
     }
     this._status    = 'billed';
     this._billedAt  = new Date();
+    this._updatedAt = new Date();
+  }
+
+  /** BILLED -> COMPLETED: fully finished sạc */
+  completeSession(): void {
+    if (this._status !== 'billed') {
+      throw new InvalidSessionStateException(this._status, 'completeSession');
+    }
+    this._status    = 'completed';
     this._updatedAt = new Date();
   }
 

@@ -79,7 +79,6 @@ export interface SessionFeeBreakdown {
 export class GetPricingUseCase {
   private readonly logger = new Logger(GetPricingUseCase.name);
 
-  static readonly MIN_DEPOSIT_VND   = 50_000;
   static readonly EFFICIENCY_FACTOR = 0.85;
   static readonly DEPOSIT_BUFFER    = 1.20; // 20% buffer to cover idle fee
 
@@ -156,8 +155,7 @@ export class GetPricingUseCase {
     const estimatedKwh  = durationHours * maxPowerKw * GetPricingUseCase.EFFICIENCY_FACTOR;
     const estimatedTotalVnd = Math.ceil(estimatedKwh * pricePerKwhVnd);
 
-    const rawDeposit = Math.ceil(estimatedTotalVnd * GetPricingUseCase.DEPOSIT_BUFFER);
-    const recommendedDepositVnd = Math.max(rawDeposit, GetPricingUseCase.MIN_DEPOSIT_VND);
+    const recommendedDepositVnd = Math.ceil(estimatedTotalVnd * GetPricingUseCase.DEPOSIT_BUFFER);
 
     return {
       stationId:            opts.stationId,
@@ -314,6 +312,60 @@ export class CalculateSessionFeeUseCase {
 
 // UpsertPricingRuleUseCase (Admin)
 
+function getHoursSet(start: number | null | undefined, end: number | null | undefined): Set<number> {
+  const set = new Set<number>();
+  if (start === null || end === null || start === undefined || end === undefined) {
+    for (let i = 0; i < 24; i++) set.add(i);
+    return set;
+  }
+  if (start === end) {
+    return set;
+  }
+  if (start < end) {
+    for (let i = start; i < end; i++) set.add(i);
+  } else {
+    for (let i = start; i < 24; i++) set.add(i);
+    for (let i = 0; i < end; i++) set.add(i);
+  }
+  return set;
+}
+
+function getContiguousIntervals(hours: Set<number>): { hourStart: number; hourEnd: number }[] {
+  if (hours.size === 0) return [];
+  if (hours.size === 24) return [{ hourStart: 0, hourEnd: 24 }];
+
+  let startScan = 0;
+  for (let h = 0; h < 24; h++) {
+    if (!hours.has(h)) {
+      startScan = (h + 1) % 24;
+      break;
+    }
+  }
+
+  const intervals: { hourStart: number; hourEnd: number }[] = [];
+  let inInterval = false;
+  let intervalStart = 0;
+
+  for (let i = 0; i < 24; i++) {
+    const h = (startScan + i) % 24;
+    const hasHour = hours.has(h);
+
+    if (hasHour && !inInterval) {
+      inInterval = true;
+      intervalStart = h;
+    } else if (!hasHour && inInterval) {
+      inInterval = false;
+      intervals.push({ hourStart: intervalStart, hourEnd: h });
+    }
+  }
+
+  if (inInterval) {
+    intervals.push({ hourStart: intervalStart, hourEnd: startScan });
+  }
+
+  return intervals;
+}
+
 /**
  * Admin creates or updates a pricing rule.
  * Never deletes old rules — only sets valid_to for deactivation.
@@ -361,7 +413,66 @@ export class UpsertPricingRuleUseCase {
     entity.label             = dto.label    ?? null;
     entity.currency          = dto.currency ?? 'VND';
 
-    return this.pricingRepo.save(entity);
+    const savedEntity = await this.pricingRepo.save(entity);
+
+    // Resolve hour overlaps for other active rules of the same station and connector type
+    const newHours = getHoursSet(entity.hourStart, entity.hourEnd);
+    if (newHours.size > 0) {
+      const activeRules = await this.pricingRepo.find({
+        where: {
+          stationId: entity.stationId,
+          connectorType: entity.connectorType,
+        }
+      });
+
+      const now = new Date();
+
+      for (const rule of activeRules) {
+        if (rule.id === savedEntity.id) continue;
+        if (rule.validTo && rule.validTo <= now) continue;
+
+        const oldHours = getHoursSet(rule.hourStart, rule.hourEnd);
+        const remainingHours = new Set<number>();
+        for (const h of oldHours) {
+          if (!newHours.has(h)) {
+            remainingHours.add(h);
+          }
+        }
+
+        if (remainingHours.size === 0) {
+          rule.validTo = now;
+          await this.pricingRepo.save(rule);
+          continue;
+        }
+
+        if (remainingHours.size < oldHours.size) {
+          const intervals = getContiguousIntervals(remainingHours);
+          if (intervals.length === 0) {
+            rule.validTo = now;
+            await this.pricingRepo.save(rule);
+          } else {
+            const firstInterval = intervals[0];
+            rule.hourStart = firstInterval.hourStart === 0 && firstInterval.hourEnd === 24 ? null : firstInterval.hourStart;
+            rule.hourEnd = firstInterval.hourStart === 0 && firstInterval.hourEnd === 24 ? null : firstInterval.hourEnd;
+            await this.pricingRepo.save(rule);
+
+            for (let i = 1; i < intervals.length; i++) {
+              const interval = intervals[i];
+              const splitRule = this.pricingRepo.create({
+                ...rule,
+                id: crypto.randomUUID(),
+                hourStart: interval.hourStart,
+                hourEnd: interval.hourEnd,
+                validFrom: savedEntity.validFrom,
+              });
+              await this.pricingRepo.save(splitRule);
+            }
+          }
+        }
+      }
+    }
+
+    return savedEntity;
   }
 }
 
@@ -375,7 +486,45 @@ export class DeactivatePricingRuleUseCase {
   ) {}
 
   async execute(ruleId: string): Promise<void> {
-    await this.pricingRepo.update(ruleId, { validTo: new Date() });
+    const now = new Date();
+
+    // 1. Load the rule to be removed
+    const target = await this.pricingRepo.findOne({ where: { id: ruleId } });
+    if (!target) {
+      await this.pricingRepo.update(ruleId, { validTo: now });
+      return;
+    }
+
+    // 2. Load all other active rules for the same station + connector
+    const siblings = await this.pricingRepo
+      .createQueryBuilder('pr')
+      .where('pr.station_id = :stationId', { stationId: target.stationId })
+      .andWhere('pr.connector_type = :connectorType', { connectorType: target.connectorType })
+      .andWhere('pr.id != :id', { id: ruleId })
+      .andWhere('pr.valid_from <= :now', { now })
+      .andWhere('(pr.valid_to IS NULL OR pr.valid_to > :now)', { now })
+      .getMany();
+
+    // 3. Try to find the preceding rule whose hourEnd === target.hourStart
+    //    (supports wrap-around: e.g. target=13→19, preceding=4→13)
+    const preceding = siblings.find(r => r.hourEnd === target.hourStart);
+
+    if (preceding) {
+      // Expand the preceding rule to absorb the deleted range
+      preceding.hourEnd = target.hourEnd;
+      await this.pricingRepo.save(preceding);
+    } else {
+      // Fallback: find the following rule whose hourStart === target.hourEnd
+      const following = siblings.find(r => r.hourStart === target.hourEnd);
+      if (following) {
+        following.hourStart = target.hourStart;
+        await this.pricingRepo.save(following);
+      }
+      // If neither sibling found (isolated rule), just soft-delete without expansion
+    }
+
+    // 4. Soft-delete the target rule
+    await this.pricingRepo.update(ruleId, { validTo: now });
   }
 }
 

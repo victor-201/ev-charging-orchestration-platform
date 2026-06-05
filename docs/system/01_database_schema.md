@@ -474,10 +474,10 @@
 
 ### Enums
 
-- `bookings_status_enum`: `'pending_payment'`, `'confirmed'`, `'cancelled'`, `'completed'`, `'expired'`, `'no_show'`
+- `bookings_status_enum`: `'pending'`, `'pending_payment'`, `'confirmed'`, `'cancelled'`, `'completed'`, `'expired'`, `'no_show'`
 - `queue_entries_status_enum`: `'waiting'`, `'notified'`, `'served'`, `'cancelled'`, `'expired'`
 - `charger_state_availability_enum`: `'available'`, `'occupied'`, `'faulted'`, `'offline'`, `'reserved'`
-- `charging_sessions_status_enum`: `'pending'`, `'active'`, `'completed'`, `'error'`, `'interrupted'`
+- `charging_sessions_status_enum`: `'init'`, `'active'`, `'stopped'`, `'billed'`, `'completed'`, `'error'`, `'interrupted'`
 - `event_outbox_status_enum`: `'pending'`, `'processed'`, `'published'`, `'failed'`
 
 ## `bookings`
@@ -496,8 +496,11 @@
 | notes                  | text                   | YES      |                              |
 | deposit_amount         | numeric(12, 0)         | YES      |                              |
 | deposit_transaction_id | uuid                   | YES      |                              |
-| qr_token               | varchar(40)            | YES      | Unique (UNIQUE), generated after payment |
-| penalty_amount         | numeric(12, 0)         | YES      |                              |
+| qr_token               | varchar(128)           | YES      | Unique (UNIQUE), generated after payment |
+| penalty_amount         | numeric(12, 0)         | YES      | Default: 0                   |
+| connector_type         | varchar(20)            | YES      |                              |
+| price_per_kwh_snapshot | numeric(10, 2)         | YES      |                              |
+| idempotency_key        | varchar(64)            | YES      | Unique (UNIQUE)              |
 | created_at             | timestamptz            | NO       | Default: NOW()               |
 | updated_at             | timestamptz            | NO       | Default: NOW()               |
 
@@ -577,24 +580,34 @@
 | active_session_id | uuid                          | YES      |                     |
 | error_code        | varchar(100)                  | YES      |                     |
 | last_heartbeat_at | timestamptz                   | YES      |                     |
+| released_at       | timestamptz                   | YES      |                     |
 | updated_at        | timestamptz                   | NO       | Default: NOW()      |
 
 ## `charging_sessions`
 
-| Column       | Data Type                   | Nullable | Notes              |
-| ------------ | --------------------------- | -------- | ------------------ |
-| id           | uuid                        | NO       | Primary Key (PK)   |
-| booking_id   | uuid                        | YES      | Unique (UNIQUE)    |
-| user_id      | uuid                        | NO       |                    |
-| charger_id   | uuid                        | NO       |                    |
-| start_time   | timestamptz                 | NO       | Default: NOW()     |
-| end_time     | timestamptz                 | YES      |                    |
-| start_meter_wh | bigint                    | NO       | Default: 0         |
-| end_meter_wh | bigint                      | YES      |                    |
-| status       | charging_sessions_status_enum| NO       | Default: 'pending' |
-| error_reason | varchar(500)                | YES      |                    |
-| initiated_by | varchar(20)                 | NO       | Default: 'user'    |
-| created_at   | timestamptz                 | NO       | Default: NOW()     |
+| Column                 | Data Type                   | Nullable | Notes              |
+| ---------------------- | --------------------------- | -------- | ------------------ |
+| id                     | uuid                        | NO       | Primary Key (PK)   |
+| booking_id             | uuid                        | YES      | Unique (UNIQUE)    |
+| user_id                | uuid                        | NO       |                    |
+| charger_id             | uuid                        | NO       |                    |
+| start_time             | timestamptz                 | NO       | Default: NOW()     |
+| end_time               | timestamptz                 | YES      |                    |
+| scheduled_stop_at      | timestamptz                 | YES      |                    |
+| start_meter_wh         | bigint                      | NO       | Default: 0         |
+| end_meter_wh           | bigint                      | YES      |                    |
+| status                 | charging_sessions_status_enum| NO       | Default: 'pending' |
+| error_reason           | varchar(500)                | YES      |                    |
+| initiated_by           | varchar(20)                 | NO       | Default: 'user'    |
+| idempotency_key        | varchar(128)                | YES      |                    |
+| energy_fee_vnd         | numeric(12, 0)              | YES      |                    |
+| idle_fee_vnd           | numeric(12, 0)              | YES      |                    |
+| stopped_at             | timestamptz                 | YES      |                    |
+| billed_at              | timestamptz                 | YES      |                    |
+| deposit_amount         | numeric(12, 0)              | YES      |                    |
+| deposit_transaction_id | uuid                        | YES      |                    |
+| created_at             | timestamptz                 | NO       | Default: NOW()     |
+| updated_at             | timestamptz                 | NO       | Default: NOW()     |
 
 **Index:** `idx_session_user_status` ON charging_sessions(user_id, status)  
 **Index:** `idx_session_charger_status` ON charging_sessions(charger_id, status)  
@@ -978,6 +991,30 @@
 | event_id     | varchar(255)  | NO       | Primary Key (PK)|
 | event_type   | varchar(100)  | NO       |                 |
 | processed_at | timestamptz   | NO       | Default: NOW()  |
+
+## `mv_hourly_demand` (Materialized View)
+
+| Column             | Data Type        | Nullable | Notes                                        |
+| ------------------ | ---------------- | -------- | -------------------------------------------- |
+| hour_bucket        | timestamptz      | NO       |                                              |
+| hour_of_day        | integer          | NO       |                                              |
+| total_sessions     | integer          | NO       |                                              |
+| total_kwh          | numeric          | NO       |                                              |
+| total_duration_min | numeric          | NO       |                                              |
+
+## `mv_daily_station_summary` (Materialized View)
+
+| Column             | Data Type        | Nullable | Notes                                        |
+| ------------------ | ---------------- | -------- | -------------------------------------------- |
+| station_id         | uuid             | NO       |                                              |
+| metric_date        | date             | NO       |                                              |
+| total_sessions     | integer          | NO       |                                              |
+| total_kwh          | numeric          | NO       |                                              |
+| total_revenue_vnd  | numeric          | NO       |                                              |
+| avg_session_min    | numeric          | NO       |                                              |
+| bookings_created   | integer          | NO       |                                              |
+| bookings_confirmed | integer          | NO       |                                              |
+| bookings_cancelled | integer          | NO       |                                              |
 
 ---
 

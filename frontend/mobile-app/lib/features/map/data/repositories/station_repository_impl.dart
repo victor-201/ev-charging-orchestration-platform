@@ -201,6 +201,31 @@ class StationRepositoryImpl implements IStationRepository {
   }
 
   @override
+  Future<Either<Failure, List<StationEntity>>> getStationsByChargerIds(List<String> chargerIds) async {
+    if (chargerIds.isEmpty) return const Right([]);
+    try {
+      final response = await _client.get(
+        ApiPaths.stations,
+        queryParameters: {
+          'chargerIds': chargerIds.join(','),
+          'limit': chargerIds.length + 10,
+        },
+      );
+      List<dynamic> list = [];
+      if (response.data is List) {
+        list = response.data as List<dynamic>;
+      } else if (response.data is Map) {
+        list = (response.data['items'] ?? response.data['data'] ?? []) as List<dynamic>;
+      }
+      return Right(
+        list.map((e) => StationModel.fromJson(e as Map<String, dynamic>)).toList(),
+      );
+    } on DioException catch (e) {
+      return Left(ErrorMapper.fromDioException(e));
+    }
+  }
+
+  @override
   Future<Either<Failure, PricingEntity>> getChargerPricing({
     required String stationId,
     required String chargerId,

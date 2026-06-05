@@ -1,7 +1,7 @@
 -- ============================================
 -- Service : session-service
 -- Table   : pricing_snapshots
--- File    : database/seeds/session-service/pricing_snapshots.sql
+-- File    : database/seeds/session-service/05_pricing_snapshots.sql
 -- Depends : session-service (charger_read_models)
 -- Records : 1959
 -- NOTE    : Regenerated pricing snapshots for every single charger

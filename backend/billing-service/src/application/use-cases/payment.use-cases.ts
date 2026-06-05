@@ -53,6 +53,7 @@ export class CreatePaymentUseCase {
     amount: number;  // VND
     ipAddr?: string;
     bankCode?: string;
+    relatedType?: string;
   }): Promise<{ transactionId: string; paymentUrl: string }> {
     const returnUrl = this.config.get('VNPAY_RETURN_URL', 'http://localhost:3005/api/v1/payments/vnpay-return');
 
@@ -63,7 +64,7 @@ export class CreatePaymentUseCase {
       amount:      cmd.amount,
       method:      'bank_transfer',
       relatedId:   cmd.bookingId,
-      relatedType: 'booking',
+      relatedType: cmd.relatedType as any ?? 'booking',
     });
 
     // Generate unique txn ref for VNPay (max 100 chars)
@@ -300,8 +301,18 @@ export class WalletPayUseCase {
       const wallet = await this.walletRepo.findByUserId(cmd.userId);
       if (!wallet) throw new Error('Wallet not found — user must create wallet first');
 
-      // Lock wallet row
+      // Lock wallet row first to serialize wallet updates
       await this.walletRepo.lockForUpdate(wallet.id, manager);
+
+      // Check if there is already a completed transaction for this bookingId to prevent double charge
+      const existingTx = await manager.findOne(TransactionOrmEntity, {
+        where: { relatedId: cmd.bookingId, relatedType: 'booking', status: 'completed' },
+      });
+      if (existingTx) {
+        const balance = await this.walletRepo.getBalance(wallet.id, manager);
+        this.logger.warn(`Booking ${cmd.bookingId} has already been paid/completed (txId=${existingTx.id}). Skipping double debit.`);
+        return { transactionId: existingTx.id, balanceAfter: balance };
+      }
 
       // Get current balance
       const balance = await this.walletRepo.getBalance(wallet.id, manager);

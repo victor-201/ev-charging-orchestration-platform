@@ -12,7 +12,7 @@ import { Server, Socket } from 'socket.io';
 import { Logger, Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, MoreThan } from 'typeorm';
 import { OutboxOrmEntity } from '../persistence/typeorm/entities/session.orm-entities';
 
 /**
@@ -44,6 +44,7 @@ export class ChargingGateway
   server: Server;
 
   private readonly logger = new Logger(ChargingGateway.name);
+  private readonly broadcastedIds = new Set<string>();
 
   // Mapping eventType -> socket event name
   private readonly EVENT_MAP: Record<string, string> = {
@@ -108,19 +109,31 @@ export class ChargingGateway
     this.server.to(`charger:${chargerId}`).emit(event, payload);
   }
 
+  addBroadcastedId(id: string): void {
+    this.broadcastedIds.add(id);
+  }
+
   /**
    * Poll outbox every 2 seconds -> emit realtime events to connected clients.
    * Separated from AMQP publish (outbox.publisher.ts) for realtime low-latency.
    */
   @Cron('*/2 * * * * *')
   async pollAndBroadcast(): Promise<void> {
+    const cutOff = new Date(Date.now() - 15_000);
     const events = await this.outboxRepo.find({
-      where: { status: 'pending' as any },
+      where: [
+        { status: 'pending' as any },
+        { status: 'processed' as any, createdAt: MoreThan(cutOff) },
+      ],
       order: { createdAt: 'ASC' },
       take:  100,
     });
 
     for (const event of events) {
+      if (this.broadcastedIds.has(event.id)) {
+        continue;
+      }
+
       const socketEvent = this.EVENT_MAP[event.eventType];
       if (!socketEvent) continue;
 
@@ -135,6 +148,12 @@ export class ChargingGateway
       if (payload.chargerId) {
         this.broadcastToCharger(payload.chargerId, socketEvent, payload);
       }
+
+      this.broadcastedIds.add(event.id);
+    }
+
+    if (this.broadcastedIds.size > 2000) {
+      this.broadcastedIds.clear();
     }
   }
 }

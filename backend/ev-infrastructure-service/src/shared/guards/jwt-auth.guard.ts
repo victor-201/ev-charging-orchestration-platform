@@ -52,10 +52,47 @@ export class JwtAuthGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    if (isPublic) return true;
 
     const request = context.switchToHttp().getRequest();
     const token   = this.extractToken(request);
+
+    if (isPublic) {
+      if (token) {
+        if (!this.publicKey) {
+          this.loadPublicKey();
+        }
+        if (this.publicKey) {
+          try {
+            const issuer   = this.config.get<string>('JWT_ISSUER', 'ev-iam-service');
+            const audience = this.config.get<string>('JWT_AUDIENCE', 'ev-platform');
+
+            const payload = jwt.verify(token, this.publicKey, {
+              algorithms: ['RS256'],
+              issuer,
+              audience,
+              clockTolerance: 5,
+            }) as jwt.JwtPayload;
+
+            if (payload.sub) {
+              request.user = {
+                id:        payload.sub,
+                email:     payload.email   ?? '',
+                role:      payload.role    ?? (payload.roles as string[])?.[0] ?? 'user',
+                roles:     payload.roles   ?? [payload.role ?? 'user'],
+                sessionId: payload.sessionId ?? null,
+                stationId: payload.stationId ?? null,
+                stationIds: payload.stationIds ?? [],
+              } satisfies AuthenticatedUser;
+            }
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Invalid token';
+            this.logger.debug(`[JwtAuthGuard] Optional token parsing failed: ${msg}`);
+          }
+        }
+      }
+      return true;
+    }
+
     if (!token) throw new UnauthorizedException('Missing authorization token');
 
     if (!this.publicKey) {

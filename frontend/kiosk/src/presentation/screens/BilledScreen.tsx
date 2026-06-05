@@ -10,20 +10,37 @@
  * API [69]: POST /payments/create → paymentUrl → QR render
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle2, Clock, Zap, RotateCcw } from 'lucide-react';
+import { CheckCircle2, Clock, Zap, RotateCcw, Loader2 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import type { StopSessionResponse } from '../../domain/entities/entities';
 
 interface BilledScreenProps {
   summary: StopSessionResponse;
   vnpayUrl: string | null;
+  isPaid?: boolean;
+  isAppUserSession?: boolean;
   onReset: () => void;
 }
 
-const BilledScreen: React.FC<BilledScreenProps> = ({ summary, vnpayUrl, onReset }) => {
-  const [qrError, setQrError] = useState(false);
+const BilledScreen: React.FC<BilledScreenProps> = ({ summary, vnpayUrl, isPaid, isAppUserSession, onReset }) => {
+  const [countdown, setCountdown] = useState(10);
+
+  useEffect(() => {
+    if (!isPaid) return;
+    const timer = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          onReset();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isPaid, onReset]);
 
   const durationMs = new Date(summary.endTime).getTime() - new Date(summary.startTime).getTime();
   const durationMin = Math.round(durationMs / 60000);
@@ -115,57 +132,41 @@ const BilledScreen: React.FC<BilledScreenProps> = ({ summary, vnpayUrl, onReset 
             onClick={onReset}
           >
             <RotateCcw size={18} />
-            PHIÊN SẠC MỚI
+            {isPaid ? `PHIÊN SẠC MỚI (${countdown}s)` : 'PHIÊN SẠC MỚI'}
           </motion.button>
         </div>
 
-        {/* ── RIGHT: QR Payment ── */}
+        {/* ── RIGHT: States ── */}
         <div className="glass bg-transparent border-none p-8 flex flex-col items-center justify-center gap-6">
-          <div className="text-center space-y-1">
-            <p className="caption-branded">Hóa đơn điện tử</p>
-            <h3 className="text-xl font-bold">Quét để thanh toán</h3>
-            <p className="text-sm text-[var(--text-secondary)]">
-              {vnpayUrl ? 'Hỗ trợ VNPay QR / Banking App' : 'Mã phiên sạc'}
-            </p>
-          </div>
-
-          {/* QR Code */}
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.4, type: 'spring', stiffness: 160 }}
-            className="qr-container"
-          >
-            {!qrError ? (
-              <QRCodeCanvas
-                value={qrData}
-                size={180}
-                level="H"
-                includeMargin={false}
-              />
-            ) : (
-              <div className="w-[200px] h-[200px] flex items-center justify-center">
-                <p className="text-center text-sm text-gray-400">QR không khả dụng</p>
+          {isPaid ? (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center text-center gap-4">
+              <CheckCircle2 size={64} className="text-[var(--success)]" />
+              <h3 className="text-2xl font-black">Thanh toán hoàn tất!</h3>
+              <p className="text-[var(--text-secondary)]">
+                {isAppUserSession ? 'Giao dịch đã được trừ tự động từ ví Evolt.' : 'Hóa đơn đã được thanh toán qua VNPay.'}
+              </p>
+            </motion.div>
+          ) : isAppUserSession ? (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center text-center gap-4">
+              <Loader2 size={64} className="text-[var(--primary)] animate-spin" />
+              <h3 className="text-2xl font-black">Đang xác nhận</h3>
+              <p className="text-[var(--text-secondary)]">Đang xử lý trừ tiền từ tài khoản ứng dụng của bạn...</p>
+            </motion.div>
+          ) : (
+            <>
+              <div className="text-center space-y-1">
+                <p className="caption-branded">Hóa đơn điện tử</p>
+                <h3 className="text-xl font-bold">Quét để thanh toán</h3>
               </div>
-            )}
-          </motion.div>
-
-          {/* Payment Methods */}
-          <div className="flex flex-col items-center gap-3">
-            <div className="flex gap-4 items-center opacity-50">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-[var(--success)]" />
-                <span className="text-xs font-bold tracking-widest uppercase">Secured by EVOLT</span>
+              <QRCodeCanvas value={qrData} size={180} level="H" />
+              <div className="glass-pill px-5 py-2 flex items-center gap-2 mt-2">
+                <span className="text-xs text-[var(--text-muted)]">Mã phiên:</span>
+                <span className="text-xs font-mono font-bold text-[var(--primary)]">
+                  #{summary.id.split('-').pop()?.toUpperCase()}
+                </span>
               </div>
-            </div>
-
-            <div className="glass-pill px-5 py-2 flex items-center gap-2 mt-2">
-              <span className="text-xs text-[var(--text-muted)]">Mã phiên:</span>
-              <span className="text-xs font-mono font-bold text-[var(--primary)]">
-                #{summary.id.split('-').pop()?.toUpperCase()}
-              </span>
-            </div>
-          </div>
+            </>
+          )}
         </div>
       </div>
     </motion.div>

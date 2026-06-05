@@ -245,7 +245,7 @@ export const NOTIFICATION_TEMPLATES: Record<string, NotificationTemplate> = {
   'payment.failed': {
     title: ()        => 'Payment Failed',
     body:  (p: PaymentFailedEvent) =>
-      `Payment of ${p.amount.toLocaleString('en-US')} VND failed.${p.reason ? ` ${p.reason}` : ' Please try again.'}`,
+      `Payment failed.${p.reason ? ` Reason: ${p.reason}` : ' Please try again.'}`,
   },
   'session.started': {
     title: ()        => 'Charging Started',
@@ -304,9 +304,13 @@ export const NOTIFICATION_TEMPLATES: Record<string, NotificationTemplate> = {
       `You can now book and charge again.`,
   },
   'charger.queue.ready': {
-    title: ()        => 'Charger Available – Your Turn!',
-    body:  (p: ChargerQueueReadyEvent) =>
-      `The charger${p.chargerName ? ` ${p.chargerName}` : ''}${p.stationName ? ` at ${p.stationName}` : ''} is now available. ` +
-      `Please proceed to start charging immediately.`,
+    title: ()        => 'Charger Ready',
+    body:  (p: ChargerQueueReadyEvent) => {
+      const chargerClean = p.chargerName ? p.chargerName.replace(/^(trụ sạc|trụ)\s+/i, '') : '';
+      const stationClean = p.stationName ? p.stationName.replace(/^trạm\s+/i, '') : '';
+      const chargerStr = chargerClean ? `Charger ${chargerClean}` : 'Charger';
+      const stationStr = stationClean ? ` at ${stationClean}` : '';
+      return `${chargerStr}${stationStr} is now ready. Would you like to continue booking?`;
+    },
   },
 };

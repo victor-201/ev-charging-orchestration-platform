@@ -118,11 +118,11 @@ export class IngestTelemetryUseCase {
     const flushed = this.buffer.push(normalized);
     const eventId = uuidv4();
 
+    // Always publish individual normalized reading immediately for real-time telemetry
+    await this.publishSingle(normalized, eventId, raw.hardwareTimestamp);
+
     if (flushed && flushed.length > 0) {
       await this.publishBatch(flushed, eventId);
-    } else {
-      // Always publish individual normalized reading immediately
-      await this.publishSingle(normalized, eventId, raw.hardwareTimestamp);
     }
 
     // Task 3.2: Async ingest to ClickHouse (non-blocking)

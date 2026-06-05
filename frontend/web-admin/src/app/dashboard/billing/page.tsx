@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/services/api-client';
-import { formatCurrency, formatDate, relativeTimeLocale } from '@/i18n/formatter';
+import { formatCurrency, formatDate, relativeTimeLocale, tSafe, translateMessage } from '@/i18n/formatter';
 import { motion } from 'framer-motion';
 import { CreditCard, AlertTriangle, ShieldCheck, Filter, Eye, Copy, X, RotateCcw, ShieldCheck as ClearIcon, ShieldAlert } from 'lucide-react';
 import Pagination from '@/core/components/ui/Pagination';
@@ -12,11 +12,22 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { mapApiError } from '@/i18n/error-mapping';
 import { useAuthStore } from '@/features/auth/store/auth.store';
+import Portal from '@/core/components/ui/Portal';
+import { KIOSK_GUEST_USER_ID, filterGuestFromUserIds, injectKioskGuest } from '@/lib/kiosk-guest';
 
 type Transaction = {
-  id: string; walletId: string; type: string; amount: number;
-  currency: string; status: string; referenceId: string; createdAt: string;
+  id: string;
+  userId: string;
+  walletId: string;
+  type: string;
+  amount: number;
+  currency: string;
+  status: string;
+  referenceId: string;
+  referenceCode?: string | null;
+  createdAt: string;
 };
+
 
 type Arrears = {
   id: string; userId: string; sessionId?: string; transactionId?: string; amount?: number;
@@ -105,38 +116,79 @@ export default function BillingPage() {
 
   const totalArrears = arrItems.reduce((acc, curr) => acc + Number(curr.totalAmount ?? curr.amount ?? 0), 0);
 
+  // Extract unique user IDs from both tables to batch fetch details
+  const uniqueUserIds = Array.from(
+    new Set([
+      ...txItems.map((tx: any) => tx.userId),
+      ...arrItems.map((a: any) => a.userId)
+    ].filter(Boolean))
+  ) as string[];
+
+  // Exclude kiosk guest — it has no record in the users table
+  const lookupUserIds = filterGuestFromUserIds(uniqueUserIds);
+
+  // Fetch user list details in a batch
+  const { data: usersData } = useQuery({
+    queryKey: ['users-list-lookup-batch', lookupUserIds.join(',')],
+    queryFn: async () => {
+      if (lookupUserIds.length === 0) return [];
+      const res = await apiClient.get('/users', {
+        params: {
+          ids: lookupUserIds.join(','),
+          role: 'all',
+          limit: lookupUserIds.length,
+        }
+      });
+      return res.data?.items ?? [];
+    },
+    enabled: lookupUserIds.length > 0,
+  });
+
+  const users = usersData || [];
+  const userMap = new Map<string, { fullName: string; email: string; phone: string | null }>();
+  users.forEach((u: any) => {
+    userMap.set(u.userId, {
+      fullName: u.fullName,
+      email: u.email,
+      phone: u.phone,
+    });
+  });
+  // Inject kiosk guest profile nếu trang này có giao dịch / công nợ của khách vãng lai
+  injectKioskGuest(uniqueUserIds, userMap);
+
+
   const handleClearArrears = async (id: string) => {
-    if (!window.confirm('Bạn có chắc chắn muốn tất toán thủ công khoản nợ này không?')) return;
+    if (!window.confirm(tSafe('dashboard:billing.confirm_clear_arrears', 'Bạn có chắc chắn muốn tất toán thủ công khoản nợ này không?'))) return;
     setIsClearing(true);
     try {
       await apiClient.post(`/billing/arrears/${id}/clear`, { note: 'Admin cleared manually' });
-      toast.success(t('common:api_errors.CLEAR_ARREARS_SUCCESS', { defaultValue: 'Tất toán nợ thành công' }));
+      toast.success(tSafe('common:api_errors.CLEAR_ARREARS_SUCCESS', 'Tất toán nợ thành công'));
       setSelectedArrear(null);
       refetchArrears();
     } catch (err: unknown) {
       const res = (err as { response?: { data?: { code?: string; message?: string } } }).response;
-      toast.error(res?.data?.message || t('common:api_errors.CLEAR_ARREARS_FAILED', { defaultValue: 'Tất toán nợ thất bại' }));
+      toast.error(translateMessage(res?.data?.message, 'common:api_errors.CLEAR_ARREARS_FAILED'));
     } finally {
       setIsClearing(false);
     }
   };
 
   const handleRefundTransaction = async (txId: string) => {
-    const reason = window.prompt('Nhập lý do hoàn tiền giao dịch này:');
+    const reason = window.prompt(tSafe('dashboard:billing.prompt_refund_reason', 'Nhập lý do hoàn tiền giao dịch này:'));
     if (reason === null) return; // cancelled
     if (!reason.trim()) {
-      toast.error('Lý do hoàn tiền không được để trống');
+      toast.error(tSafe('dashboard:billing.refund_reason_empty', 'Lý do hoàn tiền không được để trống'));
       return;
     }
 
     setIsRefunding(true);
     try {
       await apiClient.post(`/payments/${txId}/refund`, { reason: reason.trim() });
-      toast.success('Đã gửi yêu cầu hoàn tiền thành công');
+      toast.success(tSafe('dashboard:billing.refund_success', 'Đã gửi yêu cầu hoàn tiền thành công'));
       setSelectedTransaction(null);
       refetchTx();
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Hoàn tiền giao dịch thất bại');
+      toast.error(translateMessage(err?.response?.data?.message, 'dashboard:billing.refund_error'));
     } finally {
       setIsRefunding(false);
     }
@@ -220,6 +272,7 @@ export default function BillingPage() {
                   <thead>
                     <tr>
                       <th>{t('dashboard:billing.table_tx.ref')}</th>
+                      <th>Khách hàng</th>
                       <th>{t('dashboard:billing.table_tx.type')}</th>
                       <th>{t('dashboard:billing.table_tx.amount')}</th>
                       <th>{t('dashboard:billing.table_tx.status')}</th>
@@ -230,7 +283,7 @@ export default function BillingPage() {
                   <tbody>
                     {loadingTx ? (
                       Array.from({ length: 6 }).map((_, i) => (
-                        <tr key={i}>{Array.from({ length: 6 }).map((_, j) => (
+                        <tr key={i}>{Array.from({ length: 7 }).map((_, j) => (
                           <td key={j}><div className="h-4 bg-white/5 rounded animate-pulse" /></td>
                         ))}</tr>
                       ))
@@ -242,24 +295,34 @@ export default function BillingPage() {
                         onClick={() => setSelectedTransaction(tx)}
                         className="cursor-pointer hover:bg-white/[0.02] transition-colors"
                       >
-                        <td className="font-mono text-xs text-text-main">{tx.referenceId || tx.id.slice(0, 8)}</td>
+                        <td className="font-mono text-xs text-text-main">{tx.referenceCode || tx.referenceId || tx.id.slice(0, 8)}</td>
+                        <td>
+                          {userMap.has(tx.userId) ? (
+                            <div className="flex flex-col">
+                              <span className="font-medium text-text-main text-xs">{userMap.get(tx.userId)?.fullName}</span>
+                              <span className="text-[10px] text-text-muted">{userMap.get(tx.userId)?.email}</span>
+                            </div>
+                          ) : (
+                            <span className="font-mono text-[10px] text-text-muted">{tx.userId ? `${tx.userId.slice(0, 8)}…` : '—'}</span>
+                          )}
+                        </td>
                         <td>
                           <span className={`badge ${
-                            tx.type === 'TOPUP' ? 'badge-success' :
-                            tx.type === 'REFUND' ? 'badge-info' : 'badge-warning'
+                            tx.type?.toUpperCase() === 'TOPUP' ? 'badge-success' :
+                            tx.type?.toUpperCase() === 'REFUND' ? 'badge-info' : 'badge-warning'
                           }`}>
-                            {t(`dashboard:data.type.${tx.type}`)}
+                            {t(`dashboard:data.type.${tx.type?.toUpperCase()}`)}
                           </span>
                         </td>
-                        <td className={tx.type === 'TOPUP' ? 'text-lime' : 'text-text-main'}>
-                          {tx.type === 'TOPUP' ? '+' : ''}{formatCurrency(tx.amount)}
+                        <td className={tx.type?.toUpperCase() === 'TOPUP' ? 'text-lime' : 'text-text-main'}>
+                          {tx.type?.toUpperCase() === 'TOPUP' ? '+' : ''}{formatCurrency(tx.amount)}
                         </td>
                         <td>
                           <span className={`badge ${
-                            tx.status === 'SUCCESS' || tx.status === 'completed' ? 'badge-success' :
-                            tx.status === 'PENDING' || tx.status === 'pending' ? 'badge-warning' : 'badge-danger'
+                            tx.status?.toUpperCase() === 'SUCCESS' || tx.status?.toUpperCase() === 'COMPLETED' ? 'badge-success' :
+                            tx.status?.toUpperCase() === 'PENDING' ? 'badge-warning' : 'badge-danger'
                           }`}>
-                            {t(`dashboard:data.status.${tx.status}`)}
+                            {t(`dashboard:data.status.${tx.status?.toUpperCase()}`)}
                           </span>
                         </td>
                         <td className="text-xs text-text-muted">{new Date(tx.createdAt).toLocaleString('vi-VN')}</td>
@@ -272,7 +335,7 @@ export default function BillingPage() {
                             >
                               <Eye className="w-4 h-4" />
                             </button>
-                            {isAdmin && tx.type === 'PAYMENT' && (tx.status === 'SUCCESS' || tx.status === 'completed') && (
+                            {isAdmin && tx.type?.toUpperCase() === 'PAYMENT' && (tx.status?.toUpperCase() === 'SUCCESS' || tx.status?.toUpperCase() === 'COMPLETED') && (
                               <button
                                 onClick={() => handleRefundTransaction(tx.id)}
                                 className="p-1 text-danger hover:text-danger/80 transition-colors"
@@ -286,7 +349,7 @@ export default function BillingPage() {
                       </motion.tr>
                     ))}
                     {!txItems.length && !loadingTx && (
-                      <tr><td colSpan={6} className="text-center py-8 text-text-muted">{t('dashboard:billing.no_transactions')}</td></tr>
+                      <tr><td colSpan={7} className="text-center py-8 text-text-muted">{t('dashboard:billing.no_transactions')}</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -320,7 +383,7 @@ export default function BillingPage() {
                 <table className="ev-table">
                   <thead>
                     <tr>
-                      <th>{t('dashboard:billing.table_arrears.user_id')}</th>
+                      <th>Khách hàng</th>
                       <th>{t('dashboard:billing.table_arrears.session_id')}</th>
                       <th>{t('dashboard:billing.table_arrears.amount')}</th>
                       <th>{t('dashboard:billing.table_arrears.status')}</th>
@@ -343,11 +406,26 @@ export default function BillingPage() {
                         onClick={() => setSelectedArrear(a)}
                         className="cursor-pointer hover:bg-white/[0.02] transition-colors"
                       >
-                        <td className="font-mono text-xs text-text-main">{a.userId.slice(0,8)}…</td>
+                        <td>
+                          {userMap.has(a.userId) ? (
+                            <div className="flex flex-col">
+                              <span className="font-medium text-text-main text-xs">{userMap.get(a.userId)?.fullName}</span>
+                              <span className="text-[10px] text-text-muted">{userMap.get(a.userId)?.email}</span>
+                            </div>
+                          ) : (
+                            <span className="font-mono text-xs text-text-main">{a.userId.slice(0,8)}…</span>
+                          )}
+                        </td>
                         <td className="font-mono text-xs">{(a.sessionId ?? a.transactionId ?? '').slice(0,8)}…</td>
-                        <td className="text-danger font-semibold">{formatCurrency(a.totalAmount ?? a.amount ?? 0)}</td>
-                        <td><span className="badge badge-danger">{t(`dashboard:data.status.${a.status}`)}</span></td>
-                        <td className="text-xs text-text-muted">{relativeTimeLocale(a.createdAt)}</td>
+                         <td className="text-danger font-semibold">{formatCurrency(a.totalAmount ?? a.amount ?? 0)}</td>
+                         <td>
+                           <span className={`badge ${
+                             a.status?.toUpperCase() === 'CLEARED' ? 'badge-success' : 'badge-danger'
+                           }`}>
+                             {t(`dashboard:data.status.${a.status?.toUpperCase()}`)}
+                           </span>
+                         </td>
+                         <td className="text-xs text-text-muted">{relativeTimeLocale(a.createdAt)}</td>
                         <td className="text-right pr-6" onClick={(e) => e.stopPropagation()}>
                           <div className="flex justify-end items-center gap-2">
                             <button 
@@ -395,57 +473,41 @@ export default function BillingPage() {
 
       {/* Transaction Details Modal */}
       {selectedTransaction && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div 
-            className="w-full max-w-sm p-6 rounded-2xl relative border shadow-2xl space-y-4 bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 animate-scale-up"
-          >
-            <div className="corner-marker cm-tl" />
-            <div className="corner-marker cm-tr" />
-            <div className="corner-marker cm-bl" />
-            <div className="corner-marker cm-br" />
+        <Portal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+            <div 
+              className="w-full max-w-sm p-6 rounded-2xl relative border shadow-2xl space-y-4 bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 animate-scale-up"
+            >
+              <div className="corner-marker cm-tl" />
+              <div className="corner-marker cm-tr" />
+              <div className="corner-marker cm-bl" />
+              <div className="corner-marker cm-br" />
 
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-2.5">
-              <div className="flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-cyan" />
-                <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">
-                  Chi tiết giao dịch
-                </h3>
-              </div>
-              <button 
-                type="button"
-                onClick={() => setSelectedTransaction(null)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-0.5 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-3.5 text-xs max-h-[60vh] overflow-y-auto pr-1 scrollbar-thin">
-              <div className="flex flex-col gap-1">
-                <label className="text-slate-500 dark:text-slate-400 font-semibold">Mã giao dịch (ID)</label>
-                <div className="flex items-center justify-between font-mono text-[11px] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2 text-slate-900 dark:text-white">
-                  <span className="truncate pr-2">{selectedTransaction.id}</span>
-                  <button 
-                    onClick={() => {
-                      navigator.clipboard.writeText(selectedTransaction.id);
-                      toast.success("Đã sao chép mã giao dịch");
-                    }}
-                    className="text-cyan hover:text-cyan/85 shrink-0"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                  </button>
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-cyan" />
+                  <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">
+                    Chi tiết giao dịch
+                  </h3>
                 </div>
+                <button 
+                  type="button"
+                  onClick={() => setSelectedTransaction(null)}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-0.5 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
 
-              {selectedTransaction.referenceId && (
+              <div className="space-y-3.5 text-xs max-h-[60vh] overflow-y-auto pr-1 scrollbar-thin">
                 <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Mã tham chiếu (Reference ID)</label>
+                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Mã giao dịch (ID)</label>
                   <div className="flex items-center justify-between font-mono text-[11px] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2 text-slate-900 dark:text-white">
-                    <span className="truncate pr-2">{selectedTransaction.referenceId}</span>
+                    <span className="truncate pr-2">{selectedTransaction.id}</span>
                     <button 
                       onClick={() => {
-                        navigator.clipboard.writeText(selectedTransaction.referenceId);
-                        toast.success("Đã sao chép mã tham chiếu");
+                        navigator.clipboard.writeText(selectedTransaction.id);
+                        toast.success(tSafe('common:common.copied_tx_id', 'Đã sao chép mã giao dịch'));
                       }}
                       className="text-cyan hover:text-cyan/85 shrink-0"
                     >
@@ -453,166 +515,166 @@ export default function BillingPage() {
                     </button>
                   </div>
                 </div>
-              )}
 
-              <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Loại giao dịch</label>
-                  <div>
-                    <span className={`badge ${
-                      selectedTransaction.type === 'TOPUP' ? 'badge-success' :
-                      selectedTransaction.type === 'REFUND' ? 'badge-info' : 'badge-warning'
-                    }`}>
-                      {t(`dashboard:data.type.${selectedTransaction.type}`)}
-                    </span>
+                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Khách hàng</label>
+                  {userMap.has(selectedTransaction.userId) ? (
+                    <div className="flex flex-col bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2">
+                      <span className="font-semibold text-slate-900 dark:text-white">{userMap.get(selectedTransaction.userId)?.fullName}</span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400">{userMap.get(selectedTransaction.userId)?.email}</span>
+                    </div>
+                  ) : (
+                    <div className="font-mono text-[11px] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2 text-slate-900 dark:text-white">
+                      {selectedTransaction.userId || '—'}
+                    </div>
+                  )}
+                </div>
+
+                {selectedTransaction.referenceId && (
+                  <div className="flex flex-col gap-1">
+                    <label className="text-slate-500 dark:text-slate-400 font-semibold">Mã tham chiếu (Reference ID)</label>
+                    <div className="flex items-center justify-between font-mono text-[11px] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2 text-slate-900 dark:text-white">
+                      <span className="truncate pr-2">{selectedTransaction.referenceId}</span>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(selectedTransaction.referenceId);
+                          toast.success(tSafe('common:common.copied_ref_id', 'Đã sao chép mã tham chiếu'));
+                        }}
+                        className="text-cyan hover:text-cyan/85 shrink-0"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-slate-500 dark:text-slate-400 font-semibold">Loại giao dịch</label>
+                    <div>
+                      <span className={`badge ${
+                        selectedTransaction.type?.toUpperCase() === 'TOPUP' ? 'badge-success' :
+                        selectedTransaction.type?.toUpperCase() === 'REFUND' ? 'badge-info' : 'badge-warning'
+                      }`}>
+                        {t(`dashboard:data.type.${selectedTransaction.type?.toUpperCase()}`)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-slate-500 dark:text-slate-400 font-semibold">Số tiền</label>
+                    <div className={`font-bold text-sm ${selectedTransaction.type?.toUpperCase() === 'TOPUP' ? 'text-lime' : 'text-slate-900 dark:text-white'}`}>
+                      {selectedTransaction.type?.toUpperCase() === 'TOPUP' ? '+' : ''}{formatCurrency(selectedTransaction.amount)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-slate-500 dark:text-slate-400 font-semibold">Trạng thái</label>
+                    <div>
+                      <span className={`badge ${
+                        selectedTransaction.status?.toUpperCase() === 'SUCCESS' || selectedTransaction.status?.toUpperCase() === 'COMPLETED' ? 'badge-success' :
+                        selectedTransaction.status?.toUpperCase() === 'PENDING' ? 'badge-warning' : 'badge-danger'
+                      }`}>
+                        {t(`dashboard:data.status.${selectedTransaction.status?.toUpperCase()}`)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-slate-500 dark:text-slate-400 font-semibold">Tiền tệ</label>
+                    <div className="font-semibold text-slate-900 dark:text-white">
+                      {selectedTransaction.currency || 'VND'}
+                    </div>
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Số tiền</label>
-                  <div className={`font-bold text-sm ${selectedTransaction.type === 'TOPUP' ? 'text-lime' : 'text-slate-900 dark:text-white'}`}>
-                    {selectedTransaction.type === 'TOPUP' ? '+' : ''}{formatCurrency(selectedTransaction.amount)}
+                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Mã ví liên kết (Wallet ID)</label>
+                  <div className="flex items-center justify-between font-mono text-[11px] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2 text-slate-900 dark:text-white">
+                    <span className="truncate pr-2">{selectedTransaction.walletId}</span>
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(selectedTransaction.walletId);
+                        toast.success(tSafe('common:common.copied_wallet_id', 'Đã sao chép mã ví'));
+                      }}
+                      className="text-cyan hover:text-cyan/85 shrink-0"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Thời gian tạo</label>
+                  <div className="font-semibold text-slate-900 dark:text-white text-xs">
+                    {formatDate(selectedTransaction.createdAt)}
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Trạng thái</label>
-                  <div>
-                    <span className={`badge ${
-                      selectedTransaction.status === 'SUCCESS' || selectedTransaction.status === 'completed' ? 'badge-success' :
-                      selectedTransaction.status === 'PENDING' || selectedTransaction.status === 'pending' ? 'badge-warning' : 'badge-danger'
-                    }`}>
-                      {t(`dashboard:data.status.${selectedTransaction.status}`)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Tiền tệ</label>
-                  <div className="font-semibold text-slate-900 dark:text-white">
-                    {selectedTransaction.currency || 'VND'}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-slate-500 dark:text-slate-400 font-semibold">Mã ví liên kết (Wallet ID)</label>
-                <div className="flex items-center justify-between font-mono text-[11px] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2 text-slate-900 dark:text-white">
-                  <span className="truncate pr-2">{selectedTransaction.walletId}</span>
-                  <button 
-                    onClick={() => {
-                      navigator.clipboard.writeText(selectedTransaction.walletId);
-                      toast.success("Đã sao chép mã ví");
-                    }}
-                    className="text-cyan hover:text-cyan/85 shrink-0"
+              <div className="flex justify-end gap-2 pt-2">
+                {isAdmin && selectedTransaction.type?.toUpperCase() === 'PAYMENT' && (selectedTransaction.status?.toUpperCase() === 'SUCCESS' || selectedTransaction.status?.toUpperCase() === 'COMPLETED') && (
+                  <button
+                    type="button"
+                    disabled={isRefunding}
+                    onClick={() => handleRefundTransaction(selectedTransaction.id)}
+                    className="px-3.5 py-1.5 bg-danger/10 hover:bg-danger/25 border border-danger/20 text-danger text-xs font-semibold transition-colors rounded-xl flex items-center gap-1"
                   >
-                    <Copy className="w-3.5 h-3.5" />
+                    <RotateCcw className="w-3.5 h-3.5" /> Hoàn tiền
                   </button>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-slate-500 dark:text-slate-400 font-semibold">Thời gian tạo</label>
-                <div className="font-semibold text-slate-900 dark:text-white text-xs">
-                  {formatDate(selectedTransaction.createdAt)}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              {isAdmin && selectedTransaction.type === 'PAYMENT' && (selectedTransaction.status === 'SUCCESS' || selectedTransaction.status === 'completed') && (
+                )}
                 <button
                   type="button"
-                  disabled={isRefunding}
-                  onClick={() => handleRefundTransaction(selectedTransaction.id)}
-                  className="px-3.5 py-1.5 bg-danger/10 hover:bg-danger/25 border border-danger/20 text-danger text-xs font-semibold transition-colors rounded-xl flex items-center gap-1"
+                  onClick={() => setSelectedTransaction(null)}
+                  className="px-3.5 py-1.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white text-xs font-semibold transition-colors rounded-xl"
                 >
-                  <RotateCcw className="w-3.5 h-3.5" /> Hoàn tiền
+                  Đóng
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setSelectedTransaction(null)}
-                className="px-3.5 py-1.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white text-xs font-semibold transition-colors rounded-xl"
-              >
-                Đóng
-              </button>
+              </div>
             </div>
           </div>
-        </div>
+        </Portal>
       )}
 
       {/* Arrear Details Modal */}
       {selectedArrear && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div 
-            className="w-full max-w-sm p-6 rounded-2xl relative border shadow-2xl space-y-4 bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 animate-scale-up"
-          >
-            <div className="corner-marker cm-tl" />
-            <div className="corner-marker cm-tr" />
-            <div className="corner-marker cm-bl" />
-            <div className="corner-marker cm-br" />
+        <Portal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+            <div 
+              className="w-full max-w-sm p-6 rounded-2xl relative border shadow-2xl space-y-4 bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 animate-scale-up"
+            >
+              <div className="corner-marker cm-tl" />
+              <div className="corner-marker cm-tr" />
+              <div className="corner-marker cm-bl" />
+              <div className="corner-marker cm-br" />
 
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-2.5">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-warning" />
-                <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">
-                  Chi tiết khoản nợ
-                </h3>
-              </div>
-              <button 
-                type="button"
-                onClick={() => setSelectedArrear(null)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-0.5 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-3.5 text-xs max-h-[60vh] overflow-y-auto pr-1 scrollbar-thin">
-              <div className="flex flex-col gap-1">
-                <label className="text-slate-500 dark:text-slate-400 font-semibold">Mã hóa đơn nợ (ID)</label>
-                <div className="flex items-center justify-between font-mono text-[11px] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2 text-slate-900 dark:text-white truncate">
-                  <span className="truncate pr-2">{selectedArrear.id}</span>
-                  <button 
-                    onClick={() => {
-                      navigator.clipboard.writeText(selectedArrear.id);
-                      toast.success("Đã sao chép mã nợ");
-                    }}
-                    className="text-cyan hover:text-cyan/85 shrink-0"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                  </button>
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-warning" />
+                  <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">
+                    Chi tiết khoản nợ
+                  </h3>
                 </div>
+                <button 
+                  type="button"
+                  onClick={() => setSelectedArrear(null)}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-0.5 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-slate-500 dark:text-slate-400 font-semibold">Mã người dùng (User ID)</label>
-                <div className="flex items-center justify-between font-mono text-[11px] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2 text-slate-900 dark:text-white truncate">
-                  <span className="truncate pr-2">{selectedArrear.userId}</span>
-                  <button 
-                    onClick={() => {
-                      navigator.clipboard.writeText(selectedArrear.userId);
-                      toast.success("Đã sao chép mã người dùng");
-                    }}
-                    className="text-cyan hover:text-cyan/85 shrink-0"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {(selectedArrear.sessionId || selectedArrear.transactionId) && (
+              <div className="space-y-3.5 text-xs max-h-[60vh] overflow-y-auto pr-1 scrollbar-thin">
                 <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Mã phiên sạc / giao dịch liên quan</label>
+                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Mã hóa đơn nợ (ID)</label>
                   <div className="flex items-center justify-between font-mono text-[11px] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2 text-slate-900 dark:text-white truncate">
-                    <span className="truncate pr-2">{selectedArrear.sessionId ?? selectedArrear.transactionId}</span>
+                    <span className="truncate pr-2">{selectedArrear.id}</span>
                     <button 
                       onClick={() => {
-                        navigator.clipboard.writeText(selectedArrear.sessionId ?? selectedArrear.transactionId ?? '');
-                        toast.success("Đã sao chép mã liên quan");
+                        navigator.clipboard.writeText(selectedArrear.id);
+                        toast.success(tSafe('common:common.copied_arrear_id', 'Đã sao chép mã nợ'));
                       }}
                       className="text-cyan hover:text-cyan/85 shrink-0"
                     >
@@ -620,55 +682,101 @@ export default function BillingPage() {
                     </button>
                   </div>
                 </div>
-              )}
 
-              <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Số tiền nợ</label>
-                  <div className="font-bold text-danger text-sm">
-                    {formatCurrency(selectedArrear.totalAmount ?? selectedArrear.amount ?? 0)}
+                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Khách hàng</label>
+                  {userMap.has(selectedArrear.userId) ? (
+                    <div className="flex flex-col bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2">
+                      <span className="font-semibold text-slate-900 dark:text-white">{userMap.get(selectedArrear.userId)?.fullName}</span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400">{userMap.get(selectedArrear.userId)?.email}</span>
+                      {selectedArrear.userId === KIOSK_GUEST_USER_ID && (
+                        <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-warning">Giao dịch kiosk — không có ví liên kết</span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between font-mono text-[11px] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2 text-slate-900 dark:text-white truncate">
+                      <span className="truncate pr-2">{selectedArrear.userId}</span>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(selectedArrear.userId);
+                          toast.success(tSafe('common:common.copied_user_id', 'Đã sao chép mã người dùng'));
+                        }}
+                        className="text-cyan hover:text-cyan/85 shrink-0"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {(selectedArrear.sessionId || selectedArrear.transactionId) && (
+                  <div className="flex flex-col gap-1">
+                    <label className="text-slate-500 dark:text-slate-400 font-semibold">Mã phiên sạc / giao dịch liên quan</label>
+                    <div className="flex items-center justify-between font-mono text-[11px] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2 text-slate-900 dark:text-white truncate">
+                      <span className="truncate pr-2">{selectedArrear.sessionId ?? selectedArrear.transactionId}</span>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(selectedArrear.sessionId ?? selectedArrear.transactionId ?? '');
+                          toast.success(tSafe('common:common.copied_related_id', 'Đã sao chép mã liên quan'));
+                        }}
+                        className="text-cyan hover:text-cyan/85 shrink-0"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-slate-500 dark:text-slate-400 font-semibold">Số tiền nợ</label>
+                    <div className="font-bold text-danger text-sm">
+                      {formatCurrency(selectedArrear.totalAmount ?? selectedArrear.amount ?? 0)}
+                    </div>
+                  </div>
+
+                   <div className="flex flex-col gap-1">
+                    <label className="text-slate-500 dark:text-slate-400 font-semibold">Trạng thái</label>
+                    <div>
+                      <span className={`badge ${
+                        selectedArrear.status?.toUpperCase() === 'CLEARED' ? 'badge-success' : 'badge-danger'
+                      }`}>
+                        {t(`dashboard:data.status.${selectedArrear.status?.toUpperCase()}`)}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Trạng thái</label>
-                  <div>
-                    <span className="badge badge-danger">
-                      {t(`dashboard:data.status.${selectedArrear.status}`)}
-                    </span>
+                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Thời gian tạo</label>
+                  <div className="font-semibold text-slate-900 dark:text-white text-xs">
+                    {formatDate(selectedArrear.createdAt)}
                   </div>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-slate-500 dark:text-slate-400 font-semibold">Thời gian tạo</label>
-                <div className="font-semibold text-slate-900 dark:text-white text-xs">
-                  {formatDate(selectedArrear.createdAt)}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              {isAdmin && selectedArrear.status === 'PENDING' && (
+              <div className="flex justify-end gap-2 pt-2">
+                {isAdmin && selectedArrear.status === 'PENDING' && (
+                  <button
+                    type="button"
+                    disabled={isClearing}
+                    onClick={() => handleClearArrears(selectedArrear.id)}
+                    className="px-3.5 py-1.5 bg-success/10 hover:bg-success/25 border border-success/20 text-success text-xs font-semibold transition-colors rounded-xl flex items-center gap-1"
+                  >
+                    <ClearIcon className="w-3.5 h-3.5" /> Tất toán nợ
+                  </button>
+                )}
                 <button
                   type="button"
-                  disabled={isClearing}
-                  onClick={() => handleClearArrears(selectedArrear.id)}
-                  className="px-3.5 py-1.5 bg-success/10 hover:bg-success/25 border border-success/20 text-success text-xs font-semibold transition-colors rounded-xl flex items-center gap-1"
+                  onClick={() => setSelectedArrear(null)}
+                  className="px-3.5 py-1.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white text-xs font-semibold transition-colors rounded-xl"
                 >
-                  <ClearIcon className="w-3.5 h-3.5" /> Tất toán nợ
+                  Đóng
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setSelectedArrear(null)}
-                className="px-3.5 py-1.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white text-xs font-semibold transition-colors rounded-xl"
-              >
-                Đóng
-              </button>
+              </div>
             </div>
           </div>
-        </div>
+        </Portal>
       )}
     </div>
   );

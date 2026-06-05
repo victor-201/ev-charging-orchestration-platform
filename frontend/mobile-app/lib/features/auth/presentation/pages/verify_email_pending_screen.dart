@@ -88,18 +88,21 @@ class _VerifyEmailPendingScreenState extends State<VerifyEmailPendingScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-                  const SizedBox(height: 40),
-                  const Icon(Icons.mark_email_unread_outlined, size: 80, color: AppColors.primary),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSpacing.md),
+                  const Icon(Icons.mark_email_unread_outlined, size: 56, color: AppColors.primary),
+                  const SizedBox(height: AppSpacing.md),
                   Text(
                     'Kiểm tra email của bạn',
-                    style: AppTypography.displayMd,
+                    style: AppTypography.headingLg.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 22,
+                    ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.xs),
                   Text(
                     'Chúng tôi đã gửi mã xác nhận 6 số đến email:\n${widget.email}',
-                    style: AppTypography.bodyLg.copyWith(color: AppColors.grey600),
+                    style: AppTypography.caption.copyWith(color: AppColors.grey600, height: 1.5),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 32),
@@ -126,8 +129,9 @@ class _VerifyEmailPendingScreenState extends State<VerifyEmailPendingScreen> {
                     isLoading: state is AuthLoading,
                   ),
                   const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text(
                         'Chưa nhận được email? ',
@@ -135,6 +139,11 @@ class _VerifyEmailPendingScreenState extends State<VerifyEmailPendingScreen> {
                       ),
                       TextButton(
                         onPressed: _canResend ? _resend : null,
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
                         child: Text(
                           _canResend ? 'Gửi lại' : 'Gửi lại sau ${_countdown}s',
                           style: AppTypography.bodyMd.copyWith(

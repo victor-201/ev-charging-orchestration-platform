@@ -86,7 +86,32 @@ export class StationController {
 
   @Get()
   @Public()
-  async list(@Query() query: ListStationsQueryDto) {
+  async list(
+    @Query() query: ListStationsQueryDto,
+    @CurrentUser() user?: AuthenticatedUser,
+  ) {
+    if (user) {
+      const isStaff = user.role === 'staff' || user.roles?.includes('staff');
+      const isAdmin = user.role === 'admin' || user.roles?.includes('admin');
+
+      if (isStaff && !isAdmin) {
+        const allowedStations = user.stationIds || [];
+        if (allowedStations.length === 0) {
+          return { items: [], total: 0, limit: query.limit ?? 20, offset: query.offset ?? 0 };
+        }
+
+        if (query.ids) {
+          const requestedIds = query.ids.split(',').map((id) => id.trim()).filter(Boolean);
+          const allowedRequestedIds = requestedIds.filter((id) => allowedStations.includes(id));
+          if (allowedRequestedIds.length === 0) {
+            return { items: [], total: 0, limit: query.limit ?? 20, offset: query.offset ?? 0 };
+          }
+          query.ids = allowedRequestedIds.join(',');
+        } else {
+          query.ids = allowedStations.join(',');
+        }
+      }
+    }
     return this.listStations.execute(query);
   }
 
@@ -98,11 +123,25 @@ export class StationController {
     @Query('radiusKm') radiusKm = 10,
     @Query('limit')    limit    = 20,
     @Query('status')   status?: string,
+    @CurrentUser() user?: AuthenticatedUser,
   ) {
+    let allowedStations: string[] | undefined = undefined;
+    if (user) {
+      const isStaff = user.role === 'staff' || user.roles?.includes('staff');
+      const isAdmin = user.role === 'admin' || user.roles?.includes('admin');
+
+      if (isStaff && !isAdmin) {
+        allowedStations = user.stationIds || [];
+        if (allowedStations.length === 0) {
+          return [];
+        }
+      }
+    }
     return this.handleDomainErrors(() =>
       this.getNearbyStations.execute(
         Number(lat), Number(lng), Number(radiusKm), Number(limit),
         status as StationStatus | undefined,
+        allowedStations,
       ),
     );
   }
@@ -114,11 +153,22 @@ export class StationController {
   }
 
   @Get('pricing-rules')
-  @Roles('admin')
+  @Roles('admin', 'staff')
   async listRules(
     @Query('stationId')  stationId:  string,
     @Query('activeOnly') activeOnly: string,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
+    const isStaff = user.role === 'staff' || user.roles?.includes('staff');
+    const isAdmin = user.role === 'admin' || user.roles?.includes('admin');
+
+    if (isStaff && !isAdmin) {
+      const allowedStations = user.stationIds || [];
+      if (!stationId || !allowedStations.includes(stationId)) {
+        throw new UnauthorizedException('You do not have permission to view pricing rules for this station');
+      }
+    }
+
     return this.listPricingRules.execute(
       stationId  || undefined,
       activeOnly === 'true',
@@ -217,13 +267,41 @@ export class StationController {
 
   @Get(':id')
   @Public()
-  async detail(@Param('id', ParseUUIDPipe) id: string) {
+  async detail(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user?: AuthenticatedUser,
+  ) {
+    if (user) {
+      const isStaff = user.role === 'staff' || user.roles?.includes('staff');
+      const isAdmin = user.role === 'admin' || user.roles?.includes('admin');
+
+      if (isStaff && !isAdmin) {
+        const allowedStations = user.stationIds || [];
+        if (!allowedStations.includes(id)) {
+          throw new UnauthorizedException('You do not have permission to view this station');
+        }
+      }
+    }
     return this.handleDomainErrors(() => this.getStation.execute(id));
   }
 
   @Get(':stationId/chargers')
   @Public()
-  async listChargers(@Param('stationId', ParseUUIDPipe) stationId: string) {
+  async listChargers(
+    @Param('stationId', ParseUUIDPipe) stationId: string,
+    @CurrentUser() user?: AuthenticatedUser,
+  ) {
+    if (user) {
+      const isStaff = user.role === 'staff' || user.roles?.includes('staff');
+      const isAdmin = user.role === 'admin' || user.roles?.includes('admin');
+
+      if (isStaff && !isAdmin) {
+        const allowedStations = user.stationIds || [];
+        if (!allowedStations.includes(stationId)) {
+          throw new UnauthorizedException('You do not have permission to view chargers for this station');
+        }
+      }
+    }
     return this.handleDomainErrors(() => this.getChargers.execute(stationId));
   }
 
@@ -531,7 +609,7 @@ export class StationController {
    * Admin only: Schedule maintenance.
    */
   @Post('maintenance')
-  @Roles('admin')
+  @Roles('admin', 'staff')
   @HttpCode(HttpStatus.CREATED)
   async scheduleMaintenance(
     @Body() body: {
@@ -546,6 +624,16 @@ export class StationController {
     if (!body.stationId || !body.scheduledStartTime || !body.scheduledEndTime) {
       throw new BadRequestException('stationId, scheduledStartTime, and scheduledEndTime are required');
     }
+    const isStaff = user.role === 'staff' || user.roles?.includes('staff');
+    const isAdmin = user.role === 'admin' || user.roles?.includes('admin');
+
+    if (isStaff && !isAdmin) {
+      const allowedStations = user.stationIds || [];
+      if (!allowedStations.includes(body.stationId)) {
+        throw new UnauthorizedException('You do not have permission to schedule maintenance for this station');
+      }
+    }
+
     const start = new Date(body.scheduledStartTime);
     const end = new Date(body.scheduledEndTime);
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {

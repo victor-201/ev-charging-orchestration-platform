@@ -39,8 +39,15 @@ export class StaffController {
    * Admin/Staff only: List all users from the users cache read-model.
    */
   @Get('users')
-  @Roles('admin')
-  async listUsers(@Query('limit') limit?: string, @Query('offset') offset?: string) {
+  @Roles('admin', 'staff')
+  async listUsers(
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+    @Query('search') search?: string,
+    @Query('debt') debt?: string,
+    @Query('role') role?: string,
+    @Query('ids') ids?: string,
+  ) {
     try {
       // 1. Fetch all master users and their first role name in one single query
       const masterUsers: Array<{
@@ -118,13 +125,45 @@ export class StaffController {
       console.warn('Failed to sync users cache with master table on-the-fly:', err);
     }
 
-    const limitNum = limit ? parseInt(limit, 10) : 1000;
+    const limitNum = ids ? 1000 : (limit ? parseInt(limit, 10) : 20);
     const offsetNum = offset ? parseInt(offset, 10) : 0;
-    const [items, total] = await this.usersCacheRepo.findAndCount({
-      take: limitNum,
-      skip: offsetNum,
-      order: { fullName: 'ASC' },
-    });
+
+    const query = this.usersCacheRepo.createQueryBuilder('uc');
+
+    if (ids) {
+      const idList = ids.split(',').map(id => id.trim()).filter(id => id.length > 0);
+      if (idList.length > 0) {
+        query.andWhere('uc.userId IN (:...idList)', { idList });
+      }
+    } else {
+      // 1. Role Filter (default to 'user' if not specified)
+      const targetRole = role !== undefined ? role : 'user';
+      if (targetRole !== 'all') {
+        query.andWhere('uc.roleName = :role', { role: targetRole });
+      }
+
+      // 2. Search Filter (name, email, phone)
+      if (search) {
+        query.andWhere(
+          '(LOWER(uc.fullName) LIKE LOWER(:search) OR LOWER(uc.email) LIKE LOWER(:search) OR uc.phone LIKE :search)',
+          { search: `%${search}%` }
+        );
+      }
+
+      // 3. Debt Filter
+      if (debt === 'debt') {
+        query.andWhere('uc.hasOutstandingDebt = :hasDebt', { hasDebt: true });
+      } else if (debt === 'nodebt') {
+        query.andWhere('uc.hasOutstandingDebt = :hasDebt', { hasDebt: false });
+      }
+    }
+
+    query
+      .orderBy('uc.fullName', 'ASC')
+      .take(limitNum)
+      .skip(offsetNum);
+
+    const [items, total] = await query.getManyAndCount();
     return { items, total };
   }
 

@@ -29,4 +29,11 @@ abstract class IWalletRepository {
   /// Initiates a direct VNPay payment to settle outstanding arrears.
   /// The user's EVolt wallet balance remains unchanged.
   Future<Either<Failure, TopUpResultEntity>> payArrearsVNPay();
+
+  /// Wallet-first payment for a completed charging session.
+  /// POST /payments/pay — tries wallet balance first, falls back to VNPay.
+  Future<Either<Failure, SessionPaymentResultEntity>> sessionPay({
+    required double amount,
+    required String sessionId,
+  });
 }

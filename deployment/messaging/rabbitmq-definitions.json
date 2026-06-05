@@ -56,6 +56,16 @@
       }
     },
     {
+      "name": "notification.booking.confirmed",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "ev.charging.dlx",
+        "x-message-ttl": 86400000
+      }
+    },
+    {
       "name": "notification.booking.cancelled",
       "vhost": "/",
       "durable": true,
@@ -67,18 +77,57 @@
       }
     },
     {
-      "name": "notification.booking.completed",
+      "name": "notification.booking.expired",
       "vhost": "/",
       "durable": true,
       "auto_delete": false,
       "arguments": {
         "x-dead-letter-exchange": "ev.charging.dlx",
-        "x-dead-letter-routing-key": "dlq.notification.booking.completed",
         "x-message-ttl": 86400000
       }
     },
     {
-      "name": "notification.payment.success",
+      "name": "notification.booking.no_show",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "ev.charging.dlx",
+        "x-message-ttl": 86400000
+      }
+    },
+    {
+      "name": "notification.booking.reminder.upcoming",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "ev.charging.dlx",
+        "x-message-ttl": 86400000
+      }
+    },
+    {
+      "name": "notification.booking.reminder.payment_expiry",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "ev.charging.dlx",
+        "x-message-ttl": 86400000
+      }
+    },
+    {
+      "name": "notification.payment.completed",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "ev.charging.dlx",
+        "x-message-ttl": 86400000
+      }
+    },
+    {
+      "name": "notification.payment.failed",
       "vhost": "/",
       "durable": true,
       "auto_delete": false,
@@ -99,6 +148,106 @@
     },
     {
       "name": "notification.charging.completed",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "ev.charging.dlx",
+        "x-message-ttl": 86400000
+      }
+    },
+    {
+      "name": "notification.queue",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "ev.charging.dlx",
+        "x-message-ttl": 86400000
+      }
+    },
+    {
+      "name": "notification.charger.fault",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "ev.charging.dlx",
+        "x-message-ttl": 86400000
+      }
+    },
+    {
+      "name": "notification.billing.idle_fee",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "ev.charging.dlx",
+        "x-message-ttl": 86400000
+      }
+    },
+    {
+      "name": "notification.billing.extra_charge",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "ev.charging.dlx",
+        "x-message-ttl": 86400000
+      }
+    },
+    {
+      "name": "notification.billing.refund",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "ev.charging.dlx",
+        "x-message-ttl": 86400000
+      }
+    },
+    {
+      "name": "notification.wallet.arrears.created",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "ev.charging.dlx",
+        "x-message-ttl": 86400000
+      }
+    },
+    {
+      "name": "notification.wallet.arrears.cleared",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "ev.charging.dlx",
+        "x-message-ttl": 86400000
+      }
+    },
+    {
+      "name": "notification.charger.queue.ready",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "ev.charging.dlx",
+        "x-message-ttl": 86400000
+      }
+    },
+    {
+      "name": "notification.user.email_verification",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "ev.charging.dlx",
+        "x-message-ttl": 86400000
+      }
+    },
+    {
+      "name": "notification.charging.telemetry",
       "vhost": "/",
       "durable": true,
       "auto_delete": false,
@@ -181,6 +330,14 @@
     {
       "source": "ev.charging",
       "vhost": "/",
+      "destination": "notification.booking.confirmed",
+      "destination_type": "queue",
+      "routing_key": "booking.confirmed",
+      "arguments": {}
+    },
+    {
+      "source": "ev.charging",
+      "vhost": "/",
       "destination": "notification.booking.cancelled",
       "destination_type": "queue",
       "routing_key": "booking.cancelled",
@@ -189,17 +346,49 @@
     {
       "source": "ev.charging",
       "vhost": "/",
-      "destination": "notification.booking.completed",
+      "destination": "notification.booking.expired",
       "destination_type": "queue",
-      "routing_key": "booking.completed",
+      "routing_key": "booking.expired",
       "arguments": {}
     },
     {
       "source": "ev.charging",
       "vhost": "/",
-      "destination": "notification.payment.success",
+      "destination": "notification.booking.no_show",
       "destination_type": "queue",
-      "routing_key": "payment.success",
+      "routing_key": "booking.no_show",
+      "arguments": {}
+    },
+    {
+      "source": "ev.charging",
+      "vhost": "/",
+      "destination": "notification.booking.reminder.upcoming",
+      "destination_type": "queue",
+      "routing_key": "booking.reminder.upcoming",
+      "arguments": {}
+    },
+    {
+      "source": "ev.charging",
+      "vhost": "/",
+      "destination": "notification.booking.reminder.payment_expiry",
+      "destination_type": "queue",
+      "routing_key": "booking.reminder.payment_expiry",
+      "arguments": {}
+    },
+    {
+      "source": "ev.charging",
+      "vhost": "/",
+      "destination": "notification.payment.completed",
+      "destination_type": "queue",
+      "routing_key": "payment.completed",
+      "arguments": {}
+    },
+    {
+      "source": "ev.charging",
+      "vhost": "/",
+      "destination": "notification.payment.failed",
+      "destination_type": "queue",
+      "routing_key": "payment.failed",
       "arguments": {}
     },
     {
@@ -207,7 +396,7 @@
       "vhost": "/",
       "destination": "notification.charging.started",
       "destination_type": "queue",
-      "routing_key": "charging.started",
+      "routing_key": "session.started",
       "arguments": {}
     },
     {
@@ -215,7 +404,87 @@
       "vhost": "/",
       "destination": "notification.charging.completed",
       "destination_type": "queue",
-      "routing_key": "charging.completed",
+      "routing_key": "session.completed",
+      "arguments": {}
+    },
+    {
+      "source": "ev.charging",
+      "vhost": "/",
+      "destination": "notification.queue",
+      "destination_type": "queue",
+      "routing_key": "queue.*",
+      "arguments": {}
+    },
+    {
+      "source": "ev.charging",
+      "vhost": "/",
+      "destination": "notification.charger.fault",
+      "destination_type": "queue",
+      "routing_key": "charger.fault.detected",
+      "arguments": {}
+    },
+    {
+      "source": "ev.charging",
+      "vhost": "/",
+      "destination": "notification.billing.idle_fee",
+      "destination_type": "queue",
+      "routing_key": "billing.idle_fee_charged",
+      "arguments": {}
+    },
+    {
+      "source": "ev.charging",
+      "vhost": "/",
+      "destination": "notification.billing.extra_charge",
+      "destination_type": "queue",
+      "routing_key": "billing.extra_charge",
+      "arguments": {}
+    },
+    {
+      "source": "ev.charging",
+      "vhost": "/",
+      "destination": "notification.billing.refund",
+      "destination_type": "queue",
+      "routing_key": "billing.refund_issued",
+      "arguments": {}
+    },
+    {
+      "source": "ev.charging",
+      "vhost": "/",
+      "destination": "notification.wallet.arrears.created",
+      "destination_type": "queue",
+      "routing_key": "wallet.arrears.created",
+      "arguments": {}
+    },
+    {
+      "source": "ev.charging",
+      "vhost": "/",
+      "destination": "notification.wallet.arrears.cleared",
+      "destination_type": "queue",
+      "routing_key": "wallet.arrears.cleared",
+      "arguments": {}
+    },
+    {
+      "source": "ev.charging",
+      "vhost": "/",
+      "destination": "notification.charger.queue.ready",
+      "destination_type": "queue",
+      "routing_key": "charger.queue.ready",
+      "arguments": {}
+    },
+    {
+      "source": "ev.charging",
+      "vhost": "/",
+      "destination": "notification.user.email_verification",
+      "destination_type": "queue",
+      "routing_key": "user.email_verification_requested",
+      "arguments": {}
+    },
+    {
+      "source": "ev.charging",
+      "vhost": "/",
+      "destination": "notification.charging.telemetry",
+      "destination_type": "queue",
+      "routing_key": "session.telemetry",
       "arguments": {}
     },
     {

@@ -80,3 +80,23 @@ class TopUpResultEntity extends Equatable {
   @override
   List<Object?> get props => [transactionId, vnpayUrl];
 }
+
+/// Result from POST /payments/pay (wallet-first orchestrator).
+class SessionPaymentResultEntity extends Equatable {
+  final String method;       // 'wallet' | 'gateway'
+  final String transactionId;
+  final String? paymentUrl;  // VNPay URL if method == 'gateway'
+  final double? balanceAfter;
+  final String status;       // 'COMPLETED' | 'PENDING' | 'FAILED'
+
+  const SessionPaymentResultEntity({
+    required this.method,
+    required this.transactionId,
+    this.paymentUrl,
+    this.balanceAfter,
+    required this.status,
+  });
+
+  @override
+  List<Object?> get props => [method, transactionId, paymentUrl, status];
+}

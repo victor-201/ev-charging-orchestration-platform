@@ -279,6 +279,19 @@
   ```
 - **Response (200 OK):** Updated Profile JSON
 
+### [18a] [POST] /api/v1/users/me/avatar
+
+- **Auth:** Bearer | **Roles:** User
+- **Name:** Upload avatar image
+- **Request (Multipart/Form-Data):**
+  - `file`: binary (JPEG, PNG, WebP, GIF; max 2MB)
+- **Response (200 OK):**
+  ```json
+  {
+    "avatarUrl": "string"
+  }
+  ```
+
 ### [19] [DELETE] /api/v1/users/me
 
 - **Auth:** Bearer | **Roles:** User
@@ -417,6 +430,41 @@
   ]
   ```
 
+### [26a] [GET] /api/v1/users
+
+- **Auth:** Bearer | **Roles:** Admin/Staff
+- **Name:** List users (from users cache read-model)
+- **Request (Query Params):**
+  ```json
+  {
+    "limit": "number (optional, default 20)",
+    "offset": "number (optional, default 0)",
+    "search": "string (optional, searches fullName, email, phone)",
+    "debt": "string (optional: 'debt' or 'nodebt')",
+    "role": "string (optional: 'user', 'staff', 'admin', 'all', default: 'user')",
+    "ids": "string (optional, comma-separated list of user IDs to batch resolve)"
+  }
+  ```
+- **Response (200 OK):**
+  ```json
+  {
+    "items": [
+      {
+        "userId": "uuid",
+        "email": "string",
+        "fullName": "string",
+        "phone": "string (nullable)",
+        "roleName": "string",
+        "status": "string",
+        "emailVerified": "boolean",
+        "hasOutstandingDebt": "boolean",
+        "arrearsAmount": "number",
+        "syncedAt": "iso-date"
+      }
+    ],
+    "total": "number"
+  }
+  ```
 
 ### [27] [GET] /api/v1/staff
 
@@ -467,9 +515,21 @@
   ```
 - **Response (200 OK):** Updated StaffProfileDto
 
+### [29a] [DELETE] /api/v1/staff/:id
+
+- **Auth:** Bearer | **Roles:** Admin
+- **Name:** Delete staff profile
+- **Request (Path Params):**
+  ```json
+  {
+    "id": "uuid"
+  }
+  ```
+- **Response (204 No Content):** Empty
+
 ### [30] [POST] /api/v1/attendance/check-in
 
-- **Auth:** Bearer | **Roles:** Staff
+- **Auth:** Bearer | **Roles:** Admin/Staff
 - **Name:** Check-in for shift
 - **Request (Body):**
   ```json
@@ -483,7 +543,7 @@
 
 ### [31] [POST] /api/v1/attendance/check-out
 
-- **Auth:** Bearer | **Roles:** Staff
+- **Auth:** Bearer | **Roles:** Admin/Staff
 - **Name:** Check-out from shift
 - **Request (Body):**
   ```json
@@ -788,7 +848,7 @@
 
 ### [47] [GET] /api/v1/stations/pricing-rules
 
-- **Auth:** Bearer | **Roles:** Admin/Staff
+- **Auth:** Bearer | **Roles:** Admin
 - **Name:** List pricing rules
 - **Request (Query):**
   ```json
@@ -933,6 +993,24 @@
   ```
 - **Response (201 Created):** MaintenanceDto
 
+### [55a] [PATCH] /api/v1/stations/maintenance/:id
+
+- **Auth:** Bearer | **Roles:** Admin/Staff
+- **Name:** Update station maintenance record
+- **Request (Path Params & Body):**
+  ```json
+  // Path Params
+  {
+    "id": "uuid"
+  }
+  // Body
+  {
+    "status": "string (optional: SCHEDULED, IN_PROGRESS, COMPLETED)",
+    "endTime": "iso-date (optional)",
+    "reason": "string (optional)"
+  }
+  ```
+- **Response (200 OK):** Updated Maintenance record JSON
 
 ---
 
@@ -985,6 +1063,41 @@
         "startTime": "iso-date",
         "endTime": "iso-date",
         "status": "string (pending_payment, confirmed, completed, cancelled, expired, no_show)",
+        "durationMinutes": "number",
+        "qrToken": "string (nullable)",
+        "depositAmount": "number",
+        "createdAt": "iso-date"
+      }
+    ],
+    "total": "number"
+  }
+  ```
+
+### [57a] [GET] /api/v1/bookings
+
+- **Auth:** Bearer | **Roles:** Admin/Staff
+- **Name:** List all bookings (for Admin/Staff)
+- **Request (Query Params):**
+  ```json
+  {
+    "limit": "number (optional, default 50)",
+    "offset": "number (optional, default 0)",
+    "userId": "uuid (optional)",
+    "chargerId": "uuid (optional)",
+    "status": "string (optional: pending_payment, confirmed, completed, cancelled, expired, no_show)"
+  }
+  ```
+- **Response (200 OK):**
+  ```json
+  {
+    "items": [
+      {
+        "id": "uuid",
+        "userId": "uuid",
+        "chargerId": "uuid",
+        "startTime": "iso-date",
+        "endTime": "iso-date",
+        "status": "string",
         "durationMinutes": "number",
         "qrToken": "string (nullable)",
         "depositAmount": "number",
@@ -1375,7 +1488,7 @@
 
 ### [76] [POST] /api/v1/payments/:id/refund
 
-- **Auth:** Bearer | **Roles:** Admin/Staff
+- **Auth:** Bearer | **Roles:** Admin
 - **Name:** Refund transaction
 - **Request (Path Params & Body):**
   ```json
@@ -1448,6 +1561,38 @@
   {
     "success": "boolean",
     "newBalance": "number"
+  }
+  ```
+
+### [79a] [POST] /api/v1/wallet/pay-arrears
+
+- **Auth:** Bearer | **Roles:** User
+- **Name:** Settle outstanding arrears using wallet balance
+- **Request:** Empty
+- **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "clearedAmount": "number"
+  }
+  ```
+
+### [79b] [POST] /api/v1/wallet/pay-arrears-vnpay
+
+- **Auth:** Bearer | **Roles:** User
+- **Name:** Settle outstanding arrears directly via VNPay (credit/debit card)
+- **Request (Body):**
+  ```json
+  {
+    "bankCode": "string (optional)"
+  }
+  ```
+- **Response (201 Created):**
+  ```json
+  {
+    "transactionId": "uuid",
+    "paymentUrl": "string (URL)",
+    "totalArrears": "number"
   }
   ```
 
@@ -1716,7 +1861,7 @@
 
 ### [96] [GET] /api/v1/analytics/revenue
 
-- **Auth:** Bearer | **Roles:** Admin
+- **Auth:** Bearer | **Roles:** Admin/Staff
 - **Name:** Revenue by month/day
 - **Request (Query):**
   ```json
@@ -1738,7 +1883,7 @@
 
 ### [97] [GET] /api/v1/analytics/usage
 
-- **Auth:** Bearer | **Roles:** Admin
+- **Auth:** Bearer | **Roles:** Admin/Staff
 - **Name:** Station usage statistics
 - **Request (Query):**
   ```json
@@ -1788,7 +1933,7 @@
 
 ### [98] [GET] /api/v1/analytics/peak-hours
 
-- **Auth:** Bearer | **Roles:** Admin
+- **Auth:** Bearer | **Roles:** Admin/Staff
 - **Name:** Peak hours + demand forecast
 - **Request (Query):**
   ```json
@@ -1856,7 +2001,7 @@
 
 ### [100] [GET] /api/v1/analytics/stations/:stationId/metrics
 
-- **Auth:** Bearer | **Roles:** Admin
+- **Auth:** Bearer | **Roles:** Admin/Staff
 - **Name:** Station metrics summary
 - **Request (Path Params & Query):**
   ```json
@@ -1988,6 +2133,27 @@
   {
     "eventId": "uuid",
     "warnings": ["string"]
+  }
+  ```
+
+### [103a] [GET] /api/v1/telemetry/health
+
+- **Auth:** Public | **Roles:** —
+- **Name:** Telemetry service health check
+- **Request:** Empty
+- **Response (200 OK):**
+  ```json
+  {
+    "status": "healthy",
+    "service": "telemetry-ingestion-service",
+    "timestamp": "iso-date",
+    "dependencies": {
+      "clickhouse": {
+        "status": "string (connected/disconnected)",
+        "database": "string",
+        "buffered": "number"
+      }
+    }
   }
   ```
 

@@ -7,14 +7,7 @@ import {
   SESSION_REPOSITORY,
 } from '../../domain/repositories/session.repository.interface';
 
-// Event bus interface (lightweight)
-
-export interface IEventBus {
-  publish(event: { eventType: string; payload: object }): Promise<void>;
-  publishAll?(events: { eventType: string; payload: object }[]): Promise<void>;
-}
-
-export const EVENT_BUS = Symbol('EVENT_BUS');
+import { IEventBus, EVENT_BUS } from '../../infrastructure/messaging/event-bus.interface';
 
 
 // Reconciliation Job

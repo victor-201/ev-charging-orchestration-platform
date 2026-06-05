@@ -223,9 +223,25 @@ class BookingRepositoryImpl implements IBookingRepository {
           await _client.get(ApiPaths.queuePosition(chargerId));
       final data = response.data['data'] as Map<String, dynamic>? ?? {};
       final position = (data['position'] as num?)?.toInt() ?? 0;
+      
+      final waitingList = (data['waitingList'] as List<dynamic>? ?? [])
+          .map((e) {
+            final map = e as Map<String, dynamic>;
+            return QueueEntryEntity(
+              position: (map['position'] as num?)?.toInt() ?? 0,
+              userId: map['userId']?.toString() ?? '',
+              fullName: map['fullName']?.toString(),
+              email: map['email']?.toString(),
+              joinedAt: DateTime.parse(map['joinedAt'].toString()),
+              isCurrentUser: map['isCurrentUser'] as bool? ?? false,
+            );
+          })
+          .toList();
+
       return Right(QueuePositionEntity(
         position: position,
         estimatedWaitMinutes: position * 45, // Backend logic: position × 45
+        waitingList: waitingList,
       ));
     } on DioException catch (e) {
       return Left(ErrorMapper.fromDioException(e));

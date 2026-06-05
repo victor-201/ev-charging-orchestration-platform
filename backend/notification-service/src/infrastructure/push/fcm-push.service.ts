@@ -4,15 +4,18 @@ import { Repository } from 'typeorm';
 import * as admin from 'firebase-admin';
 import { FIREBASE_ADMIN } from './firebase.module';
 import { DeviceOrmEntity } from '../persistence/typeorm/entities/notification.orm-entities';
+import { translateToVietnamese } from './vi-notification-translator';
 
 // Public interfaces (used by DeliveryEngine)
 
 export interface FcmMessage {
-  token:     string;
-  title:     string;
-  body:      string;
-  data?:     Record<string, string>;
-  imageUrl?: string;
+  token:              string;
+  title:              string;
+  body:               string;
+  data?:              Record<string, string>;
+  imageUrl?:          string;
+  notificationType?:  string;  // used for Vietnamese translation
+  notifPayload?:      any;     // raw event payload for body interpolation
 }
 
 export interface FcmResult {
@@ -64,10 +67,12 @@ export class FcmPushService {
    * Purges invalid tokens automatically.
    */
   async sendToUser(params: {
-    userId: string;
-    title:  string;
-    body:   string;
-    data?:  Record<string, string>;
+    userId:             string;
+    title:              string;
+    body:               string;
+    data?:              Record<string, string>;
+    notificationType?:  string;
+    notifPayload?:      any;
   }): Promise<{ sent: number; failed: number; tokens: string[] }> {
     const devices = await this.deviceRepo.find({
       where: { userId: params.userId },
@@ -79,10 +84,12 @@ export class FcmPushService {
     }
 
     const messages: FcmMessage[] = devices.map((d) => ({
-      token: d.pushToken,
-      title: params.title,
-      body:  params.body,
-      data:  params.data ?? {},
+      token:             d.pushToken,
+      title:             params.title,
+      body:              params.body,
+      data:              params.data ?? {},
+      notificationType:  params.notificationType,
+      notifPayload:      params.notifPayload,
     }));
 
     const results = await this.sendAll(messages);
@@ -148,13 +155,27 @@ export class FcmPushService {
 
     const data: Record<string, string> = {
       ...(message.data ?? {}),
-      title: message.title,
-      body:  message.body,
+      title: message.title,   // English – for client foreground processing
+      body:  message.body,    // English – for client foreground processing
       ...(message.imageUrl ? { imageUrl: message.imageUrl } : {}),
     };
 
+    // Translate to Vietnamese for OS-level notification display
+    // (shown when app is in background or killed)
+    const vi = translateToVietnamese(
+      message.notificationType ?? '',
+      message.title,
+      message.body,
+      message.notifPayload ?? {},
+    );
+
     const payload: admin.messaging.Message = {
       token: message.token,
+      notification: {
+        title: vi.title,
+        body:  vi.body,
+        ...(message.imageUrl ? { imageUrl: message.imageUrl } : {}),
+      },
       data,
       android: {
         priority: 'high',

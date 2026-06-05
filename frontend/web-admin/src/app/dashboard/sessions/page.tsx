@@ -2,20 +2,21 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/services/api-client';
-import { relativeTimeLocale } from '@/i18n/formatter';
+import { relativeTimeLocale, formatCurrency, formatDate, tSafe, translateMessage } from '@/i18n/formatter';
 import { motion } from 'framer-motion';
-import { StopCircle, Filter, Search, ShieldAlert, Eye, Copy, Zap, Clock, Power, PowerOff, Activity, Gauge, Battery, Thermometer } from 'lucide-react';
+import { StopCircle, Filter, Search, ShieldAlert, Eye, Copy, Zap, Clock, Power, PowerOff, Activity, Gauge, Battery, Thermometer, Trash2, Loader2 } from 'lucide-react';
 import Pagination from '@/core/components/ui/Pagination';
 import CustomSelect from '@/core/components/ui/CustomSelect';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { formatCurrency, formatDate } from '@/i18n/formatter';
+
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import GlassCard from '@/core/theme/GlassCard';
 import GlassModal, { ModalHeader, ModalField, ModalValue, ModalCopyValue } from '@/core/theme/GlassModal';
 import { useTelemetrySocket } from '@/features/charging/hooks/useTelemetrySocket';
 import type { TelemetryReading } from '@/features/charging/hooks/useTelemetrySocket';
+import { KIOSK_GUEST_USER_ID, filterGuestFromUserIds, injectKioskGuest } from '@/lib/kiosk-guest';
 
 type ChargingSession = {
   id: string;
@@ -97,6 +98,10 @@ export default function SessionsPage() {
   const [stopReasonInput, setStopReasonInput] = useState<string>('Admin can thiệp khẩn cấp');
   const [isSubmittingStop, setIsSubmittingStop] = useState<boolean>(false);
 
+  // States for delete session
+  const [deletingSession, setDeletingSession] = useState<ChargingSession | null>(null);
+  const [isDeletingSession, setIsDeletingSession] = useState(false);
+
   const resetPage = () => setPage(1);
 
   // Telemetry socket for live readings
@@ -118,56 +123,6 @@ export default function SessionsPage() {
     setTelemetrySessionId(sessionId);
   };
 
-  // Fetch users for mapping userId to fullName
-  const { data: usersData } = useQuery({
-    queryKey: ['users-list-lookup'],
-    queryFn: async () => {
-      const res = await apiClient.get('/users', { params: { limit: 1000 } });
-      return res.data?.items ?? [];
-    },
-  });
-
-  const users = usersData || [];
-
-  const userMap = new Map<string, { fullName: string; email: string; phone: string | null }>();
-  users.forEach((u: any) => {
-    userMap.set(u.userId, {
-      fullName: u.fullName,
-      email: u.email,
-      phone: u.phone,
-    });
-  });
-
-  const staffStationIds: string[] = user?.stationIds?.length
-    ? user.stationIds
-    : user?.stationId
-      ? [user.stationId]
-      : [];
-
-  const assignedStationId = staffStationIds[0] || null;
-
-  // Load all stations to map charger IDs to station and identify assigned chargers
-  const { data: stationsData } = useQuery({
-    queryKey: ['stations-list-lookup-sessions'],
-    queryFn: async () => {
-      const res = await apiClient.get('/stations', { params: { limit: 1000 } });
-      return res.data?.items ?? [];
-    },
-  });
-
-  const stations = stationsData || [];
-
-  // Build a map of chargerId -> stationName & chargerCode
-  const chargerStationMap = new Map<string, { stationName: string; chargerCode: string }>();
-  stations.forEach((station: any) => {
-    station.chargers?.forEach((charger: any, idx: number) => {
-      chargerStationMap.set(charger.id, {
-        stationName: station.name,
-        chargerCode: `Trụ ${idx + 1} (${charger.maxPowerKw || 0}kW)`,
-      });
-    });
-  });
-
   const { data, isLoading, refetch } = useQuery<PagedSessions>({
     queryKey: ['charging-history', page, statusFilter, userIdFilter, chargerIdFilter],
     queryFn: async () => {
@@ -183,8 +138,85 @@ export default function SessionsPage() {
 
   const allSessions = data?.items ?? [];
 
-  // Find assigned chargers set
-  const assignedStations = stations.filter((s: any) => staffStationIds.includes(s.id));
+  // Guest kiosk không có record trong bảng users — lọc ra trước khi gọi API
+  const uniqueUserIds = Array.from(new Set(allSessions.map((s: any) => s.userId).filter(Boolean))) as string[];
+  const lookupUserIds = filterGuestFromUserIds(uniqueUserIds);
+
+  // Fetch users for mapping userId to fullName in a batch
+  const { data: usersData } = useQuery({
+    queryKey: ['users-list-lookup-batch', lookupUserIds.join(',')],
+    queryFn: async () => {
+      if (lookupUserIds.length === 0) return [];
+      const res = await apiClient.get('/users', {
+        params: {
+          ids: lookupUserIds.join(','),
+          role: 'all',
+          limit: lookupUserIds.length,
+        }
+      });
+      return res.data?.items ?? [];
+    },
+    enabled: lookupUserIds.length > 0,
+  });
+
+  const users = usersData || [];
+
+  const userMap = new Map<string, { fullName: string; email: string; phone: string | null }>();
+  users.forEach((u: any) => {
+    userMap.set(u.userId, {
+      fullName: u.fullName,
+      email: u.email,
+      phone: u.phone,
+    });
+  });
+  // Inject kiosk guest profile nếu trang này có session của khách vãng lai
+  injectKioskGuest(uniqueUserIds, userMap);
+
+  const staffStationIds: string[] = user?.stationIds?.length
+    ? user.stationIds
+    : user?.stationId
+      ? [user.stationId]
+      : [];
+
+  const assignedStationId = staffStationIds[0] || null;
+
+  // Collect unique charger IDs visible on this page
+  const uniqueChargerIds = Array.from(
+    new Set(allSessions.map((s: any) => s.chargerId).filter(Boolean))
+  ) as string[];
+
+  // Single batch request: GET /stations?chargerIds=id1,id2,...
+  // Returns all stations containing any of those chargers — 1 request instead of N
+  const { data: chargerStationsData } = useQuery({
+    queryKey: ['charger-stations-batch-sessions', uniqueChargerIds.join(',')],
+    queryFn: async () => {
+      if (uniqueChargerIds.length === 0) return [];
+      const res = await apiClient.get('/stations', {
+        params: {
+          chargerIds: uniqueChargerIds.join(','),
+          limit: uniqueChargerIds.length,
+        },
+      });
+      return res.data?.items ?? [];
+    },
+    enabled: uniqueChargerIds.length > 0,
+  });
+
+  const chargerStations = chargerStationsData || [];
+
+  // Build a map of chargerId -> stationName & chargerCode from batch results
+  const chargerStationMap = new Map<string, { stationName: string; chargerCode: string }>();
+  chargerStations.forEach((station: any) => {
+    station.chargers?.forEach((charger: any, idx: number) => {
+      chargerStationMap.set(charger.id, {
+        stationName: station.name,
+        chargerCode: `Trụ ${idx + 1} (${charger.maxPowerKw || 0}kW)`,
+      });
+    });
+  });
+
+  // Find assigned chargers set (staff restriction)
+  const assignedStations = chargerStations.filter((s: any) => staffStationIds.includes(s.id));
   const assignedChargerIds = new Set(assignedStations.flatMap((s: any) => s.chargers?.map((c: any) => c.id) ?? []));
 
   // Visible sessions (Backend already filtered them if user is staff)
@@ -198,11 +230,11 @@ export default function SessionsPage() {
 
     const endMeter = Number(endMeterWhInput);
     if (isNaN(endMeter) || endMeter < 0) {
-      toast.error('Chỉ số điện năng cuối phải là số hợp lệ lớn hơn hoặc bằng 0');
+      toast.error(t('dashboard:sessions.invalid_end_meter', { defaultValue: 'Chỉ số điện năng cuối phải là số hợp lệ lớn hơn hoặc bằng 0' }));
       return;
     }
     if (endMeter < stoppingSession.startMeterWh) {
-      toast.error(`Chỉ số điện năng cuối không được nhỏ hơn chỉ số bắt đầu (${stoppingSession.startMeterWh} Wh)`);
+      toast.error(t('dashboard:sessions.end_meter_less_than_start', { start: stoppingSession.startMeterWh, defaultValue: `Chỉ số điện năng cuối không được nhỏ hơn chỉ số bắt đầu (${stoppingSession.startMeterWh} Wh)` }));
       return;
     }
 
@@ -216,11 +248,24 @@ export default function SessionsPage() {
       setStoppingSession(null);
       refetch();
     } catch (err: any) {
-      const errMsg = err?.response?.data?.message;
-      const formattedMsg = Array.isArray(errMsg) ? errMsg.join(', ') : errMsg;
-      toast.error(formattedMsg || t('common:api_errors.UNKNOWN_ERROR', { defaultValue: 'Không thể dừng phiên sạc' }));
+      toast.error(translateMessage(err?.response?.data?.message, 'common:api_errors.UNKNOWN_ERROR'));
     } finally {
       setIsSubmittingStop(false);
+    }
+  };
+
+  const handleDeleteSession = async () => {
+    if (!deletingSession) return;
+    setIsDeletingSession(true);
+    try {
+      await apiClient.delete(`/charging/session/${deletingSession.id}`);
+      toast.success('Đã xóa phiên sạc thành công!');
+      setDeletingSession(null);
+      refetch();
+    } catch (err: any) {
+      toast.error(translateMessage(err?.response?.data?.message, 'Xóa phiên sạc thất bại'));
+    } finally {
+      setIsDeletingSession(false);
     }
   };
 
@@ -379,6 +424,17 @@ export default function SessionsPage() {
                                   <StopCircle className="w-4 h-4" />
                                 </button>
                               )}
+                              {/* Delete completed/stopped/interrupted sessions */}
+                              {isAdmin && ['completed', 'stopped', 'interrupted'].includes(s.status) && (
+                                <button
+                                  onClick={() => setDeletingSession(s)}
+                                  disabled={isDeletingSession}
+                                  className="p-1 text-text-muted hover:text-danger transition-colors"
+                                  title="Xóa phiên sạc vĩnh viễn"
+                                >
+                                  {isDeletingSession && deletingSession?.id === s.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                </button>
+                              )}
                             </div>
                           </td>
                         </motion.tr>
@@ -423,7 +479,7 @@ export default function SessionsPage() {
 
             <div className="space-y-3.5 text-xs max-h-[60vh] overflow-y-auto pr-1 scrollbar-thin">
               <ModalField label="Mã phiên sạc (Session ID)">
-                <ModalCopyValue text={selectedSession.id} onCopy={() => toast.success('Đã sao chép mã phiên sạc')} />
+                <ModalCopyValue text={selectedSession.id} onCopy={() => toast.success(tSafe('common:common.copied_session_id', 'Đã sao chép mã phiên sạc'))} />
               </ModalField>
 
               <div className="grid grid-cols-2 gap-3">
@@ -457,9 +513,11 @@ export default function SessionsPage() {
                       <span className="font-semibold text-xs" style={{ color: 'var(--text-main)' }}>
                         {userMap.get(selectedSession.userId)?.fullName}
                       </span>
-                      <span className="font-mono text-[10px]" style={{ color: 'var(--text-faded)' }}>
-                        {selectedSession.userId.slice(0, 8)}…
-                      </span>
+                      {selectedSession.userId !== KIOSK_GUEST_USER_ID && (
+                        <span className="font-mono text-[10px]" style={{ color: 'var(--text-faded)' }}>
+                          {selectedSession.userId.slice(0, 8)}…
+                        </span>
+                      )}
                     </div>
                     <div className="flex justify-between text-[11px] pt-1" style={{ borderTop: '1px solid var(--card-border)' }}>
                       <span style={{ color: 'var(--text-faded)' }}>Email:</span>
@@ -471,17 +529,17 @@ export default function SessionsPage() {
                     </div>
                   </div>
                 ) : (
-                  <ModalCopyValue text={selectedSession.userId} onCopy={() => toast.success('Đã sao chép mã người dùng')} />
+                  <ModalCopyValue text={selectedSession.userId} onCopy={() => toast.success(tSafe('common:common.copied_user_id', 'Đã sao chép mã người dùng'))} />
                 )}
               </ModalField>
 
               <ModalField label="Mã trụ sạc (Charger ID)">
-                <ModalCopyValue text={selectedSession.chargerId} onCopy={() => toast.success('Đã sao chép mã trụ sạc')} />
+                <ModalCopyValue text={selectedSession.chargerId} onCopy={() => toast.success(tSafe('common:common.copied_charger_id', 'Đã sao chép mã trụ sạc'))} />
               </ModalField>
 
               {selectedSession.bookingId && (
                 <ModalField label="Mã đặt lịch liên kết (Booking ID)">
-                  <ModalCopyValue text={selectedSession.bookingId} onCopy={() => toast.success('Đã sao chép mã đặt lịch')} />
+                  <ModalCopyValue text={selectedSession.bookingId} onCopy={() => toast.success(tSafe('common:common.copied_booking_id', 'Đã sao chép mã đặt lịch'))} />
                 </ModalField>
               )}
 
@@ -782,6 +840,65 @@ export default function SessionsPage() {
                   <div className="w-3.5 h-3.5 rounded-full border border-white border-t-transparent animate-spin shrink-0" />
                 )}
                 Xác nhận dừng
+              </button>
+            </div>
+          </>
+        )}
+      </GlassModal>
+
+      {/* Delete Session Confirm Modal */}
+      <GlassModal open={!!deletingSession} onClose={() => setDeletingSession(null)} className="max-w-sm">
+        {deletingSession && (
+          <>
+            <ModalHeader onClose={() => setDeletingSession(null)}>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.25)' }}>
+                <Trash2 className="w-4 h-4 text-danger" />
+              </div>
+              <h3 className="font-bold text-xs uppercase tracking-wider" style={{ color: 'var(--text-main)' }}>
+                Xác nhận xóa phiên sạc
+              </h3>
+            </ModalHeader>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--card-border)' }}>
+                <p style={{ color: 'var(--text-faded)' }} className="mb-0.5">Mã phiên sạc</p>
+                <p className="font-mono" style={{ color: 'var(--text-main)' }}>{deletingSession.id}</p>
+                <p style={{ color: 'var(--text-muted)' }} className="mt-1">
+                  Trạng thái: <span className={`badge ${STATUS_BADGE[deletingSession.status] || 'badge-muted'} ml-1`}>{deletingSession.status}</span>
+                </p>
+              </div>
+              <p style={{ color: 'var(--text-faded)' }} className="leading-relaxed">
+                Hành động này sẽ xóa vĩnh viễn bản ghi phiên sạc khỏi cơ sở dữ liệu. Thao tác không thể hoàn tác.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4" style={{ borderTop: '1px solid var(--card-border)' }}>
+              <button
+                type="button"
+                disabled={isDeletingSession}
+                onClick={() => setDeletingSession(null)}
+                className="px-3.5 py-1.5 text-xs font-semibold transition-colors rounded-xl"
+                style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-main)', border: '1px solid var(--card-border)' }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingSession}
+                onClick={handleDeleteSession}
+                className="px-3.5 py-1.5 text-xs font-bold text-white rounded-xl transition-all flex items-center gap-1 shadow-md disabled:opacity-60"
+                style={{ background: 'var(--brand-danger)', boxShadow: '0 4px 16px rgba(239,68,68,0.3)' }}
+                onMouseEnter={(e) => !isDeletingSession && (e.currentTarget.style.filter = 'brightness(1.1)')}
+                onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}
+              >
+                {isDeletingSession ? (
+                  <div className="w-3.5 h-3.5 rounded-full border border-white border-t-transparent animate-spin shrink-0" />
+                ) : (
+                  <Trash2 className="w-3.5 h-3.5" />
+                )}
+                Xóa vĩnh viễn
               </button>
             </div>
           </>

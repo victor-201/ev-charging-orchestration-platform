@@ -4,17 +4,19 @@ import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/services/api-client';
 import { motion } from 'framer-motion';
 import { 
-  Users, Filter, Eye, Copy, X, Edit, Calendar, ShieldAlert, 
-  ChevronLeft, ChevronRight, Search, CheckCircle2, User, 
-  AlertTriangle, DollarSign, RefreshCw 
+  Users, Eye, Copy, X, Calendar, ShieldAlert, 
+  Search, CheckCircle2, AlertTriangle, DollarSign, RefreshCw,
+  Lock, Unlock, Trash2, BadgeCheck, Loader2,
 } from 'lucide-react';
 import Pagination from '@/core/components/ui/Pagination';
 import CustomSelect from '@/core/components/ui/CustomSelect';
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { formatDate } from '@/i18n/formatter';
+import { formatDate, tSafe, translateMessage } from '@/i18n/formatter';
 import { useAuthStore } from '@/features/auth/store/auth.store';
+import { cn } from '@/core/utils/cn';
+import GlassModal, { ModalHeader, ModalField, ModalValue } from '@/core/theme/GlassModal';
 
 type UserCache = {
   userId: string;
@@ -40,17 +42,28 @@ export default function UsersPage() {
 
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState('all');
   const [debtFilter, setDebtFilter] = useState('all');
   const [selectedUser, setSelectedUser] = useState<UserCache | null>(null);
   const [isSubmittingRole, setIsSubmittingRole] = useState(false);
 
-  // Fetch all users (backed by TypeORM cache read-model)
+  // Action states
+  const [isTogglingStatus, setIsTogglingStatus] = useState(false);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
+  const [isSettlingDebt, setIsSettlingDebt] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<null | 'lock' | 'unlock' | 'delete' | 'settle'>(null);
+
+  // Fetch users with pagination and query params
   const { data: usersData, isLoading, refetch: refetchUsers } = useQuery<PagedUsers>({
-    queryKey: ['users-list'],
+    queryKey: ['users-list', page, search, debtFilter],
     queryFn: async () => {
       const res = await apiClient.get('/users', {
-        params: { limit: 1000, offset: 0 } // Load up to 1000 for rich search/filter capability on client
+        params: {
+          limit: LIMIT,
+          offset: (page - 1) * LIMIT,
+          search: search || undefined,
+          debt: debtFilter !== 'all' ? debtFilter : undefined,
+          role: 'user', // only get role 'user' (customers)
+        }
       });
       if (Array.isArray(res.data)) {
         return { items: res.data, total: res.data.length };
@@ -60,41 +73,9 @@ export default function UsersPage() {
     enabled: isAdmin,
   });
 
-  const allUsers = usersData?.items ?? [];
-
-  // Filter & Search Logic (Client-side for instant responsive typing/filtering)
-  const filteredUsers = useMemo(() => {
-    return allUsers.filter((u) => {
-      // 1. Search text
-      const searchLower = search.toLowerCase();
-      const matchSearch = 
-        u.fullName.toLowerCase().includes(searchLower) ||
-        u.email.toLowerCase().includes(searchLower) ||
-        (u.phone && u.phone.includes(searchLower));
-
-      // 2. Role Filter
-      const matchRole = roleFilter === 'all' || u.roleName === roleFilter;
-
-      // 3. Debt Filter
-      let matchDebt = true;
-      if (debtFilter === 'debt') {
-        matchDebt = u.hasOutstandingDebt;
-      } else if (debtFilter === 'nodebt') {
-        matchDebt = !u.hasOutstandingDebt;
-      }
-
-      return matchSearch && matchRole && matchDebt;
-    });
-  }, [allUsers, search, roleFilter, debtFilter]);
-
-  // Pagination Logic
-  const totalItems = filteredUsers.length;
+  const paginatedUsers = usersData?.items ?? [];
+  const totalItems = usersData?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalItems / LIMIT));
-  
-  const paginatedUsers = useMemo(() => {
-    const startIndex = (page - 1) * LIMIT;
-    return filteredUsers.slice(startIndex, startIndex + LIMIT);
-  }, [filteredUsers, page]);
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
@@ -105,7 +86,14 @@ export default function UsersPage() {
     const oldRole = selectedUser.roleName;
     if (oldRole === newRole) return;
     
-    if (!window.confirm(`Bạn có chắc chắn muốn thay đổi vai trò của "${selectedUser.fullName}" từ "${t(`roles.${oldRole.toUpperCase()}`, { defaultValue: oldRole })}" sang "${t(`roles.${newRole.toUpperCase()}`, { defaultValue: newRole })}"?`)) {
+    const oldRoleLabel = t(`roles.${oldRole.toUpperCase()}`, { defaultValue: oldRole });
+    const newRoleLabel = t(`roles.${newRole.toUpperCase()}`, { defaultValue: newRole });
+    if (!window.confirm(t('dashboard:users.confirm_change_role', {
+      name: selectedUser.fullName,
+      oldRole: oldRoleLabel,
+      newRole: newRoleLabel,
+      defaultValue: `Bạn có chắc chắn muốn thay đổi vai trò của "${selectedUser.fullName}" từ "${oldRoleLabel}" sang "${newRoleLabel}"?`
+    }))) {
       return;
     }
 
@@ -123,11 +111,11 @@ export default function UsersPage() {
         roleName: oldRole,
       });
 
-      toast.success('Phân quyền người dùng thành công!');
+      toast.success(tSafe('dashboard:users.role_assign_success', 'Phân quyền người dùng thành công!'));
       refetchUsers();
       setSelectedUser(prev => prev ? { ...prev, roleName: newRole } : null);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Không thể thay đổi vai trò của người dùng');
+      toast.error(translateMessage(err?.response?.data?.message, 'dashboard:users.role_assign_error'));
     } finally {
       setIsSubmittingRole(false);
     }
@@ -135,7 +123,64 @@ export default function UsersPage() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast.success('Đã sao chép User ID');
+    toast.success(tSafe('common:common.copied_user_id', 'Đã sao chép User ID'));
+  };
+
+  const handleToggleStatus = async () => {
+    if (!selectedUser) return;
+    const newStatus = selectedUser.status === 'active' ? 'suspended' : 'active';
+    setIsTogglingStatus(true);
+    setConfirmAction(null);
+    try {
+      await apiClient.patch(`/users/${selectedUser.userId}/status`, { status: newStatus });
+      toast.success(newStatus === 'suspended' ? 'Đã khóa tài khoản thành công!' : 'Đã mở khóa tài khoản thành công!');
+      refetchUsers();
+      setSelectedUser(prev => prev ? { ...prev, status: newStatus } : null);
+    } catch (err: any) {
+      toast.error(translateMessage(err?.response?.data?.message, 'Thao tác thất bại'));
+    } finally {
+      setIsTogglingStatus(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return;
+    setIsDeletingUser(true);
+    setConfirmAction(null);
+    try {
+      await apiClient.delete(`/users/${selectedUser.userId}`);
+      toast.success('Đã xóa tài khoản người dùng thành công!');
+      refetchUsers();
+      setSelectedUser(null);
+    } catch (err: any) {
+      toast.error(translateMessage(err?.response?.data?.message, 'Xóa tài khoản thất bại'));
+    } finally {
+      setIsDeletingUser(false);
+    }
+  };
+
+  const handleSettleArrears = async () => {
+    if (!selectedUser) return;
+    setIsSettlingDebt(true);
+    setConfirmAction(null);
+    try {
+      const res = await apiClient.get('/billing/arrears', {
+        params: { userId: selectedUser.userId, status: 'ACTIVE', limit: 50 },
+      });
+      const arrears: any[] = res.data?.items ?? res.data ?? [];
+      if (arrears.length === 0) {
+        toast.info('Không tìm thấy công nợ đang hoạt động');
+        return;
+      }
+      await Promise.all(arrears.map((a: any) => apiClient.post(`/billing/arrears/${a.id}/clear`)));
+      toast.success(`Đã tất toán ${arrears.length} khoản công nợ thành công!`);
+      refetchUsers();
+      setSelectedUser(prev => prev ? { ...prev, hasOutstandingDebt: false, arrearsAmount: 0 } : null);
+    } catch (err: any) {
+      toast.error(translateMessage(err?.response?.data?.message, 'Tất toán nợ xấu thất bại'));
+    } finally {
+      setIsSettlingDebt(false);
+    }
   };
 
   if (isCheckingAuth) {
@@ -163,7 +208,7 @@ export default function UsersPage() {
       {/* Header */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 shrink-0">
         <div>
-          <h1 className="text-h2 font-bold text-text-main">Quản lý Người dùng</h1>
+          <h1 className="text-h2 font-bold text-text-main">Quản lý Khách hàng</h1>
           <p className="text-text-muted text-sm mt-1">
             Quản lý thông tin tài khoản khách hàng, phân quyền và kiểm soát nợ xấu của hệ thống.
           </p>
@@ -183,20 +228,6 @@ export default function UsersPage() {
           </div>
 
           <div className="flex items-center gap-1">
-            <span className="text-xs text-text-muted whitespace-nowrap"><Filter className="w-3.5 h-3.5 inline mr-1" />Vai trò:</span>
-            <CustomSelect
-              value={roleFilter}
-              onChange={(v) => { setRoleFilter(v); setPage(1); }}
-              options={[
-                { value: 'all', label: 'Tất cả vai trò' },
-                { value: 'user', label: 'Khách hàng (User)' },
-                { value: 'staff', label: 'Nhân viên (Staff)' },
-                { value: 'admin', label: 'Quản trị viên (Admin)' },
-              ]}
-            />
-          </div>
-
-          <div className="flex items-center gap-1">
             <span className="text-xs text-text-muted whitespace-nowrap">Nợ xấu:</span>
             <CustomSelect
               value={debtFilter}
@@ -210,7 +241,7 @@ export default function UsersPage() {
           </div>
 
           <button
-            onClick={() => { refetchUsers(); toast.success('Đã làm mới dữ liệu'); }}
+            onClick={() => { refetchUsers(); toast.success(tSafe('common:common.data_refreshed', 'Đã làm mới dữ liệu')); }}
             className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 text-text-muted hover:text-text-main transition-colors"
             title="Làm mới"
           >
@@ -220,12 +251,14 @@ export default function UsersPage() {
       </div>
 
       {/* Main Layout Area */}
-      <div className="flex-1 min-h-0 flex flex-col xl:flex-row gap-4 overflow-hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0">
         {/* Left Column: User Table List */}
-        <div className={`flex flex-col min-h-0 overflow-hidden transition-all duration-300 ${selectedUser ? 'xl:w-[55%] flex-[1.2]' : 'w-full'}`}>
-          <div className="glass flex flex-col overflow-hidden min-h-0 flex-1">
+        <div className={cn(
+          "glass flex flex-col overflow-hidden min-h-0 transition-all duration-300",
+          selectedUser ? "lg:col-span-1" : "lg:col-span-3 w-full"
+        )}>
             <div className="px-5 py-4 border-b border-white/5 shrink-0">
-              <p className="font-semibold text-text-main text-sm">Danh sách tài khoản hệ thống</p>
+              <p className="font-semibold text-text-main text-sm">Danh sách khách hàng</p>
             </div>
             
             <div className="flex-1 overflow-y-auto min-h-0">
@@ -235,7 +268,6 @@ export default function UsersPage() {
                     <tr>
                       <th>Khách hàng</th>
                       <th>Số điện thoại</th>
-                      <th>Vai trò</th>
                       <th>Trạng thái</th>
                       <th>Nợ xấu</th>
                       <th className="text-right pr-6">Chi tiết</th>
@@ -245,7 +277,7 @@ export default function UsersPage() {
                     {isLoading ? (
                       Array.from({ length: 8 }).map((_, i) => (
                         <tr key={i}>
-                          {Array.from({ length: 6 }).map((_, j) => (
+                          {Array.from({ length: 5 }).map((_, j) => (
                             <td key={j}><div className="h-4 bg-white/5 rounded animate-pulse" /></td>
                           ))}
                         </tr>
@@ -264,14 +296,6 @@ export default function UsersPage() {
                             <p className="text-xs text-text-muted">{u.email}</p>
                           </td>
                           <td className="text-xs font-mono text-text-muted">{u.phone || '—'}</td>
-                          <td>
-                            <span className={`badge ${
-                              u.roleName === 'admin' ? 'badge-danger' : 
-                              u.roleName === 'staff' ? 'badge-warning' : 'badge-info'
-                            }`}>
-                              {t(`roles.${u.roleName.toUpperCase()}`, { defaultValue: u.roleName })}
-                            </span>
-                          </td>
                           <td>
                             <span className={`badge ${u.status === 'active' ? 'badge-success' : 'badge-danger'}`}>
                               {u.status === 'active' ? 'Hoạt động' : 'Tạm khóa'}
@@ -299,34 +323,22 @@ export default function UsersPage() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={6} className="text-center py-12 text-text-muted">
-                          Không tìm thấy người dùng nào phù hợp.
+                        <td colSpan={5} className="text-center py-12 text-text-muted">
+                          Không tìm thấy khách hàng nào phù hợp.
                         </td>
                       </tr>
                     )}
                   </tbody>
                 </table>
               </div>
-            </div>
           </div>
 
-          {/* Left Column Pagination */}
-          <div className="glass px-4 shrink-0 mt-3">
-            <Pagination
-              page={page}
-              totalPages={totalPages}
-              onPageChange={handlePageChange}
-              total={totalItems}
-              currentItemsCount={paginatedUsers.length}
-              itemLabel="tài khoản"
-            />
-          </div>
         </div>
 
         {/* Right Column: User detail view */}
         {selectedUser && (() => {
           return (
-            <div className="xl:w-[45%] flex-[1] glass p-5 flex flex-col min-h-0 overflow-y-auto animate-fade-in gap-4 relative">
+            <div className="lg:col-span-2 glass p-5 flex flex-col min-h-0 overflow-y-auto animate-fade-in gap-4 relative">
               {/* Header with Close */}
               <div className="flex items-center justify-between pb-3 border-b border-white/5">
                 <div className="flex items-center gap-2">
@@ -455,10 +467,147 @@ export default function UsersPage() {
                   Đổi vai trò sẽ tự động gán quyền mới và gỡ bỏ quyền cũ tương ứng trên toàn hệ thống thông qua IAM service.
                 </p>
               </div>
+
+              {/* Admin action buttons */}
+              <div className="border-t border-white/5 pt-4 mt-2 flex flex-col gap-2">
+                <label className="text-[10px] text-text-faded font-medium uppercase tracking-wider">Hành động quản trị</label>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  {/* Lock / Unlock */}
+                  {selectedUser.status === 'active' ? (
+                    <button
+                      onClick={() => setConfirmAction('lock')}
+                      disabled={isTogglingStatus}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all bg-warning/10 border border-warning/20 text-warning hover:bg-warning/20 disabled:opacity-50"
+                    >
+                      {isTogglingStatus ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
+                      Khóa tài khoản
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmAction('unlock')}
+                      disabled={isTogglingStatus}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all bg-success/10 border border-success/20 text-success hover:bg-success/20 disabled:opacity-50"
+                    >
+                      {isTogglingStatus ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Unlock className="w-3.5 h-3.5" />}
+                      Mở khóa
+                    </button>
+                  )}
+
+                  {/* Settle Arrears */}
+                  {selectedUser.hasOutstandingDebt && (
+                    <button
+                      onClick={() => setConfirmAction('settle')}
+                      disabled={isSettlingDebt}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all bg-cyan/10 border border-cyan/20 text-cyan hover:bg-cyan/20 disabled:opacity-50"
+                    >
+                      {isSettlingDebt ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BadgeCheck className="w-3.5 h-3.5" />}
+                      Tất toán nợ
+                    </button>
+                  )}
+
+                  {/* Delete Account */}
+                  <button
+                    onClick={() => setConfirmAction('delete')}
+                    disabled={isDeletingUser}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all bg-danger/10 border border-danger/20 text-danger hover:bg-danger/20 disabled:opacity-50"
+                  >
+                    {isDeletingUser ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    Xóa tài khoản
+                  </button>
+                </div>
+              </div>
             </div>
           );
         })()}
       </div>
+
+      {/* Standalone Pagination */}
+      <div className="glass px-4 shrink-0">
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          total={totalItems}
+          currentItemsCount={paginatedUsers.length}
+          itemLabel="tài khoản"
+        />
+      </div>
+
+      {/* Confirm Action Modal */}
+      <GlassModal open={confirmAction !== null} onClose={() => setConfirmAction(null)} className="max-w-sm">
+        {confirmAction && selectedUser && (
+          <>
+            <ModalHeader onClose={() => setConfirmAction(null)}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                confirmAction === 'delete' ? 'bg-danger/15 border border-danger/25' :
+                confirmAction === 'lock'   ? 'bg-warning/15 border border-warning/25' :
+                confirmAction === 'settle' ? 'bg-cyan/15 border border-cyan/25' :
+                                             'bg-success/15 border border-success/25'
+              }`}>
+                {confirmAction === 'delete' ? <Trash2 className="w-4 h-4 text-danger" /> :
+                 confirmAction === 'lock'   ? <Lock className="w-4 h-4 text-warning" /> :
+                 confirmAction === 'settle' ? <BadgeCheck className="w-4 h-4 text-cyan" /> :
+                                              <Unlock className="w-4 h-4 text-success" />}
+              </div>
+              <h3 className="font-bold text-xs uppercase tracking-wider text-text-main">
+                {confirmAction === 'delete' ? 'Xác nhận xóa tài khoản' :
+                 confirmAction === 'lock'   ? 'Xác nhận khóa tài khoản' :
+                 confirmAction === 'settle' ? 'Xác nhận tất toán công nợ' :
+                                              'Xác nhận mở khóa tài khoản'}
+              </h3>
+            </ModalHeader>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3 bg-white/[0.03] border border-white/5 rounded-xl">
+                <p className="text-text-faded mb-0.5">Tài khoản</p>
+                <p className="font-semibold text-text-main">{selectedUser.fullName}</p>
+                <p className="text-text-muted">{selectedUser.email}</p>
+              </div>
+
+              <p className="text-text-muted leading-relaxed">
+                {confirmAction === 'delete' && 'Hành động này sẽ xóa vĩnh viễn tài khoản. Dữ liệu lịch sử sẽ được giữ lại nhưng tài khoản sẽ không thể đăng nhập.'}
+                {confirmAction === 'lock'   && 'Tài khoản sẽ bị khóa ngay lập tức. Người dùng sẽ không thể đăng nhập hoặc sử dụng dịch vụ cho đến khi được mở khóa.'}
+                {confirmAction === 'unlock' && 'Tài khoản sẽ được kích hoạt lại. Người dùng có thể đăng nhập và sử dụng dịch vụ bình thường.'}
+                {confirmAction === 'settle' && `Hệ thống sẽ tự động tất toán tất cả công nợ đang hoạt động (${Number(selectedUser.arrearsAmount).toLocaleString('vi-VN')} VND). Quyền đặt lịch sẽ được khôi phục.`}
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4" style={{ borderTop: '1px solid var(--card-border)' }}>
+              <button
+                onClick={() => setConfirmAction(null)}
+                className="px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-colors"
+                style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-main)', border: '1px solid var(--card-border)' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+              >
+                Hủy bỏ
+              </button>
+              <button
+                onClick={
+                  confirmAction === 'lock' || confirmAction === 'unlock' ? handleToggleStatus :
+                  confirmAction === 'delete' ? handleDeleteUser :
+                  handleSettleArrears
+                }
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 ${
+                  confirmAction === 'delete' ? 'bg-danger/15 border border-danger/25 text-danger hover:bg-danger/25' :
+                  confirmAction === 'lock'   ? 'bg-warning/15 border border-warning/25 text-warning hover:bg-warning/25' :
+                  confirmAction === 'settle' ? 'bg-cyan/15 border border-cyan/25 text-cyan hover:bg-cyan/25' :
+                                               'bg-success/15 border border-success/25 text-success hover:bg-success/25'
+                }`}
+              >
+                {confirmAction === 'delete' ? <Trash2 className="w-3.5 h-3.5" /> :
+                 confirmAction === 'lock'   ? <Lock className="w-3.5 h-3.5" /> :
+                 confirmAction === 'settle' ? <BadgeCheck className="w-3.5 h-3.5" /> :
+                                              <Unlock className="w-3.5 h-3.5" />}
+                {confirmAction === 'delete' ? 'Xác nhận xóa' :
+                 confirmAction === 'lock'   ? 'Xác nhận khóa' :
+                 confirmAction === 'settle' ? 'Xác nhận tất toán' :
+                                              'Xác nhận mở khóa'}
+              </button>
+            </div>
+          </>
+        )}
+      </GlassModal>
     </div>
   );
 }

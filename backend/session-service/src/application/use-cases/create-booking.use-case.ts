@@ -43,9 +43,6 @@ import { ChargerStateOrmEntity } from '../../infrastructure/persistence/typeorm/
 export class CreateBookingUseCase {
   private readonly logger = new Logger(CreateBookingUseCase.name);
 
-  /** Absolute minimum deposit = 50,000 VND */
-  static readonly MIN_DEPOSIT_VND = 50_000;
-
   constructor(
     @Inject(BOOKING_REPOSITORY)
     private readonly bookingRepo: IBookingRepository,
@@ -94,21 +91,13 @@ export class CreateBookingUseCase {
     }
 
     // STEP 1b: Check real-time charger state (charger_state table)
-    // Block booking if charger is currently occupied or already reserved
+    // Block booking if charger is not available
     const chargerState = await this.chargerStateRepo.findOneBy({ chargerId: cmd.chargerId });
-    if (chargerState) {
-      if (chargerState.availability === 'occupied') {
-        throw new ConflictException(
-          `Charger ${cmd.chargerId} is currently in use. ` +
-          `Please join the waiting queue or try again when the charger is available.`,
-        );
-      }
-      if (chargerState.availability === 'reserved') {
-        throw new ConflictException(
-          `Charger ${cmd.chargerId} is reserved for an upcoming booking. ` +
-          `Please choose a different time slot or another charger.`,
-        );
-      }
+    if (chargerState && chargerState.availability !== 'available') {
+      throw new ConflictException(
+        `Charger ${cmd.chargerId} is not available (current status: ${chargerState.availability}). ` +
+        `Bookings can only be created when the charger is available.`,
+      );
     }
 
     // STEP 2: Fetch pricing -> calculate depositAmount

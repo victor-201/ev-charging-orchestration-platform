@@ -88,15 +88,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
               children: [
                     Text(
                       'Bắt đầu hành trình',
-                      style: AppTypography.displayMd.copyWith(
+                      style: AppTypography.headingLg.copyWith(
                         color: Theme.of(context).colorScheme.onSurface,
                         fontWeight: FontWeight.w700,
+                        fontSize: 22,
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.sm),
+                    const SizedBox(height: AppSpacing.xs),
                     Text(
                       'Đăng ký ngay để trải nghiệm mạng lưới sạc thông minh.',
-                      style: AppTypography.bodyMd.copyWith(
+                      style: AppTypography.caption.copyWith(
                         color: AppColors.grey600,
                       ),
                     ),

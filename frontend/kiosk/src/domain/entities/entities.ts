@@ -63,7 +63,15 @@ export interface ChargingSession {
   startTime: string;
   status: string;
   startMeterWh: number;
+  /** SOC % at the moment charging started — seeded from OCPP StartTransaction */
+  startSocPercent?: number | null;
   createdAt: string;
+  stationName?: string | null;
+  cityName?: string | null;
+  connectorType?: string | null;
+  maxPowerKw?: number | null;
+  energyKwh?: number;
+  amountDue?: number;
 }
 
 /** Charger state from charger_state table */

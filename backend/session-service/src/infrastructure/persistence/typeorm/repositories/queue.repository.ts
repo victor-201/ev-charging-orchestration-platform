@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, EntityManager } from 'typeorm';
+import { Repository, EntityManager, In } from 'typeorm';
 import { QueueOrmEntity } from '../entities/booking.orm-entities';
 import {
   IQueueRepository,
@@ -58,6 +58,14 @@ export class QueueRepository implements IQueueRepository {
   }
 
   async getPosition(userId: string, chargerId: string): Promise<number> {
+    // Check if there is a notified entry for this user
+    const entry = await this.repo.findOne({
+      where: { userId, chargerId, status: In(['waiting', 'notified']) },
+      order: { joinedAt: 'DESC' },
+    });
+    if (!entry) return -1;
+    if (entry.status === 'notified') return 0;
+
     // Use DB-side ROW_NUMBER() for accuracy (aligns with vw_queue_positions view)
     const rows: { user_id: string; rn: string }[] = await this.repo.manager.query(
       `SELECT user_id, ROW_NUMBER() OVER (PARTITION BY charger_id ORDER BY priority ASC, joined_at ASC) AS rn
@@ -87,7 +95,7 @@ export class QueueRepository implements IQueueRepository {
       id:           e.id,
       userId:       e.userId,
       chargerId:    e.chargerId,
-      connectorType: connectorType ?? 'CCS',
+      connectorType: connectorType,
       requestedAt:  e.joinedAt,
       userPriority: userPriority ?? Math.round(10 - ((e.priority - 1) / 99.8)),
       urgencyScore: urgencyScore ?? 0,

@@ -22,11 +22,10 @@ import {
 } from "./data/sources/localStorage";
 import { GetStationDetailUseCase } from "./application/useCases";
 import type { StationDetail, ChargerInfo } from "./domain/entities/entities";
-import { Wrench, X, RefreshCw, Check, RotateCcw, Zap, Clock, Activity } from "lucide-react";
+import { Wrench, X, RefreshCw, Check, RotateCcw, Zap, Clock, Activity, Sun, Moon, MapPin } from "lucide-react";
 
 // Hooks
 import { useSessionStateMachine } from "./presentation/hooks/useSessionStateMachine";
-import { useWebSocket } from "./presentation/hooks/useWebSocket";
 
 // Screens
 import WelcomeScreen from "./presentation/screens/WelcomeScreen";
@@ -154,6 +153,9 @@ const App: React.FC = () => {
     pricing,
     vnpayUrl,
     errorMessage,
+    isPaid,
+    isAppUserSession,
+    reservedBookingInfo,
     startSession,
     startBookingSession,
     stopSession,
@@ -169,13 +171,7 @@ const App: React.FC = () => {
   const [noticeBookingTime, setNoticeBookingTime] = useState<string>("11:30");
   const [noticeRemainingMins, setNoticeRemainingMins] = useState<number>(45);
 
-  // WebSocket: active only during ACTIVE state
-  useWebSocket({
-    sessionId: activeSession?.id ?? null,
-    startMeterWh: activeSession?.startMeterWh ?? 0,
-    onTelemetry: updateTelemetry,
-    enabled: status === "ACTIVE",
-  });
+
 
   return (
     <div className="relative h-screen w-screen overflow-hidden flex flex-col font-sans p-6"
@@ -188,8 +184,6 @@ const App: React.FC = () => {
             key="init" 
             onStart={startSession}
             onScanQrBooking={triggerScanQr}
-            theme={theme}
-            onToggleTheme={toggleTheme}
             triggerMaintenance={triggerMaintenance}
             triggerOffline={triggerOffline}
             triggerReserved={triggerReserved}
@@ -214,6 +208,7 @@ const App: React.FC = () => {
             key="reserved" 
             onScanSuccess={startBookingSession}
             onCancel={resetSession}
+            reservedBookingInfo={reservedBookingInfo}
           />
         )}
 
@@ -254,6 +249,8 @@ const App: React.FC = () => {
             key="billed"
             summary={sessionSummary!}
             vnpayUrl={vnpayUrl}
+            isPaid={isPaid}
+            isAppUserSession={isAppUserSession}
             onReset={resetSession}
           />
         )}
@@ -312,13 +309,28 @@ const App: React.FC = () => {
                 </h3>
                 <p className="text-xs text-[var(--text-secondary)] mt-0.5">Cấu hình trạm & trụ sạc để kiểm thử chức năng</p>
               </div>
-              <button
-                onClick={() => setIsDevToolsOpen(false)}
-                className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 active:scale-90 hover:bg-white/10 dark:hover:bg-white/5 border border-[var(--pill-border)] cursor-pointer"
-                style={{ color: "var(--text-primary)" }}
-              >
-                <X size={16} />
-              </button>
+              <div className="flex items-center gap-2">
+                {/* Theme Switcher */}
+                <button
+                  onClick={toggleTheme}
+                  className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 active:scale-90 hover:bg-white/10 dark:hover:bg-white/5 border border-[var(--pill-border)] cursor-pointer"
+                  style={{ color: "var(--text-primary)" }}
+                  title={theme === "dark" ? "Chuyển sang giao diện Sáng" : "Chuyển sang giao diện Tối"}
+                >
+                  {theme === "dark" ? (
+                    <Sun size={15} className="text-amber-500" />
+                  ) : (
+                    <Moon size={15} className="text-indigo-500 dark:text-indigo-400" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setIsDevToolsOpen(false)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 active:scale-90 hover:bg-white/10 dark:hover:bg-white/5 border border-[var(--pill-border)] cursor-pointer"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </div>
 
             {/* Modal Body */}
@@ -381,8 +393,9 @@ const App: React.FC = () => {
                 </div>
               </div>
               {stationDetail?.address && (
-                <div className="text-[10px] text-[var(--text-secondary)] font-medium truncate px-0.5">
-                  📍 {stationDetail.address}
+                <div className="text-[10px] text-[var(--text-secondary)] font-medium truncate px-0.5 flex items-center gap-1">
+                  <MapPin size={10} className="shrink-0" />
+                  <span>{stationDetail.address}</span>
                 </div>
               )}
 
@@ -491,8 +504,9 @@ const App: React.FC = () => {
                                 {c.id}
                               </span>
                               {powerText && (
-                                <span className="text-[9px] font-semibold text-[var(--primary)] truncate max-w-[160px]">
-                                  ⚡ {powerText}
+                                <span className="text-[9px] font-semibold text-[var(--primary)] truncate max-w-[160px] flex items-center gap-1">
+                                  <Zap size={10} className="shrink-0 text-[var(--primary)]" />
+                                  <span>{powerText}</span>
                                 </span>
                               )}
                               {connectorsText && (

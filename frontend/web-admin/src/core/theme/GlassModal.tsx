@@ -3,6 +3,7 @@
 import React, { useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+import Portal from '@/core/components/ui/Portal';
 
 interface GlassModalProps {
   open: boolean;
@@ -24,45 +25,47 @@ export default function GlassModal({ open, onClose, children, className = '' }: 
   }, [open, handleKeyDown]);
 
   return (
-    <AnimatePresence>
-      {open && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.15 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}
-          onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-        >
+    <Portal>
+      <AnimatePresence>
+        {open && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.92, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.92, y: 20 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            className={`relative overflow-hidden rounded-[28px] border shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto ${className}`}
-            style={{
-              background: 'var(--card-bg)',
-              backdropFilter: 'blur(60px)',
-              WebkitBackdropFilter: 'blur(60px)',
-              border: '1.5px solid var(--card-border)',
-              boxShadow: 'var(--card-shadow)',
-            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}
+            onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
           >
-            <div className="absolute inset-0 pointer-events-none" style={{ background: 'var(--sq-shine)' }} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 20 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              className={`relative overflow-hidden rounded-[28px] border shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto ${className}`}
+              style={{
+                background: 'var(--card-bg)',
+                backdropFilter: 'blur(60px)',
+                WebkitBackdropFilter: 'blur(60px)',
+                border: '1.5px solid var(--card-border)',
+                boxShadow: 'var(--card-shadow)',
+              }}
+            >
+              <div className="absolute inset-0 pointer-events-none" style={{ background: 'var(--sq-shine)' }} />
 
-            <div className="corner-marker cm-tl" />
-            <div className="corner-marker cm-tr" />
-            <div className="corner-marker cm-bl" />
-            <div className="corner-marker cm-br" />
+              <div className="corner-marker cm-tl" />
+              <div className="corner-marker cm-tr" />
+              <div className="corner-marker cm-bl" />
+              <div className="corner-marker cm-br" />
 
-            <div className="relative z-10 p-6">
-              {children}
-            </div>
+              <div className="relative z-10 p-6">
+                {children}
+              </div>
+            </motion.div>
           </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+        )}
+      </AnimatePresence>
+    </Portal>
   );
 }
 

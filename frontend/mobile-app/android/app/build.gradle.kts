@@ -21,6 +21,7 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -85,7 +86,7 @@ android {
             dimension = "environment"
             applicationIdSuffix = ".dev"
             versionNameSuffix   = "-dev"
-            resValue("string", "app_name", "EVoltSync Dev")
+            resValue("string", "app_name", "EVoltSync")
         }
         create("staging") {
             dimension = "environment"
@@ -108,4 +109,7 @@ flutter {
 dependencies {
     // MultiDex support
     implementation("androidx.multidex:multidex:2.0.1")
+
+    // Core library desugaring — required by flutter_local_notifications
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

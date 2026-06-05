@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, EntityManager } from 'typeorm';
+import { Repository, EntityManager, In } from 'typeorm';
 import { Station, StationStatus } from '../../../../domain/entities/station.aggregate';
 import { Charger, ChargerStatus, ConnectorType } from '../../../../domain/entities/charger.aggregate';
 import {
@@ -50,6 +50,25 @@ export class StationRepository implements IStationRepository {
       qb.andWhere('s.status NOT IN (:...statusNotIn)', { statusNotIn: filter.statusNotIn });
     }
     if (filter.ownerId) qb.andWhere('s.owner_id = :ownerId', { ownerId: filter.ownerId });
+
+    // Batch ID lookup — short-circuit expensive geo/full-scan when caller provides explicit IDs
+    if (filter.ids && filter.ids.length > 0) {
+      qb.andWhere('s.id IN (:...ids)', { ids: filter.ids });
+    }
+
+    // Batch charger-ID lookup — returns stations that contain any of the given charger IDs.
+    // Single EXISTS subquery replaces N individual /stations/by-charger/:id calls.
+    if (filter.chargerIds && filter.chargerIds.length > 0) {
+      qb.andWhere(
+        `EXISTS (
+          SELECT 1
+          FROM   charging_points cp_cid
+          WHERE  cp_cid.station_id = s.id
+          AND    cp_cid.id IN (:...chargerIds)
+        )`,
+        { chargerIds: filter.chargerIds },
+      );
+    }
 
     // Geo bounding box — approximation (NOT haversine, used for all queries)
     if (filter.nearLat !== undefined && filter.nearLng !== undefined && filter.radiusKm) {

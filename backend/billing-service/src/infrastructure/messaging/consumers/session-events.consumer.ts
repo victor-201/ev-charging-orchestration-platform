@@ -17,8 +17,6 @@ import {
   WalletArrearsClearedEvent,
   PaymentCompletedEvent,
   PaymentFailedEvent,
-  BillingDeductedEvent,
-  BillingDeductionFailedEvent,
   IdleFeeChargedEvent,
   ExtraChargeDebitedEvent,
   RefundIssuedEvent,
@@ -30,8 +28,10 @@ import {
   ProcessedEventOrmEntity,
   InvoiceOrmEntity,
   WalletOrmEntity,
+  TransactionOrmEntity,
 } from '../../persistence/typeorm/entities/payment.orm-entities';
 import { Inject } from '@nestjs/common';
+import { KIOSK_GUEST_USER_ID } from '../../../shared/constants';
 
 // SessionReservedConsumer
 
@@ -73,7 +73,6 @@ export class SessionReservedConsumer {
     depositAmount: number;
     correlationId?: string;
   }): Promise<void> {
-    const correlationId = payload.correlationId ?? uuidv4();
     const eventId = payload.eventId ?? `session.reserved:${payload.bookingId}`;
 
     const exists = await this.peRepo.existsBy({ eventId });
@@ -83,48 +82,10 @@ export class SessionReservedConsumer {
     }
     await this.peRepo.save({ eventId, eventType: 'session.reserved' });
 
-    await this.dataSource.transaction(async (manager: EntityManager) => {
-      const wallet = await this.walletRepo.findByUserId(payload.userId);
-      if (!wallet) {
-        this.logger.error(`[SAGA] Wallet not found for user ${payload.userId} (bookingId=${payload.bookingId})`);
-        await this.eventBus.publishAll(
-          [new BillingDeductionFailedEvent(payload.bookingId, payload.userId, 'WALLET_NOT_FOUND', correlationId)],
-          manager,
-        );
-        return;
-      }
-
-      const balance = await this.walletRepo.getBalance(wallet.id, manager);
-
-      if (balance < payload.depositAmount) {
-        this.logger.warn(`[SAGA] Insufficient funds for user ${payload.userId}: balance=${balance} required=${payload.depositAmount}`);
-        await this.eventBus.publishAll(
-          [new BillingDeductionFailedEvent(payload.bookingId, payload.userId, 'INSUFFICIENT_FUNDS', correlationId)],
-          manager,
-        );
-        return;
-      }
-
-      const tx = Transaction.create({
-        userId:      wallet.id,
-        amount:      payload.depositAmount,
-        type:        'payment',
-        method:      'wallet',
-        relatedId:   payload.bookingId,
-        relatedType: 'booking',
-      });
-      tx.complete();
-      await this.txRepo.save(tx, manager);
-
-      await this.walletRepo.debit(wallet.id, tx.id, payload.depositAmount, manager);
-
-      this.logger.log(`[SAGA] Deducted ${payload.depositAmount} from user ${payload.userId} for booking ${payload.bookingId} (correlationId=${correlationId})`);
-
-      await this.eventBus.publishAll(
-        [new BillingDeductedEvent(payload.bookingId, payload.userId, payload.depositAmount, tx.id, correlationId)],
-        manager,
-      );
-    });
+    this.logger.log(
+      `[SAGA] Booking reserved (bookingId=${payload.bookingId}, userId=${payload.userId}). ` +
+      `Skipping automatic wallet deduction as per explicit payment requirement.`
+    );
   }
 }
 
@@ -356,6 +317,11 @@ export class SessionCompletedBillingConsumer {
     if (exists) return;
     await this.peRepo.save({ eventId, eventType: 'session.completed' });
 
+    if (payload.userId === KIOSK_GUEST_USER_ID) {
+      this.logger.log(`Session completed for kiosk user: session=${payload.sessionId}. Skipping wallet billing reconciliation.`);
+      return;
+    }
+
     let energyFeeVnd = 0;
     let idleFeeVnd   = 0;
     let totalFeeVnd  = 0;
@@ -525,6 +491,15 @@ export class SessionCompletedBillingConsumer {
       } catch {
         // Ignores unique constraint violations if the invoice already exists.
       }
+
+      // Publish PaymentCompletedEvent to transition session stop -> billed -> completed
+      eventsToEmit.push(new PaymentCompletedEvent(
+        payload.depositTransactionId ?? uuidv4(),
+        payload.userId,
+        totalFeeVnd,
+        payload.sessionId,
+        'charging_session',
+      ));
 
       // Publish all events.
       if (eventsToEmit.length > 0) {

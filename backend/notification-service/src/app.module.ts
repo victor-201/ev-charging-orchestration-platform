@@ -118,7 +118,7 @@ const ALL_ENTITIES = [
       useFactory: (cfg: ConfigService) => ({
         exchanges: [
           { name: 'ev.charging',     type: 'topic',  options: { durable: true } },
-          { name: 'ev.charging.dlq', type: 'fanout', options: { durable: true } },
+          { name: 'ev.charging.dlx', type: 'topic', options: { durable: true } },
         ],
         uri:          cfg.get('RABBITMQ_URL', 'amqp://guest:guest@localhost:5672'),
         prefetchCount: parseInt(cfg.get('RABBITMQ_PREFETCH', '10')),

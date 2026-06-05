@@ -1,4 +1,4 @@
-import 'dart:ui' as ui;
+﻿import 'dart:ui' as ui;
 
 class NotificationTranslator {
   static bool get _isVietnamese {
@@ -16,10 +16,10 @@ class NotificationTranslator {
         return 'Lịch sạc được xác nhận';
       case 'booking_no_show':
       case 'booking.no_show':
-        return 'Lịch bị hủy do vắng mặt';
+        return 'Lịch sạc bị hủy do quá giờ hẹn';
       case 'booking.expired':
       case 'booking_expired':
-        return 'Đặt lịch đã hết hạn';
+        return 'Lịch sạc đã hết hạn thanh toán';
       case 'charging_started':
       case 'session.started':
         return 'Bắt đầu sạc';
@@ -61,14 +61,14 @@ class NotificationTranslator {
       case 'wallet.arrears.cleared':
         return 'Công nợ đã thanh toán';
       case 'charger.queue.ready':
-        return 'Trạm sạc đã sẵn sàng';
+        return 'Trụ sạc đã sẵn sàng';
       default:
         final lower = defaultTitle.toLowerCase();
         if (lower.contains('created')) return 'Đặt lịch thành công';
         if (lower.contains('confirmed')) return 'Lịch sạc được xác nhận';
         if (lower.contains('cancelled')) return 'Lịch sạc đã hủy';
-        if (lower.contains('expired')) return 'Đặt lịch đã hết hạn';
-        if (lower.contains('no-show')) return 'Lịch bị hủy do vắng mặt';
+        if (lower.contains('expired')) return 'Lịch sạc đã hết hạn thanh toán';
+        if (lower.contains('no-show') || lower.contains('no show')) return 'Lịch sạc bị hủy do quá giờ hẹn';
         if (lower.contains('successful') || lower.contains('completed')) return 'Thanh toán thành công';
         if (lower.contains('failed')) return 'Thanh toán thất bại';
         if (lower.contains('started')) return 'Bắt đầu sạc';
@@ -76,7 +76,9 @@ class NotificationTranslator {
         if (lower.contains('queue') || lower.contains('position')) return 'Cập nhật hàng chờ';
         if (lower.contains('idle') || lower.contains('occupancy')) return 'Phí chiếm dụng trụ sạc';
         if (lower.contains('refund')) return 'Hoàn tiền vào ví';
-        if (lower.contains('reminder')) return 'Nhắc nhở';
+        if (lower.contains('upcoming') || lower.contains('reminder')) {
+          return 'Sắp đến giờ sạc xe';
+        }
         return defaultTitle;
     }
   }
@@ -121,26 +123,38 @@ class NotificationTranslator {
         final amount = data['amount'] ?? '';
         return 'Thanh toán tiền cọc $amount VND thành công.';
       case 'payment.failed':
-        final amount = data['amount'] ?? '';
-        return 'Thanh toán tiền cọc $amount VND thất bại. Vui lòng nạp tiền ví và đặt lại.';
+        final reason = data['reason'] ?? '';
+        return 'Thanh toán thất bại.${reason.isNotEmpty ? " Lý do: $reason." : ""} Vui lòng nạp tiền ví và đặt lại.';
       case 'booking.reminder.payment_expiry':
         return 'Lịch sạc của bạn sẽ bị hủy sau 1 phút nếu không hoàn tất thanh toán cọc sạc.';
-      case 'booking.reminder.upcoming':
+      case 'booking.reminder.upcoming': {
+        // Parse from data.customBody if available
         if (data['customBody'] != null) {
           final custom = data['customBody'] as String;
           if (custom.contains('starts in')) {
-            final parts = custom.split('starts in');
-            final mins = parts.last.replaceAll('minutes.', '').trim();
-            return 'Còn $mins phút nữa là đến giờ đặt lịch sạc xe #$shortBookingId của bạn. Hãy đến đúng giờ!';
+            final match = RegExp(r'starts in (\d+) minutes').firstMatch(custom);
+            final mins = match?.group(1) ?? '';
+            return 'Còn $mins phút nữa là đến giờ sạc xe (lịch #$shortBookingId). Hãy đến đúng giờ!';
           }
           if (custom.contains('grace period') || custom.contains('check-in')) {
             final match = RegExp(r'have\s+(\d+)\s+minutes').firstMatch(custom);
-            final mins = match?.group(1) ?? 'N';
-            return 'Đã quá giờ sạc xe! Bạn còn $mins phút để đến quét mã trước khi lịch bị tự động hủy do vắng mặt.';
+            final mins = match?.group(1) ?? 'vài';
+            return 'Đã quá giờ! Bạn còn $mins phút để đến quét mã trước khi lịch bị tự động hủy do vắng mặt.';
           }
-          return custom;
         }
-        return 'Lịch sạc #$shortBookingId của bạn sắp bắt đầu. Hãy chuẩn bị đến đúng giờ sạc.';
+        // Parse from the body itself (backend sends body as part of FCM data)
+        if (defaultBody.contains('starts in')) {
+          final match = RegExp(r'starts in (\d+) minutes').firstMatch(defaultBody);
+          final mins = match?.group(1) ?? '';
+          return 'Còn $mins phút nữa là đến giờ sạc xe (lịch #$shortBookingId). Hãy đến đúng giờ!';
+        }
+        if (defaultBody.contains('grace period') || defaultBody.contains('check-in') || defaultBody.contains('You have')) {
+          final match = RegExp(r'have\s+(\d+)\s+minutes').firstMatch(defaultBody);
+          final mins = match?.group(1) ?? 'vài';
+          return 'Đã quá giờ! Bạn còn $mins phút để đến quét mã trước khi lịch bị tự động hủy do vắng mặt.';
+        }
+        return 'Lịch sạc #$shortBookingId của bạn đã đến. Hãy chuẩn bị đến đúng giờ!';
+      }
       case 'booking.created':
         return 'Lịch sạc #$shortBookingId đã được tạo thành công. Vui lòng hoàn tất đặt cọc trong 5 phút để xác nhận.';
       case 'booking.cancelled':
@@ -178,16 +192,22 @@ class NotificationTranslator {
         return 'Công nợ $amount VND đã được thanh toán. Bạn có thể tiếp tục đặt lịch và sạc xe.';
       }
       case 'charger.queue.ready': {
-        final stationName = data['stationName'] ?? '';
-        final chargerName = data['chargerName'] ?? '';
-        var msg = 'Trụ sạc đã sẵn sàng!';
-        if (stationName.isNotEmpty) msg += ' Tại $stationName.';
-        if (chargerName.isNotEmpty) msg += ' Trụ $chargerName.';
-        msg += ' Vui lòng đến ngay.';
-        return msg;
+        final stationName = data['stationName'] as String? ?? '';
+        final chargerName = data['chargerName'] as String? ?? '';
+        final chargerClean = chargerName.replaceAll(RegExp(r'^(trụ sạc|trụ)\s+', caseSensitive: false), '');
+        final stationClean = stationName.replaceAll(RegExp(r'^trạm\s+', caseSensitive: false), '');
+        final chargerStr = chargerClean.isNotEmpty ? 'Trụ $chargerClean' : 'Trụ sạc';
+        final stationStr = stationClean.isNotEmpty ? ' của trạm $stationClean' : '';
+        return '$chargerStr$stationStr đã sẵn sàng, bạn có muốn tiếp tục đặt lịch không?';
       }
       default:
         var body = defaultBody;
+        if (body.toLowerCase().contains('no-show') || body.toLowerCase().contains('no show')) {
+          return 'Đơn đặt chỗ của bạn đã bị hủy do bạn không đến đúng giờ hẹn. Chỗ sạc đã được giải phóng cho khách hàng khác.';
+        }
+        if (body.toLowerCase().contains('expired') && (body.toLowerCase().contains('deposit') || body.toLowerCase().contains('unpaid'))) {
+          return 'Đơn đặt chỗ của bạn đã tự động hủy do không thanh toán tiền đặt cọc trong 5 phút. Vui lòng kiểm tra số dư ví và đặt lại.';
+        }
         if (body.contains('Booking #')) {
           body = body.replaceAll('Booking #', 'Đặt lịch #');
         }
@@ -201,8 +221,8 @@ class NotificationTranslator {
           body = body.replaceAll('has been cancelled', 'đã bị hủy');
         }
         if (body.contains('starts in')) {
-          final parts = body.split('starts in');
-          final mins = parts.last.replaceAll('minutes.', '').trim();
+          final match = RegExp(r'starts in (\d+) minutes').firstMatch(body);
+          final mins = match?.group(1) ?? '';
           body = 'Còn $mins phút nữa là đến giờ đặt lịch sạc xe của bạn. Hãy đến đúng giờ!';
         }
         if (body.contains('grace period') || body.contains('check-in')) {
@@ -212,6 +232,15 @@ class NotificationTranslator {
         }
         if (body.contains('Your turn') || body.contains("It's your turn")) {
           body = 'Đến lượt bạn! Vui lòng di chuyển đến trạm sạc ngay.';
+        }
+        if (body.contains('is now ready') || body.contains('continue booking')) {
+          final stationName = data['stationName'] ?? '';
+          final chargerName = data['chargerName'] ?? '';
+          final chargerClean = chargerName.replaceAll(RegExp(r'^(trụ sạc|trụ)\s+', caseSensitive: false), '');
+          final stationClean = stationName.replaceAll(RegExp(r'^trạm\s+', caseSensitive: false), '');
+          final chargerStr = chargerClean.isNotEmpty ? 'Trụ $chargerClean' : 'Trụ sạc';
+          final stationStr = stationClean.isNotEmpty ? ' của trạm $stationClean' : '';
+          body = '$chargerStr$stationStr đã sẵn sàng, bạn có muốn tiếp tục đặt lịch không?';
         }
         if (body.contains('position in queue') || body.contains('Estimated wait')) {
           final pos = data['position'] ?? '';

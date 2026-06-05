@@ -9,6 +9,7 @@ import {
 } from '../../persistence/typeorm/entities/session.orm-entities';
 import { OutboxOrmEntity, ChargerReadModelOrmEntity } from '../../persistence/typeorm/entities/booking.orm-entities';
 import { v4 as uuidv4 } from 'uuid';
+import { NotifyQueueHeadUseCase } from '../../../application/use-cases/queue.use-case';
 
 /**
  * BookingConfirmedSyncConsumer
@@ -99,6 +100,7 @@ export class BookingCancelledSyncConsumer {
     private readonly chargerStateRepo: Repository<ChargerStateOrmEntity>,
     @InjectRepository(OutboxOrmEntity)
     private readonly outboxRepo: Repository<OutboxOrmEntity>,
+    private readonly notifyQueueHead: NotifyQueueHeadUseCase,
   ) {}
 
   private async releaseCharger(bookingId: string): Promise<void> {
@@ -130,6 +132,9 @@ export class BookingCancelledSyncConsumer {
               processedAt:   null,
             })
           );
+
+          // Notify next user in virtual queue
+          await this.notifyQueueHead.execute(chargerId);
         }
       }
     } catch (err) {

@@ -112,7 +112,7 @@ class _MapHomeScreenState extends State<MapHomeScreen> {
     });
 
     // Periodically re-scan the current viewport to update station availability.
-    _refreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       if (!mounted) return;
       try {
         final center = _mapController.camera.center;

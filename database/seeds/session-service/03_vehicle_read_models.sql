@@ -1,7 +1,7 @@
 -- ============================================
 -- Service : session-service
 -- Table   : vehicle_read_models
--- File    : database/seeds/session-service/02_vehicle_read_models.sql
+-- File    : database/seeds/session-service/03_vehicle_read_models.sql
 -- Depends : iam-service (vehicles, users)
 -- Records : 500
 -- NOTE    : Schema aligned to 1700000000000-InitialSchema.ts

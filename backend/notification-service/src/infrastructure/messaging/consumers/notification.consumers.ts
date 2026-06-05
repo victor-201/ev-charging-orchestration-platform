@@ -66,12 +66,12 @@ export class BookingNotificationConsumer {
     @InjectRepository(ProcessedEventOrmEntity)
     private readonly peRepo: Repository<ProcessedEventOrmEntity>,
     private readonly engine: DeliveryEngine,
-  ) {}
+  ) { }
 
   @RabbitSubscribe({
-    exchange:     'ev.charging',
-    routingKey:   'booking.created',
-    queue:        'notification.booking.created',
+    exchange: 'ev.charging',
+    routingKey: 'booking.created',
+    queue: 'notification.booking.created',
     queueOptions: buildQueueOpts('dlq.notification.booking.created'),
   })
   async onBookingCreated(payload: BookingCreatedEvent): Promise<void> {
@@ -81,22 +81,22 @@ export class BookingNotificationConsumer {
 
     const tpl = NOTIFICATION_TEMPLATES['booking.created'];
     await this.engine.dispatch({
-      userId:    payload.userId,
-      type:      'booking.created',
-      channels:  ['in_app', 'push'],
-      title:     tpl.title(payload),
-      body:      tpl.body(payload),
-      metadata:  { bookingId: payload.bookingId, startTime: payload.startTime },
+      userId: payload.userId,
+      type: 'booking.created',
+      channels: ['in_app', 'push'],
+      title: tpl.title(payload),
+      body: tpl.body(payload),
+      metadata: { bookingId: payload.bookingId, startTime: payload.startTime },
     });
 
     this.logger.log(`booking.created notification: user=${payload.userId} booking=${payload.bookingId}`);
   }
 
   @RabbitSubscribe({
-    exchange:     'ev.charging',
-    routingKey:   'booking.confirmed',
-    queue:        'notification.booking.completed',
-    queueOptions: buildQueueOpts('dlq.notification.booking.completed'),
+    exchange: 'ev.charging',
+    routingKey: 'booking.confirmed',
+    queue: 'notification.booking.confirmed',
+    queueOptions: buildQueueOpts(),
   })
   async onBookingConfirmed(payload: BookingConfirmedEvent): Promise<void> {
     const eventId = payload.eventId ?? `booking.confirmed:${payload.bookingId}`;
@@ -105,27 +105,27 @@ export class BookingNotificationConsumer {
 
     const tpl = NOTIFICATION_TEMPLATES['booking.confirmed'];
     await this.engine.dispatch({
-      userId:    payload.userId,
-      type:      'booking.confirmed',
-      channels:  ['in_app', 'push'],
-      title:     tpl.title(payload),
-      body:      tpl.body(payload),
-      metadata:  { bookingId: payload.bookingId },
+      userId: payload.userId,
+      type: 'booking.confirmed',
+      channels: ['in_app', 'push'],
+      title: tpl.title(payload),
+      body: tpl.body(payload),
+      metadata: { bookingId: payload.bookingId },
       realtimePayload: {
         bookingUpdate: {
           bookingId: payload.bookingId,
-          status:    'confirmed',
-          message:   tpl.body(payload),
-          metadata:  { stationId: payload.stationId },
+          status: 'confirmed',
+          message: tpl.body(payload),
+          metadata: { stationId: payload.stationId },
         },
       },
     });
   }
 
   @RabbitSubscribe({
-    exchange:     'ev.charging',
-    routingKey:   'booking.cancelled',
-    queue:        'notification.booking.cancelled',
+    exchange: 'ev.charging',
+    routingKey: 'booking.cancelled',
+    queue: 'notification.booking.cancelled',
     queueOptions: buildQueueOpts('dlq.notification.booking.cancelled'),
   })
   async onBookingCancelled(payload: BookingCancelledEvent): Promise<void> {
@@ -135,17 +135,17 @@ export class BookingNotificationConsumer {
 
     const tpl = NOTIFICATION_TEMPLATES['booking.cancelled'];
     await this.engine.dispatch({
-      userId:    payload.userId,
-      type:      'booking.cancelled',
-      channels:  ['in_app', 'push'],
-      title:     tpl.title(payload),
-      body:      tpl.body(payload),
-      metadata:  { bookingId: payload.bookingId, reason: payload.reason },
+      userId: payload.userId,
+      type: 'booking.cancelled',
+      channels: ['in_app', 'push'],
+      title: tpl.title(payload),
+      body: tpl.body(payload),
+      metadata: { bookingId: payload.bookingId, reason: payload.reason },
       realtimePayload: {
         bookingUpdate: {
           bookingId: payload.bookingId,
-          status:    'cancelled',
-          message:   tpl.body(payload),
+          status: 'cancelled',
+          message: tpl.body(payload),
         },
       },
     });
@@ -162,12 +162,12 @@ export class PaymentNotificationConsumer {
     @InjectRepository(ProcessedEventOrmEntity)
     private readonly peRepo: Repository<ProcessedEventOrmEntity>,
     private readonly engine: DeliveryEngine,
-  ) {}
+  ) { }
 
   @RabbitSubscribe({
-    exchange:     'ev.charging',
-    routingKey:   'payment.success',
-    queue:        'notification.payment.success',
+    exchange: 'ev.charging',
+    routingKey: 'payment.completed',
+    queue: 'notification.payment.completed',
     queueOptions: buildQueueOpts(),
   })
   async onPaymentCompleted(payload: PaymentCompletedEvent): Promise<void> {
@@ -177,20 +177,20 @@ export class PaymentNotificationConsumer {
 
     const tpl = NOTIFICATION_TEMPLATES['payment.completed'];
     await this.engine.dispatch({
-      userId:   payload.userId,
-      type:     'payment.completed',
+      userId: payload.userId,
+      type: 'payment.completed',
       channels: ['push', 'in_app'],
-      title:    tpl.title(payload),
-      body:     tpl.body(payload),
+      title: tpl.title(payload),
+      body: tpl.body(payload),
       metadata: { transactionId: payload.transactionId, amount: payload.amount },
     });
   }
 
   @RabbitSubscribe({
-    exchange:     'ev.charging',
-    routingKey:   'payment.failed',
-    queue:        'notification.payment.failed',
-    queueOptions: { durable: true, deadLetterExchange: 'ev.charging.dlx' },
+    exchange: 'ev.charging',
+    routingKey: 'payment.failed',
+    queue: 'notification.payment.failed',
+    queueOptions: buildQueueOpts(),
   })
   async onPaymentFailed(payload: PaymentFailedEvent): Promise<void> {
     const eventId = payload.eventId ?? `payment.failed:${payload.transactionId}`;
@@ -199,12 +199,12 @@ export class PaymentNotificationConsumer {
 
     const tpl = NOTIFICATION_TEMPLATES['payment.failed'];
     await this.engine.dispatch({
-      userId:   payload.userId,
-      type:     'payment.failed',
+      userId: payload.userId,
+      type: 'payment.failed',
       channels: ['push', 'in_app'],
-      title:    tpl.title(payload),
+      title: tpl.title(payload),
       // Use reason from PaymentFailedEvent (contains information about the amount to deposit)
-      body:     payload.reason ?? tpl.body(payload),
+      body: payload.reason ?? tpl.body(payload),
       metadata: { transactionId: payload.transactionId, reason: payload.reason },
     });
   }
@@ -220,12 +220,12 @@ export class ChargingNotificationConsumer {
     @InjectRepository(ProcessedEventOrmEntity)
     private readonly peRepo: Repository<ProcessedEventOrmEntity>,
     private readonly engine: DeliveryEngine,
-  ) {}
+  ) { }
 
   @RabbitSubscribe({
-    exchange:     'ev.charging',
-    routingKey:   'session.started',
-    queue:        'notification.charging.started',
+    exchange: 'ev.charging',
+    routingKey: 'session.started',
+    queue: 'notification.charging.started',
     queueOptions: buildQueueOpts(),
   })
   async onSessionStarted(payload: SessionStartedEvent): Promise<void> {
@@ -235,17 +235,17 @@ export class ChargingNotificationConsumer {
 
     const tpl = NOTIFICATION_TEMPLATES['session.started'];
     await this.engine.dispatch({
-      userId:   payload.userId,
-      type:     'session.started',
+      userId: payload.userId,
+      type: 'session.started',
       channels: ['push', 'in_app'],
-      title:    tpl.title(payload),
-      body:     tpl.body(payload),
+      title: tpl.title(payload),
+      body: tpl.body(payload),
       metadata: { sessionId: payload.sessionId, chargerId: payload.chargerId },
       realtimePayload: {
         chargingUpdate: {
           sessionId: payload.sessionId,
           eventType: 'session.started',
-          message:   tpl.body(payload),
+          message: tpl.body(payload),
         },
       },
     });
@@ -254,9 +254,9 @@ export class ChargingNotificationConsumer {
   }
 
   @RabbitSubscribe({
-    exchange:     'ev.charging',
-    routingKey:   'session.completed',
-    queue:        'notification.charging.completed',
+    exchange: 'ev.charging',
+    routingKey: 'session.completed',
+    queue: 'notification.charging.completed',
     queueOptions: buildQueueOpts(),
   })
   async onSessionCompleted(payload: SessionCompletedEvent): Promise<void> {
@@ -266,23 +266,23 @@ export class ChargingNotificationConsumer {
 
     const tpl = NOTIFICATION_TEMPLATES['session.completed'];
     await this.engine.dispatch({
-      userId:   payload.userId,
-      type:     'session.completed',
+      userId: payload.userId,
+      type: 'session.completed',
       channels: ['push', 'email'],
-      title:    tpl.title(payload),
-      body:     tpl.body(payload),
+      title: tpl.title(payload),
+      body: tpl.body(payload),
       metadata: {
-        sessionId:       payload.sessionId,
-        kwhConsumed:     payload.kwhConsumed,
+        sessionId: payload.sessionId,
+        kwhConsumed: payload.kwhConsumed,
         durationMinutes: payload.durationMinutes,
       },
       realtimePayload: {
         chargingUpdate: {
-          sessionId:   payload.sessionId,
-          eventType:   'session.completed',
+          sessionId: payload.sessionId,
+          eventType: 'session.completed',
           kwhConsumed: payload.kwhConsumed,
           durationMin: payload.durationMinutes,
-          message:     tpl.body(payload),
+          message: tpl.body(payload),
         },
       },
     });
@@ -299,13 +299,13 @@ export class QueueNotificationConsumer {
     @InjectRepository(ProcessedEventOrmEntity)
     private readonly peRepo: Repository<ProcessedEventOrmEntity>,
     private readonly engine: DeliveryEngine,
-  ) {}
+  ) { }
 
   @RabbitSubscribe({
-    exchange:     'ev.charging',
-    routingKey:   'queue.*',
-    queue:        'notification.queue',
-    queueOptions: { durable: true, deadLetterExchange: 'ev.charging.dlx' },
+    exchange: 'ev.charging',
+    routingKey: 'queue.*',
+    queue: 'notification.queue',
+    queueOptions: buildQueueOpts(),
   })
   async onQueueUpdated(payload: QueueUpdatedEvent): Promise<void> {
     const eventId = payload.eventId ?? `queue.updated:${payload.queueId}`;
@@ -319,25 +319,25 @@ export class QueueNotificationConsumer {
     const channels: NotificationChannel[] = isCalled ? ['in_app', 'push'] : ['in_app'];
 
     await this.engine.dispatch({
-      userId:   payload.userId,
-      type:     'queue.updated',
+      userId: payload.userId,
+      type: 'queue.updated',
       channels,
-      title:    tpl.title(payload),
-      body:     tpl.body(payload),
+      title: tpl.title(payload),
+      body: tpl.body(payload),
       metadata: {
-        queueId:              payload.queueId,
-        position:             payload.position,
+        queueId: payload.queueId,
+        position: payload.position,
         estimatedWaitMinutes: payload.estimatedWaitMinutes,
-        status:               payload.status,
-        chargerId:            payload.chargerId,
+        status: payload.status,
+        chargerId: payload.chargerId,
       },
       realtimePayload: {
         queueUpdate: {
-          queueId:              payload.queueId,
-          position:             payload.position,
+          queueId: payload.queueId,
+          position: payload.position,
           estimatedWaitMinutes: payload.estimatedWaitMinutes,
-          status:               payload.status,
-          chargerId:            payload.chargerId,
+          status: payload.status,
+          chargerId: payload.chargerId,
         },
       },
     });
@@ -359,13 +359,13 @@ export class BookingLifecycleExtendedConsumer {
     @InjectRepository(ProcessedEventOrmEntity)
     private readonly peRepo: Repository<ProcessedEventOrmEntity>,
     private readonly engine: DeliveryEngine,
-  ) {}
+  ) { }
 
   @RabbitSubscribe({
-    exchange:     'ev.charging',
-    routingKey:   'booking.expired',
-    queue:        'notification.booking.expired',
-    queueOptions: { durable: true, deadLetterExchange: 'ev.charging.dlx' },
+    exchange: 'ev.charging',
+    routingKey: 'booking.expired',
+    queue: 'notification.booking.expired',
+    queueOptions: buildQueueOpts(),
   })
   async onBookingExpired(payload: {
     eventId?: string;
@@ -378,12 +378,11 @@ export class BookingLifecycleExtendedConsumer {
     await this.engine.markProcessed(eventId, 'booking.expired', this.peRepo);
 
     await this.engine.dispatch({
-      userId:   payload.userId,
-      type:     'booking.expired',
+      userId: payload.userId,
+      type: 'booking.expired',
       channels: ['in_app', 'push'],
-      title:    'Booking đã hết hạn ⏰',
-      body:     'Booking của bạn đã tự động hủy do không thanh toán tiền cọ trong 5 phút. ' +
-                'Vui lòng kiểm tra số dư ví và đặt lại.',
+      title: 'Booking Expired',
+      body: 'Your booking has been automatically cancelled due to unpaid deposit within 5 minutes. Please check your wallet balance and try again.',
       metadata: { bookingId: payload.bookingId },
     });
 
@@ -391,10 +390,10 @@ export class BookingLifecycleExtendedConsumer {
   }
 
   @RabbitSubscribe({
-    exchange:     'ev.charging',
-    routingKey:   'booking.no_show',
-    queue:        'notification.booking.no_show',
-    queueOptions: { durable: true, deadLetterExchange: 'ev.charging.dlx' },
+    exchange: 'ev.charging',
+    routingKey: 'booking.no_show',
+    queue: 'notification.booking.no_show',
+    queueOptions: buildQueueOpts(),
   })
   async onBookingNoShow(payload: {
     eventId?: string;
@@ -407,28 +406,37 @@ export class BookingLifecycleExtendedConsumer {
     await this.engine.markProcessed(eventId, 'booking.no_show', this.peRepo);
 
     await this.engine.dispatch({
-      userId:   payload.userId,
-      type:     'booking.no_show',
+      userId: payload.userId,
+      type: 'booking.no_show',
       channels: ['in_app', 'push'],
-      title:    'Bạn đã không xuất hiện (No-Show)',
-      body:     'Booking của bạn đã bị đánh dấu no-show. Slot đã được giải phóng cho người khác.',
+      title: 'Booking Cancelled (No-Show)',
+      body: 'Your booking has been marked as no-show. The slot has been released for others.',
       metadata: { bookingId: payload.bookingId },
+      realtimePayload: {
+        bookingUpdate: {
+          bookingId: payload.bookingId,
+          status: 'no_show',
+          message: 'Lịch sạc bị hủy do không đến đúng giờ hẹn. Trụ sạc đã được giải phóng.',
+        },
+      },
     });
 
     this.logger.log(`booking.no_show notification: user=${payload.userId} booking=${payload.bookingId}`);
   }
 
   @RabbitSubscribe({
-    exchange:     'ev.charging',
-    routingKey:   'booking.reminder.upcoming',
-    queue:        'notification.booking.reminder.upcoming',
-    queueOptions: { durable: true, deadLetterExchange: 'ev.charging.dlx' },
+    exchange: 'ev.charging',
+    routingKey: 'booking.reminder.upcoming',
+    queue: 'notification.booking.reminder.upcoming',
+    queueOptions: buildQueueOpts(),
   })
   async onBookingReminderUpcoming(payload: {
     eventId?: string;
     bookingId: string;
     userId: string;
     startTime: string;
+    customTitle?: string;
+    customBody?: string;
   }): Promise<void> {
     const eventId = payload.eventId ?? `booking.reminder.upcoming:${payload.bookingId}`;
     if (await this.engine.isProcessed(eventId, this.peRepo)) return;
@@ -436,22 +444,27 @@ export class BookingLifecycleExtendedConsumer {
 
     const tpl = NOTIFICATION_TEMPLATES['booking.reminder.upcoming'];
     await this.engine.dispatch({
-      userId:   payload.userId,
-      type:     'booking.reminder.upcoming',
+      userId: payload.userId,
+      type: 'booking.reminder.upcoming',
       channels: ['in_app', 'push'],
-      title:    tpl.title(payload),
-      body:     tpl.body(payload),
-      metadata: { bookingId: payload.bookingId, startTime: payload.startTime },
+      title: tpl.title(payload),
+      body: tpl.body(payload),
+      metadata: {
+        bookingId: payload.bookingId,
+        startTime: payload.startTime,
+        customTitle: payload.customTitle,
+        customBody: payload.customBody,
+      },
     });
 
     this.logger.log(`booking.reminder.upcoming notification sent for user=${payload.userId} booking=${payload.bookingId}`);
   }
 
   @RabbitSubscribe({
-    exchange:     'ev.charging',
-    routingKey:   'booking.reminder.payment_expiry',
-    queue:        'notification.booking.reminder.payment_expiry',
-    queueOptions: { durable: true, deadLetterExchange: 'ev.charging.dlx' },
+    exchange: 'ev.charging',
+    routingKey: 'booking.reminder.payment_expiry',
+    queue: 'notification.booking.reminder.payment_expiry',
+    queueOptions: buildQueueOpts(),
   })
   async onBookingReminderPaymentExpiry(payload: {
     eventId?: string;
@@ -464,11 +477,11 @@ export class BookingLifecycleExtendedConsumer {
 
     const tpl = NOTIFICATION_TEMPLATES['booking.reminder.payment_expiry'];
     await this.engine.dispatch({
-      userId:   payload.userId,
-      type:     'booking.reminder.payment_expiry',
+      userId: payload.userId,
+      type: 'booking.reminder.payment_expiry',
       channels: ['in_app', 'push'],
-      title:    tpl.title(payload),
-      body:     tpl.body(payload),
+      title: tpl.title(payload),
+      body: tpl.body(payload),
       metadata: { bookingId: payload.bookingId },
     });
 
@@ -486,13 +499,13 @@ export class FaultNotificationConsumer {
     @InjectRepository(ProcessedEventOrmEntity)
     private readonly peRepo: Repository<ProcessedEventOrmEntity>,
     private readonly engine: DeliveryEngine,
-  ) {}
+  ) { }
 
   @RabbitSubscribe({
-    exchange:     'ev.charging',
-    routingKey:   'charger.fault.detected',
-    queue:        'notification.charger.fault',
-    queueOptions: { durable: true, deadLetterExchange: 'ev.charging.dlx' },
+    exchange: 'ev.charging',
+    routingKey: 'charger.fault.detected',
+    queue: 'notification.charger.fault',
+    queueOptions: buildQueueOpts(),
   })
   async onChargerFault(payload: {
     eventId?: string;
@@ -509,17 +522,17 @@ export class FaultNotificationConsumer {
     // Notify affected user (if session active)
     if (payload.affectedUserId) {
       await this.engine.dispatch({
-        userId:   payload.affectedUserId,
-        type:     'charger.fault',
+        userId: payload.affectedUserId,
+        type: 'charger.fault',
         channels: ['push', 'in_app'],
-        title:    'Sự cố trạm sạc',
-        body:     `Trạm sạc đang gặp sự cố (mã: ${payload.errorCode}). Nhân viên đang xử lý.`,
+        title: 'Sự cố trạm sạc',
+        body: `Trạm sạc đang gặp sự cố (mã: ${payload.errorCode}). Nhân viên đang xử lý.`,
         metadata: { chargerId: payload.chargerId, errorCode: payload.errorCode },
         realtimePayload: {
           chargingUpdate: {
             sessionId: payload.sessionId,
             eventType: 'charger.fault',
-            message:   `Charger fault: ${payload.errorCode}`,
+            message: `Charger fault: ${payload.errorCode}`,
           },
         },
       });
@@ -542,13 +555,13 @@ export class BillingNotificationConsumer {
     @InjectRepository(ProcessedEventOrmEntity)
     private readonly peRepo: Repository<ProcessedEventOrmEntity>,
     private readonly engine: DeliveryEngine,
-  ) {}
+  ) { }
 
   @RabbitSubscribe({
-    exchange:     'ev.charging',
-    routingKey:   'billing.idle_fee_charged',
-    queue:        'notification.billing.idle_fee',
-    queueOptions: buildQueueOpts('dlq.notification.billing.idle_fee'),
+    exchange: 'ev.charging',
+    routingKey: 'billing.idle_fee_charged',
+    queue: 'notification.billing.idle_fee',
+    queueOptions: buildQueueOpts(),
   })
   async onIdleFeeCharged(payload: BillingIdleFeeChargedEvent): Promise<void> {
     const eventId = payload.eventId ?? `billing.idle_fee:${payload.sessionId}:${payload.transactionId}`;
@@ -557,18 +570,18 @@ export class BillingNotificationConsumer {
 
     const tpl = NOTIFICATION_TEMPLATES['billing.idle_fee_charged'];
     await this.engine.dispatch({
-      userId:   payload.userId,
-      type:     'billing.idle_fee_charged',
+      userId: payload.userId,
+      type: 'billing.idle_fee_charged',
       channels: ['push', 'in_app'],
-      title:    tpl.title(payload),
-      body:     tpl.body(payload),
+      title: tpl.title(payload),
+      body: tpl.body(payload),
       metadata: {
-        sessionId:             payload.sessionId,
-        idleFeeVnd:            payload.idleFeeVnd,
+        sessionId: payload.sessionId,
+        idleFeeVnd: payload.idleFeeVnd,
         chargeableIdleMinutes: payload.chargeableIdleMinutes,
-        idleFeePerMinuteVnd:   payload.idleFeePerMinuteVnd,
-        idleGraceMinutes:      payload.idleGraceMinutes,
-        transactionId:         payload.transactionId,
+        idleFeePerMinuteVnd: payload.idleFeePerMinuteVnd,
+        idleGraceMinutes: payload.idleGraceMinutes,
+        transactionId: payload.transactionId,
       },
     });
 
@@ -578,10 +591,10 @@ export class BillingNotificationConsumer {
   }
 
   @RabbitSubscribe({
-    exchange:     'ev.charging',
-    routingKey:   'billing.extra_charge',
-    queue:        'notification.billing.extra_charge',
-    queueOptions: buildQueueOpts('dlq.notification.billing.extra_charge'),
+    exchange: 'ev.charging',
+    routingKey: 'billing.extra_charge',
+    queue: 'notification.billing.extra_charge',
+    queueOptions: buildQueueOpts(),
   })
   async onExtraCharge(payload: BillingExtraChargeEvent): Promise<void> {
     const eventId = payload.eventId ?? `billing.extra_charge:${payload.sessionId}:${payload.transactionId}`;
@@ -590,17 +603,17 @@ export class BillingNotificationConsumer {
 
     const tpl = NOTIFICATION_TEMPLATES['billing.extra_charge'];
     await this.engine.dispatch({
-      userId:   payload.userId,
-      type:     'billing.extra_charge',
+      userId: payload.userId,
+      type: 'billing.extra_charge',
       channels: ['push', 'in_app'],
-      title:    tpl.title(payload),
-      body:     tpl.body(payload),
+      title: tpl.title(payload),
+      body: tpl.body(payload),
       metadata: {
-        sessionId:      payload.sessionId,
+        sessionId: payload.sessionId,
         extraAmountVnd: payload.extraAmountVnd,
-        depositAmount:  payload.depositAmount,
-        totalFeeVnd:    payload.totalFeeVnd,
-        transactionId:  payload.transactionId,
+        depositAmount: payload.depositAmount,
+        totalFeeVnd: payload.totalFeeVnd,
+        transactionId: payload.transactionId,
       },
     });
 
@@ -610,10 +623,10 @@ export class BillingNotificationConsumer {
   }
 
   @RabbitSubscribe({
-    exchange:     'ev.charging',
-    routingKey:   'billing.refund_issued',
-    queue:        'notification.billing.refund',
-    queueOptions: buildQueueOpts('dlq.notification.billing.refund'),
+    exchange: 'ev.charging',
+    routingKey: 'billing.refund_issued',
+    queue: 'notification.billing.refund',
+    queueOptions: buildQueueOpts(),
   })
   async onRefundIssued(payload: BillingRefundIssuedEvent): Promise<void> {
     const eventId = payload.eventId ?? `billing.refund:${payload.sessionId}:${payload.transactionId}`;
@@ -622,17 +635,17 @@ export class BillingNotificationConsumer {
 
     const tpl = NOTIFICATION_TEMPLATES['billing.refund_issued'];
     await this.engine.dispatch({
-      userId:   payload.userId,
-      type:     'billing.refund_issued',
+      userId: payload.userId,
+      type: 'billing.refund_issued',
       channels: ['push', 'in_app'],
-      title:    tpl.title(payload),
-      body:     tpl.body(payload),
+      title: tpl.title(payload),
+      body: tpl.body(payload),
       metadata: {
-        sessionId:       payload.sessionId,
+        sessionId: payload.sessionId,
         refundAmountVnd: payload.refundAmountVnd,
-        depositAmount:   payload.depositAmount,
-        totalFeeVnd:     payload.totalFeeVnd,
-        transactionId:   payload.transactionId,
+        depositAmount: payload.depositAmount,
+        totalFeeVnd: payload.totalFeeVnd,
+        transactionId: payload.transactionId,
       },
     });
 
@@ -653,13 +666,13 @@ export class WalletArrearsNotificationConsumer {
     @InjectRepository(ProcessedEventOrmEntity)
     private readonly peRepo: Repository<ProcessedEventOrmEntity>,
     private readonly engine: DeliveryEngine,
-  ) {}
+  ) { }
 
   @RabbitSubscribe({
-    exchange:     'ev.charging',
-    routingKey:   'wallet.arrears.created',
-    queue:        'notification.wallet.arrears.created',
-    queueOptions: buildQueueOpts('dlq.notification.wallet.arrears.created'),
+    exchange: 'ev.charging',
+    routingKey: 'wallet.arrears.created',
+    queue: 'notification.wallet.arrears.created',
+    queueOptions: buildQueueOpts(),
   })
   async onArrearsCreated(payload: WalletArrearsCreatedEvent): Promise<void> {
     const eventId = payload.eventId ?? `wallet.arrears.created:${payload.transactionId}`;
@@ -668,17 +681,17 @@ export class WalletArrearsNotificationConsumer {
 
     const tpl = NOTIFICATION_TEMPLATES['wallet.arrears.created'];
     await this.engine.dispatch({
-      userId:   payload.userId,
-      type:     'wallet.arrears.created',
+      userId: payload.userId,
+      type: 'wallet.arrears.created',
       channels: ['push', 'in_app'],
-      title:    tpl.title(payload),
-      body:     tpl.body(payload),
+      title: tpl.title(payload),
+      body: tpl.body(payload),
       metadata: {
-        arrearsAmount:    payload.arrearsAmount,
+        arrearsAmount: payload.arrearsAmount,
         totalOutstanding: payload.totalOutstanding,
-        transactionId:    payload.transactionId,
+        transactionId: payload.transactionId,
         relatedSessionId: payload.relatedSessionId,
-        dueDate:          payload.dueDate,
+        dueDate: payload.dueDate,
       },
     });
 
@@ -688,10 +701,10 @@ export class WalletArrearsNotificationConsumer {
   }
 
   @RabbitSubscribe({
-    exchange:     'ev.charging',
-    routingKey:   'wallet.arrears.cleared',
-    queue:        'notification.wallet.arrears.cleared',
-    queueOptions: buildQueueOpts('dlq.notification.wallet.arrears.cleared'),
+    exchange: 'ev.charging',
+    routingKey: 'wallet.arrears.cleared',
+    queue: 'notification.wallet.arrears.cleared',
+    queueOptions: buildQueueOpts(),
   })
   async onArrearsCleared(payload: WalletArrearsClearedEvent): Promise<void> {
     const eventId = payload.eventId ?? `wallet.arrears.cleared:${payload.transactionId}`;
@@ -700,15 +713,15 @@ export class WalletArrearsNotificationConsumer {
 
     const tpl = NOTIFICATION_TEMPLATES['wallet.arrears.cleared'];
     await this.engine.dispatch({
-      userId:   payload.userId,
-      type:     'wallet.arrears.cleared',
+      userId: payload.userId,
+      type: 'wallet.arrears.cleared',
       channels: ['push', 'in_app'],
-      title:    tpl.title(payload),
-      body:     tpl.body(payload),
+      title: tpl.title(payload),
+      body: tpl.body(payload),
       metadata: {
-        clearedAmount:    payload.clearedAmount,
+        clearedAmount: payload.clearedAmount,
         totalOutstanding: payload.totalOutstanding,
-        transactionId:    payload.transactionId,
+        transactionId: payload.transactionId,
       },
     });
 
@@ -729,13 +742,13 @@ export class ChargerQueueReadyNotificationConsumer {
     @InjectRepository(ProcessedEventOrmEntity)
     private readonly peRepo: Repository<ProcessedEventOrmEntity>,
     private readonly engine: DeliveryEngine,
-  ) {}
+  ) { }
 
   @RabbitSubscribe({
-    exchange:     'ev.charging',
-    routingKey:   'charger.queue.ready',
-    queue:        'notification.charger.queue.ready',
-    queueOptions: buildQueueOpts('dlq.notification.charger.queue.ready'),
+    exchange: 'ev.charging',
+    routingKey: 'charger.queue.ready',
+    queue: 'notification.charger.queue.ready',
+    queueOptions: buildQueueOpts(),
   })
   async onChargerQueueReady(payload: ChargerQueueReadyEvent): Promise<void> {
     const eventId = payload.eventId ?? `charger.queue.ready:${payload.queueId}`;
@@ -744,25 +757,25 @@ export class ChargerQueueReadyNotificationConsumer {
 
     const tpl = NOTIFICATION_TEMPLATES['charger.queue.ready'];
     await this.engine.dispatch({
-      userId:   payload.userId,
-      type:     'charger.queue.ready',
+      userId: payload.userId,
+      type: 'charger.queue.ready',
       channels: ['push', 'in_app'],
-      title:    tpl.title(payload),
-      body:     tpl.body(payload),
+      title: tpl.title(payload),
+      body: tpl.body(payload),
       metadata: {
-        queueId:      payload.queueId,
-        chargerId:    payload.chargerId,
-        stationId:    payload.stationId,
-        stationName:  payload.stationName,
-        chargerName:  payload.chargerName,
-        position:     payload.position,
+        queueId: payload.queueId,
+        chargerId: payload.chargerId,
+        stationId: payload.stationId,
+        stationName: payload.stationName,
+        chargerName: payload.chargerName,
+        position: payload.position,
       },
       realtimePayload: {
         queueUpdate: {
-          chargerId:  payload.chargerId,
-          queueId:    payload.queueId,
-          status:     'called',
-          position:   payload.position,
+          chargerId: payload.chargerId,
+          queueId: payload.queueId,
+          status: 'called',
+          position: payload.position,
         },
       },
     });
@@ -783,13 +796,13 @@ export class AuthNotificationConsumer {
     @InjectRepository(ProcessedEventOrmEntity)
     private readonly peRepo: Repository<ProcessedEventOrmEntity>,
     private readonly engine: DeliveryEngine,
-  ) {}
+  ) { }
 
   @RabbitSubscribe({
-    exchange:     'ev.charging', // IAM service publishes to ev.charging
-    routingKey:   'user.email_verification_requested',
-    queue:        'notification.user.email_verification',
-    queueOptions: buildQueueOpts('dlq.notification.user.email_verification'),
+    exchange: 'ev.charging', // IAM service publishes to ev.charging
+    routingKey: 'user.email_verification_requested',
+    queue: 'notification.user.email_verification',
+    queueOptions: buildQueueOpts(),
   })
   async onEmailVerificationRequested(payload: EmailVerificationRequestedEvent): Promise<void> {
     const eventId = payload.eventId ?? `user.email_verification:${payload.userId}:${Date.now()}`;
@@ -798,15 +811,15 @@ export class AuthNotificationConsumer {
 
     const tpl = NOTIFICATION_TEMPLATES['user.email_verification_requested'];
     await this.engine.dispatch({
-      userId:   payload.userId,
-      type:     'user.email_verification_requested' as any, // Not yet in NotificationType enum, using as any for now or need to add it
+      userId: payload.userId,
+      type: 'user.email_verification_requested' as any, // Not yet in NotificationType enum, using as any for now or need to add it
       channels: ['email'],
-      title:    tpl.title(payload),
-      body:     tpl.body(payload),
+      title: tpl.title(payload),
+      body: tpl.body(payload),
       metadata: {
         targetEmail: payload.email,
-        rawToken:    payload.rawToken,
-        shortCode:   payload.shortCode,
+        rawToken: payload.rawToken,
+        shortCode: payload.shortCode,
       },
     });
 
@@ -833,13 +846,13 @@ export class SessionTelemetryPushConsumer {
 
   constructor(
     private readonly engine: DeliveryEngine,
-  ) {}
+  ) { }
 
   @RabbitSubscribe({
-    exchange:     'ev.charging',
-    routingKey:   'session.telemetry',
-    queue:        'notification.charging.telemetry',
-    queueOptions: buildQueueOpts('dlq.notification.charging.telemetry'),
+    exchange: 'ev.charging',
+    routingKey: 'session.telemetry',
+    queue: 'notification.charging.telemetry',
+    queueOptions: buildQueueOpts(),
   })
   async onTelemetry(payload: SessionTelemetryPushEvent): Promise<void> {
     // Throttle: only push every 30 seconds per session
@@ -851,11 +864,11 @@ export class SessionTelemetryPushConsumer {
     // Build telemetry data payload for the FCM data message
     const tpl = NOTIFICATION_TEMPLATES['session.telemetry_push'];
     await this.engine.dispatch({
-      userId:   payload.userId,
-      type:     'session.telemetry_push' as any,
+      userId: payload.userId,
+      type: 'session.telemetry_push' as any,
       channels: ['push'],
-      title:    tpl.title(payload),
-      body:     tpl.body(payload),
+      title: tpl.title(payload),
+      body: tpl.body(payload),
       metadata: { telemetry: true, silent: true },
     });
 

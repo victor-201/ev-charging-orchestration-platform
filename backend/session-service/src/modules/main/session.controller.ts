@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Body, Param, Query,
+  Controller, Get, Post, Patch, Delete, Body, Param, Query,
   HttpCode, HttpStatus, ParseUUIDPipe, NotFoundException,
   BadRequestException, Logger, UnauthorizedException,
   UseGuards, Header,
@@ -7,7 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { ChargerReadModelOrmEntity } from '../../infrastructure/persistence/typeorm/entities/booking.orm-entities';
-import { BookingReadModelOrmEntity, TelemetryOrmEntity } from '../../infrastructure/persistence/typeorm/entities/session.orm-entities';
+import { BookingReadModelOrmEntity, TelemetryOrmEntity, SessionOrmEntity } from '../../infrastructure/persistence/typeorm/entities/session.orm-entities';
 import {
   StartSessionUseCase, StopSessionUseCase,
   RecordTelemetryUseCase, GetSessionUseCase,
@@ -25,6 +25,7 @@ import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 import { Roles } from '../../shared/decorators/roles.decorator';
 import type { AuthenticatedUser }   from '../../shared/guards/jwt-auth.guard';
 import * as jwt from 'jsonwebtoken';
+import { KIOSK_GUEST_USER_ID } from '../../shared/constants';
 
 /**
  * SessionController - Self-service kiosk model:
@@ -57,6 +58,8 @@ export class SessionController {
     private readonly bookingReadRepo: Repository<BookingReadModelOrmEntity>,
     @InjectRepository(TelemetryOrmEntity)
     private readonly telemetryRepo: Repository<TelemetryOrmEntity>,
+    @InjectRepository(SessionOrmEntity)
+    private readonly sessionOrmRepo: Repository<SessionOrmEntity>,
   ) {}
 
   /**
@@ -64,7 +67,10 @@ export class SessionController {
    * Domain getters (startTime, status, etc.) live on the prototype and are
    * NOT serialized by JSON.stringify — this helper copies them to own props.
    */
-  private toSessionDto(session: import('../../domain/entities/charging-session.aggregate').ChargingSession) {
+  private toSessionDto(
+    session: import('../../domain/entities/charging-session.aggregate').ChargingSession,
+    charger?: ChargerReadModelOrmEntity | null,
+  ) {
     return {
       id:              session.id,
       userId:          session.userId,
@@ -79,6 +85,10 @@ export class SessionController {
       createdAt:       session.createdAt,
       energyKwh:       session.kwhConsumed ?? 0,
       amountDue:       session.totalFeeVnd,
+      stationName:     charger?.stationName ?? null,
+      cityName:        charger?.cityName ?? null,
+      connectorType:   charger?.connectorType ?? null,
+      maxPowerKw:      charger?.maxPowerKw ? Number(charger.maxPowerKw) : null,
     };
   }
 
@@ -120,6 +130,7 @@ export class SessionController {
     @CurrentUser() currentUser: AuthenticatedUser,
   ) {
     let sessionUserId = currentUser.id;
+    let resolvedBookingId = dto.bookingId;
 
     // Booking flow: verify QR token first
     if (dto.bookingId) {
@@ -128,16 +139,23 @@ export class SessionController {
           'qrToken is required when bookingId is provided.',
         );
       }
-      sessionUserId = await this.verifyQrToken(dto.qrToken, dto.bookingId, currentUser);
+      const result = await this.verifyQrToken(dto.qrToken, dto.bookingId, currentUser);
+      sessionUserId = result.userId;
+    } else if (dto.qrToken) {
+      // Kiosk scanned booking QR without bookingId — look up by qrToken
+      const result = await this.verifyQrToken(dto.qrToken, '', currentUser);
+      sessionUserId = result.userId;
+      resolvedBookingId = result.bookingId;
     }
 
     const session = await this.startSession.execute({
       userId:       sessionUserId,
       chargerId:    dto.chargerId,
-      bookingId:    dto.bookingId,
+      bookingId:    resolvedBookingId,
       startMeterWh: dto.startMeterWh,
     });
-    return this.toSessionDto(session);
+    const charger = await this.chargerReadRepo.findOneBy({ chargerId: session.chargerId });
+    return this.toSessionDto(session, charger);
   }
 
   /**
@@ -227,11 +245,13 @@ export class SessionController {
    * User views own session.
    */
   @Get('session/:id')
+  @SkipChargingArrearsCheck()
   @Header('Cache-Control', 'no-store, no-cache, must-revalidate')
   async getById(@Param('id', ParseUUIDPipe) id: string) {
     const session = await this.getSession.execute(id);
     if (!session) throw new NotFoundException('Session not found');
-    return this.toSessionDto(session);
+    const charger = await this.chargerReadRepo.findOneBy({ chargerId: session.chargerId });
+    return this.toSessionDto(session, charger);
   }
 
   /**
@@ -259,7 +279,8 @@ export class SessionController {
 
     const session = await this.getSession.getActiveByCharger(chargerId);
     if (!session) throw new NotFoundException('No active session for this charger');
-    return this.toSessionDto(session);
+    const charger = await this.chargerReadRepo.findOneBy({ chargerId: session.chargerId });
+    return this.toSessionDto(session, charger);
   }
 
   /**
@@ -320,8 +341,13 @@ export class SessionController {
       status || undefined,
       chargerIds,
     );
+    const uniqueChargerIds = [...new Set(result.items.map((s) => s.chargerId))];
+    const chargers = uniqueChargerIds.length > 0
+      ? await this.chargerReadRepo.findBy({ chargerId: In(uniqueChargerIds) })
+      : [];
+    const chargerMap = new Map(chargers.map((c) => [c.chargerId, c]));
     return {
-      items: result.items.map((s) => this.toSessionDto(s)),
+      items: result.items.map((s) => this.toSessionDto(s, chargerMap.get(s.chargerId))),
       total: result.total,
     };
   }
@@ -378,29 +404,52 @@ export class SessionController {
   }
 
   /**
+   * DELETE /api/v1/charging/session/:id
+   * Admin permanently deletes a session record from the database.
+   * Only for completed/stopped/interrupted sessions (not active).
+   */
+  @Delete('session/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Roles('admin')
+  @SkipChargingArrearsCheck()
+  async adminDeleteSession(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    const session = await this.sessionOrmRepo.findOneBy({ id });
+    if (!session) throw new NotFoundException(`Session ${id} not found`);
+    if (session.status === 'active') {
+      throw new BadRequestException('Cannot delete an active session. Force-stop it first.');
+    }
+    await this.sessionOrmRepo.delete({ id });
+    this.logger.log(`Admin permanently deleted session ${id}`);
+  }
+
+  /**
    * Verifies QR token generated by app during booking.
    * Supports standard non-JWT 'EV-XXXX-XXXX' format by querying database,
    * with fallback to legacy JWT verification for test compatibility.
    */
-  private async verifyQrToken(qrToken: string, bookingId: string, caller: AuthenticatedUser): Promise<string> {
+  private async verifyQrToken(qrToken: string, bookingId: string, caller: AuthenticatedUser): Promise<{ userId: string; bookingId: string }> {
     // 1. Check standard booking QR code format EV-XXXX-XXXX
     if (qrToken.startsWith('EV-') || !qrToken.includes('.')) {
-      const booking = await this.bookingReadRepo.findOneBy({ bookingId });
+      const booking = bookingId
+        ? await this.bookingReadRepo.findOneBy({ bookingId })
+        : await this.bookingReadRepo.findOneBy({ qrToken });
       if (!booking) {
         throw new BadRequestException('Booking not found or not confirmed.');
       }
-      if (booking.qrToken !== qrToken) {
+      if (bookingId && booking.qrToken !== qrToken) {
         throw new BadRequestException('QR code does not match this booking.');
       }
-      
-      const isKiosk = caller.id === '00000000-0000-4000-8000-000000000000' || 
+
+      const isKiosk = caller.id === KIOSK_GUEST_USER_ID || 
                       caller.id === 'kiosk-device' || 
                       caller.role === 'kiosk' || 
                       caller.roles?.includes('kiosk');
       if (!isKiosk && booking.userId !== caller.id) {
         throw new UnauthorizedException('QR code does not belong to the current account.');
       }
-      return booking.userId;
+      return { userId: booking.userId, bookingId: booking.bookingId };
     }
 
     // 2. Fallback to JWT-based verification
@@ -414,10 +463,10 @@ export class SessionController {
     if (payload.bookingId !== bookingId) {
       throw new BadRequestException('QR code does not match this booking.');
     }
-    const isKiosk = caller.id === '00000000-0000-4000-8000-000000000000' || caller.id === 'kiosk-device' || caller.role === 'kiosk' || caller.roles?.includes('kiosk');
+    const isKiosk = caller.id === KIOSK_GUEST_USER_ID || caller.id === 'kiosk-device' || caller.role === 'kiosk' || caller.roles?.includes('kiosk');
     if (!isKiosk && payload.userId !== caller.id) {
       throw new UnauthorizedException('QR code does not belong to the current account.');
     }
-    return payload.userId;
+    return { userId: payload.userId, bookingId: payload.bookingId };
   }
 }

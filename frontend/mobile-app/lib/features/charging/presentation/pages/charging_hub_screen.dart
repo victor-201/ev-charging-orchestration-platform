@@ -31,6 +31,12 @@ class _ChargingHubScreenState extends State<ChargingHubScreen> {
   int _tab = 0; // 0 = QR Scan, 1 = History
 
   @override
+  void initState() {
+    super.initState();
+    context.read<ChargingSessionBloc>().add(const ChargingSessionSyncRequested());
+  }
+
+  @override
   Widget build(BuildContext context) {
     return LiquidGlassScaffold(
       child: SafeArea(
@@ -203,16 +209,115 @@ class _QuickChargeTab extends StatelessWidget {
   }
 }
 
-class _ActiveSessionCard extends StatelessWidget {
+class _ActiveSessionCard extends StatefulWidget {
   final ChargingSessionEntity session;
   const _ActiveSessionCard({required this.session});
 
   @override
+  State<_ActiveSessionCard> createState() => _ActiveSessionCardState();
+}
+
+class _ActiveSessionCardState extends State<_ActiveSessionCard> {
+  StationEntity? _resolvedStation;
+  ChargerEntity? _resolvedCharger;
+  bool _isLoadingStation = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStationInfo();
+  }
+
+  @override
+  void didUpdateWidget(_ActiveSessionCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.session.chargerId != widget.session.chargerId) {
+      _loadStationInfo();
+    }
+  }
+
+  void _loadStationInfo() {
+    if (!mounted || _isLoadingStation) return;
+    setState(() {
+      _isLoadingStation = true;
+    });
+    getIt<IStationRepository>()
+        .getStationByChargerId(widget.session.chargerId)
+        .then((result) {
+      if (mounted) {
+        setState(() {
+          _isLoadingStation = false;
+          result.fold(
+            (_) {},
+            (station) {
+              _resolvedStation = station;
+              _resolvedCharger = station.chargers.firstWhere(
+                (c) => c.id == widget.session.chargerId || c.connectorId == widget.session.chargerId,
+                orElse: () => station.chargers.isNotEmpty ? station.chargers.first : station.chargers.first,
+              );
+            },
+          );
+        });
+      }
+    }).catchError((_) {
+      if (mounted) {
+        setState(() => _isLoadingStation = false);
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final session = widget.session;
     return SingleChildScrollView(
       padding: AppLayout.paddingWithNavbar(context),
       child: Column(
         children: [
+          // ── Active Charger Info Card ─────────────────────────
+          LiquidGlassCard(
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.cyan.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.ev_station_rounded, color: AppColors.cyan, size: 28),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        session.stationName ?? _resolvedStation?.name ?? 'Đang tải trạm sạc...',
+                        style: AppTypography.bodyLg.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        session.maxPowerKw != null
+                            ? 'Trụ sạc • ${session.connectorType ?? "AC/DC"} (${session.maxPowerKw!.toStringAsFixed(0)} kW)'
+                            : (_resolvedCharger != null
+                                ? '${_resolvedCharger!.name} • ${_resolvedCharger!.connectorType} (${_resolvedCharger!.powerKw.toStringAsFixed(0)} kW)'
+                                : 'Trụ sạc: ${session.chargerId.substring(0, 8)}...'),
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.textMuted,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+
           // ── 4 GlassSquare tiles ──────────────────────────────
           Wrap(
             spacing: AppSpacing.md,
@@ -318,7 +423,7 @@ class _ChargingHistoryTabState extends State<_ChargingHistoryTab> {
   final Set<String> _loadingChargerIds = {};
   final Set<String> _failedChargerIds = {};
 
-  String _filter = 'ALL'; // 'ALL', 'BILLED', 'ERROR'
+  String _filter = 'ALL'; // 'ALL', 'COMPLETED', 'ERROR'
   int _offset = 0;
   bool _isLoading = false;
   bool _isLoadingMore = false;
@@ -396,25 +501,47 @@ class _ChargingHistoryTabState extends State<_ChargingHistoryTab> {
 
   void _loadStationsForSessions(List<ChargingSessionEntity> sessions) {
     final repo = getIt<IStationRepository>();
-    final uniqueChargerIds = sessions.map((s) => s.chargerId).toSet();
-    for (final chargerId in uniqueChargerIds) {
-      if (!_stationCache.containsKey(chargerId) &&
-          !_loadingChargerIds.contains(chargerId) &&
-          !_failedChargerIds.contains(chargerId)) {
-        _loadingChargerIds.add(chargerId);
-        repo.getStationByChargerId(chargerId).then((result) {
-          if (mounted) {
-            setState(() {
-              _loadingChargerIds.remove(chargerId);
-              result.fold(
-                (failure) => _failedChargerIds.add(chargerId),
-                (station) => _stationCache[chargerId] = station,
-              );
-            });
+    final uniqueChargerIds = sessions
+        .map((s) => s.chargerId)
+        .where((id) =>
+            !_stationCache.containsKey(id) &&
+            !_loadingChargerIds.contains(id) &&
+            !_failedChargerIds.contains(id))
+        .toList();
+
+    if (uniqueChargerIds.isEmpty) return;
+
+    _loadingChargerIds.addAll(uniqueChargerIds);
+
+    repo.getStationsByChargerIds(uniqueChargerIds).then((result) {
+      if (mounted) {
+        setState(() {
+          for (final id in uniqueChargerIds) {
+            _loadingChargerIds.remove(id);
           }
+          result.fold(
+            (failure) {
+              for (final id in uniqueChargerIds) {
+                _failedChargerIds.add(id);
+              }
+            },
+            (stations) {
+              for (final station in stations) {
+                for (final charger in station.chargers) {
+                  _stationCache[charger.id] = station;
+                }
+              }
+              // Fallback to avoid infinite retries
+              for (final id in uniqueChargerIds) {
+                if (!_stationCache.containsKey(id)) {
+                  _failedChargerIds.add(id);
+                }
+              }
+            },
+          );
         });
       }
-    }
+    });
   }
 
   void _onFilterChanged(String filter) {
@@ -444,8 +571,8 @@ class _ChargingHistoryTabState extends State<_ChargingHistoryTab> {
               const SizedBox(width: 8),
               GlassPill(
                 label: 'Hoàn thành',
-                isActive: _filter == 'BILLED',
-                onTap: () => _onFilterChanged('BILLED'),
+                isActive: _filter == 'COMPLETED',
+                onTap: () => _onFilterChanged('COMPLETED'),
               ),
               const SizedBox(width: 8),
               GlassPill(
@@ -534,34 +661,47 @@ class _ChargingSessionCard extends StatelessWidget {
     Color statusColor;
     String statusLabel;
 
-    switch (session.status.toLowerCase()) {
-      case 'billed':
-      case 'completed':
-        statusColor = AppColors.chargerAvailable;
-        statusLabel = 'Hoàn thành';
-        break;
-      case 'active':
-      case 'charging':
-        statusColor = AppColors.cyan;
-        statusLabel = 'Đang sạc';
-        break;
-      case 'init':
-      case 'initiated':
-      case 'authorized':
-        statusColor = AppColors.amber;
-        statusLabel = 'Khởi tạo';
-        break;
-      case 'error':
-      case 'interrupted':
-        statusColor = AppColors.error;
-        statusLabel = 'Lỗi';
-        break;
-      default:
-        statusColor = AppColors.grey400;
-        statusLabel = session.status;
+    if (session.endedAt != null) {
+      statusColor = AppColors.chargerAvailable;
+      statusLabel = 'Hoàn thành';
+    } else {
+      switch (session.status.toLowerCase()) {
+        case 'billed':
+        case 'completed':
+          statusColor = AppColors.chargerAvailable;
+          statusLabel = 'Hoàn thành';
+          break;
+        case 'active':
+        case 'charging':
+          statusColor = AppColors.cyan;
+          statusLabel = 'Đang sạc';
+          break;
+        case 'init':
+        case 'initiated':
+        case 'authorized':
+          statusColor = AppColors.amber;
+          statusLabel = 'Khởi tạo';
+          break;
+        case 'error':
+        case 'interrupted':
+          statusColor = AppColors.error;
+          statusLabel = 'Lỗi';
+          break;
+        default:
+          statusColor = AppColors.grey400;
+          statusLabel = session.status;
+      }
     }
 
-    final stationName = station?.name ?? 'Trạm sạc EV';
+    final stationName = session.stationName ?? station?.name ?? 'Trạm sạc EV';
+    final ChargerEntity? charger = station?.chargers
+        .where((c) => c.id == session.chargerId)
+        .firstOrNull;
+    final chargerInfo = session.maxPowerKw != null
+        ? 'Trụ sạc • ${session.connectorType ?? "AC/DC"} (${session.maxPowerKw!.toStringAsFixed(0)} kW)'
+        : (charger != null
+            ? '${charger.name} • ${charger.connectorType} (${charger.powerKw.toStringAsFixed(0)} kW)'
+            : 'Trụ sạc: ${session.chargerId.substring(0, 8)}...');
 
     return GestureDetector(
       onTap: () => context.push('/charging/session/${session.id}'),
@@ -613,6 +753,14 @@ class _ChargingSessionCard extends StatelessWidget {
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    chargerInfo,
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textMuted,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Row(

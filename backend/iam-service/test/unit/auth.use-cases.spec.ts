@@ -54,6 +54,7 @@ const mockEmailVerificationRepo = {
 
 const mockDataSource = {
   transaction: jest.fn().mockImplementation((cb: (m: any) => any) => cb({})),
+  query: jest.fn().mockResolvedValue([]),
 };
 
 const mockJwtService = {
@@ -173,6 +174,7 @@ describe('LoginUseCase', () => {
         { provide: EVENT_BUS,          useValue: mockEventBus },
         { provide: JwtService,         useValue: mockJwtService },
         { provide: ConfigService,      useValue: mockConfig },
+        { provide: DataSource,         useValue: mockDataSource },
         // Redis mock - rate limiting is required but can be stubbed
         { provide: 'REDIS_CLIENT', useValue: {
           incr:    jest.fn().mockResolvedValue(1),
@@ -241,6 +243,7 @@ describe('RefreshTokenUseCase', () => {
         { provide: ROLE_REPOSITORY, useValue: mockRoleRepo },
         { provide: JwtService, useValue: mockJwtService },
         { provide: ConfigService, useValue: mockConfig },
+        { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();
     useCase = module.get(RefreshTokenUseCase);

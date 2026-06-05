@@ -276,7 +276,7 @@ class TransactionDetailSheet extends StatelessWidget {
     if (bookingId != null) {
       if (rows.isNotEmpty) rows.add(_buildDivider(isDark));
       rows.add(_buildRow(
-        'Mã đặt lịch (Booking)',
+        'Mã đặt lịch',
         bookingId,
         isCopyable: true,
         onCopy: () => _copyToClipboard(context, bookingId, 'mã đặt lịch'),
@@ -287,7 +287,7 @@ class TransactionDetailSheet extends StatelessWidget {
     if (sessionId != null) {
       if (rows.isNotEmpty) rows.add(_buildDivider(isDark));
       rows.add(_buildRow(
-        'Mã phiên sạc (Session)',
+        'Mã phiên sạc',
         sessionId,
         isCopyable: true,
         onCopy: () => _copyToClipboard(context, sessionId, 'mã phiên sạc'),

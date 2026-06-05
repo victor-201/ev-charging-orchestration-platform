@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, IsNull, Not } from 'typeorm';
+import { Repository, DataSource, IsNull, Not, LessThan } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import {
   ChargerStateOrmEntity,
@@ -9,7 +9,8 @@ import {
   OutboxOrmEntity,
   BookingReadModelOrmEntity,
 } from '../../infrastructure/persistence/typeorm/entities/session.orm-entities';
-import { ChargerReadModelOrmEntity } from '../../infrastructure/persistence/typeorm/entities/booking.orm-entities';
+import { ChargerReadModelOrmEntity, QueueOrmEntity } from '../../infrastructure/persistence/typeorm/entities/booking.orm-entities';
+import { NotifyQueueHeadUseCase } from './queue.use-case';
 
 /**
  * QueueCleanupJob
@@ -42,10 +43,27 @@ export class QueueCleanupJob {
     private readonly outboxRepo: Repository<OutboxOrmEntity>,
     @InjectRepository(ChargerReadModelOrmEntity)
     private readonly chargerRmRepo: Repository<ChargerReadModelOrmEntity>,
+    @InjectRepository(QueueOrmEntity)
+    private readonly queueOrmRepo: Repository<QueueOrmEntity>,
+    private readonly notifyQueueHead: NotifyQueueHeadUseCase,
   ) {}
 
   @Cron('* * * * *') // every 1 minute
   async run(): Promise<void> {
+    const now = new Date();
+    // 0. Auto-expire notified queue entries past their expiration time
+    try {
+      const expiredCount = await this.queueOrmRepo.update(
+        { status: 'notified', expiresAt: LessThan(now) },
+        { status: 'expired' }
+      );
+      if (expiredCount.affected && expiredCount.affected > 0) {
+        this.logger.log(`QueueCleanupJob: expired ${expiredCount.affected} notified queue entries`);
+      }
+    } catch (err) {
+      this.logger.error(`QueueCleanupJob: failed to expire queue entries: ${err}`);
+    }
+
     const physicalWaitMs = QueueCleanupJob.PHYSICAL_WAIT_MINUTES * 60_000;
     const cutoffTime = new Date(Date.now() - physicalWaitMs);
 
@@ -86,34 +104,14 @@ export class QueueCleanupJob {
         continue;
       }
 
-      // Emit charger.queue.ready event → Notification Service sends push to queue head
-      const chargerRm = await this.chargerRmRepo.findOneBy({ chargerId });
-      const stationId = chargerRm?.stationId ?? 'unknown';
-
-      const eventId = uuidv4();
-      await this.outboxRepo.save(
-        this.outboxRepo.create({
-          id:            eventId,
-          aggregateType: 'charger',
-          aggregateId:   chargerId,
-          eventType:     'charger.queue.ready',
-          payload:       {
-            eventId,
-            chargerId,
-            stationId,
-            availableAt: chargerState.releasedAt!.toISOString(),
-            notifiedAt:  new Date().toISOString(),
-          },
-          status:      'pending',
-          processedAt: null,
-        }),
-      );
+      // Notify queue head
+      await this.notifyQueueHead.execute(chargerId);
 
       // Clear releasedAt — prevents re-firing on next cron tick
       await this.chargerStateRepo.update({ chargerId }, { releasedAt: null });
 
       this.logger.log(
-        `QueueCleanupJob: emitted charger.queue.ready for ${chargerId} ` +
+        `QueueCleanupJob: activated queue for ${chargerId} ` +
         `(released at ${chargerState.releasedAt!.toISOString()})`,
       );
     }

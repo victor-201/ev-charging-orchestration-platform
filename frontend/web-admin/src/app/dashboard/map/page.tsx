@@ -10,16 +10,18 @@
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/services/api-client';
 import { motion } from 'framer-motion';
-import { Wifi, WifiOff, Plus, X, Zap, Info, MapPin, Filter, CheckCircle2, Edit, Trash2, ChevronDown, Users, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import { Wifi, WifiOff, Plus, X, Zap, Info, MapPin, Filter, CheckCircle2, Edit, Trash2, Users, CheckCircle, Clock, AlertTriangle, Activity, BatteryCharging, Thermometer, Gauge, Timer, DollarSign } from 'lucide-react';
 import Pagination from '@/core/components/ui/Pagination';
 import CustomSelect from '@/core/components/ui/CustomSelect';
 import dynamic from 'next/dynamic';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/core/utils/cn';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/features/auth/store/auth.store';
+import { tSafe, translateMessage } from '@/i18n/formatter';
+import { useTelemetrySocket } from '@/features/charging/hooks/useTelemetrySocket';
 
 const StationMap = dynamic(() => import('@/features/infrastructure/components/StationMap'), { ssr: false });
 
@@ -45,6 +47,199 @@ type Station = {
   chargers?: Charger[];
 };
 
+// ─── LiveSessionPanel ──────────────────────────────────────────────────────────
+// Renders active charging session info + latest telemetry for a charger in_use.
+function LiveSessionPanel({ chargerId }: { chargerId: string; stationId: string }) {
+  const { data: session, isLoading: sessionLoading, error: sessionError } = useQuery<any>({
+    queryKey: ['active-session', chargerId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/charging/charger/${chargerId}/active`);
+      return res.data;
+    },
+    refetchInterval: 15_000,
+    retry: false,
+  });
+
+  const [telemetryReading, setTelemetryReading] = useState<any>(null);
+  const [energyKwh, setEnergyKwh] = useState<number | null>(null);
+  const [amountDue, setAmountDue] = useState<number | null>(null);
+
+  // Sync with session when it loads/changes
+  useEffect(() => {
+    if (session) {
+      setEnergyKwh(session.energyKwh);
+      setAmountDue(session.amountDue);
+    }
+  }, [session]);
+
+  const { data: telemetryData, isLoading: telLoading } = useQuery<any>({
+    queryKey: ['session-telemetry', session?.id],
+    queryFn: async () => {
+      const res = await apiClient.get(`/charging/telemetry/${session.id}`);
+      return res.data;
+    },
+    enabled: !!session?.id,
+    retry: false,
+  });
+
+  // Seed initial telemetry
+  useEffect(() => {
+    if (telemetryData?.readings?.[0]) {
+      setTelemetryReading(telemetryData.readings[0]);
+    }
+  }, [telemetryData]);
+
+  // Hook up useTelemetrySocket for live updates
+  useTelemetrySocket({
+    sessionId: session?.id || null,
+    enabled: !!session?.id,
+    onTelemetry: useCallback((newReading: any) => {
+      setTelemetryReading(newReading);
+      if (session && newReading.meterWh != null) {
+        const startMeter = Number(session.startMeterWh ?? 0);
+        const currentEnergy = Math.max(0, (newReading.meterWh - startMeter) / 1000);
+        setEnergyKwh(currentEnergy);
+
+        const initialEnergy = Number(session.energyKwh ?? 0);
+        const initialCost = Number(session.amountDue ?? 0);
+        const pricePerKwh = initialEnergy > 0 ? (initialCost / initialEnergy) : 3500;
+        setAmountDue(currentEnergy * pricePerKwh);
+      }
+    }, [session]),
+  });
+
+  const elapsedMinutes = session?.startTime
+    ? Math.floor((Date.now() - new Date(session.startTime).getTime()) / 60000)
+    : null;
+  const elapsedStr = elapsedMinutes !== null
+    ? elapsedMinutes >= 60
+      ? `${Math.floor(elapsedMinutes / 60)}h ${elapsedMinutes % 60}ph`
+      : `${elapsedMinutes} phút`
+    : null;
+
+  const latestReading = telemetryReading;
+
+  if (sessionLoading) {
+    return (
+      <div className="mt-3 pt-3 border-t border-cyan/10">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-1.5 h-1.5 rounded-full bg-cyan animate-pulse" />
+          <span className="text-[10px] font-bold uppercase tracking-wider text-cyan">Phiên sạc đang chạy</span>
+        </div>
+        <div className="space-y-2">
+          {[1,2,3].map(i => <div key={i} className="h-5 rounded-lg bg-white/5 animate-pulse" />)}
+        </div>
+      </div>
+    );
+  }
+
+  if (sessionError || !session) {
+    return (
+      <div className="mt-3 pt-3 border-t border-white/10 flex items-center gap-2 text-text-muted">
+        <Activity className="w-3.5 h-3.5" />
+        <span className="text-[11px]">Không tìm thấy phiên sạc nào đang hoạt động.</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-1 pt-3 border-t border-cyan/20 space-y-3">
+      {/* Section header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-1.5 h-1.5 rounded-full bg-cyan animate-pulse" />
+          <span className="text-[10px] font-bold uppercase tracking-wider text-cyan">Phiên sạc đang chạy</span>
+        </div>
+        <span className="text-[9px] font-mono text-slate-400 dark:text-slate-500 truncate max-w-[140px]" title={session.id}>
+          #{session.id.slice(0, 8)}…
+        </span>
+      </div>
+
+      {/* Session info grid */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="bg-cyan/5 border border-cyan/15 rounded-xl p-2 flex flex-col items-center gap-0.5 text-center">
+          <Timer className="w-3.5 h-3.5 text-cyan" />
+          <span className="text-[11px] font-bold text-slate-900 dark:text-white">{elapsedStr ?? '--'}</span>
+          <span className="text-[9px] text-slate-400 uppercase tracking-wide">Thời gian</span>
+        </div>
+        <div className="bg-cyan/5 border border-cyan/15 rounded-xl p-2 flex flex-col items-center gap-0.5 text-center">
+          <BatteryCharging className="w-3.5 h-3.5 text-cyan" />
+          <span className="text-[11px] font-bold text-slate-900 dark:text-white">
+            {energyKwh != null ? `${Number(energyKwh).toFixed(2)} kWh` : '--'}
+          </span>
+          <span className="text-[9px] text-slate-400 uppercase tracking-wide">Năng lượng</span>
+        </div>
+        <div className="bg-cyan/5 border border-cyan/15 rounded-xl p-2 flex flex-col items-center gap-0.5 text-center">
+          <Zap className="w-3.5 h-3.5 text-cyan" />
+          <span className="text-[11px] font-bold text-slate-900 dark:text-white">
+            {amountDue != null ? `${Number(amountDue).toLocaleString('vi-VN')}₫` : '--'}
+          </span>
+          <span className="text-[9px] text-slate-400 uppercase tracking-wide">Tạm tính</span>
+        </div>
+      </div>
+
+      {/* Telemetry readings */}
+      {latestReading ? (
+        <div className="space-y-1.5">
+          <p className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold">Telemetry thời gian thực</p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {latestReading.powerKw != null && (
+              <div className="flex items-center gap-1.5 bg-white/[0.04] dark:bg-white/[0.03] border border-white/8 rounded-lg px-2.5 py-1.5">
+                <Gauge className="w-3 h-3 text-cyan shrink-0" />
+                <span className="text-[10px] text-slate-400">Công suất:</span>
+                <span className="ml-auto text-[10px] font-bold text-cyan">{Number(latestReading.powerKw).toFixed(1)} kW</span>
+              </div>
+            )}
+            {latestReading.voltageV != null && (
+              <div className="flex items-center gap-1.5 bg-white/[0.04] dark:bg-white/[0.03] border border-white/8 rounded-lg px-2.5 py-1.5">
+                <Activity className="w-3 h-3 text-warning shrink-0" />
+                <span className="text-[10px] text-slate-400">Hiệu điện thế:</span>
+                <span className="ml-auto text-[10px] font-bold text-warning">{Number(latestReading.voltageV).toFixed(0)} V</span>
+              </div>
+            )}
+            {latestReading.currentA != null && (
+              <div className="flex items-center gap-1.5 bg-white/[0.04] dark:bg-white/[0.03] border border-white/8 rounded-lg px-2.5 py-1.5">
+                <Zap className="w-3 h-3 text-yellow-400 shrink-0" />
+                <span className="text-[10px] text-slate-400">Dòng điện:</span>
+                <span className="ml-auto text-[10px] font-bold text-yellow-400">{Number(latestReading.currentA).toFixed(1)} A</span>
+              </div>
+            )}
+            {latestReading.socPercent != null && (
+              <div className="flex items-center gap-1.5 bg-white/[0.04] dark:bg-white/[0.03] border border-white/8 rounded-lg px-2.5 py-1.5">
+                <BatteryCharging className="w-3 h-3 text-success shrink-0" />
+                <span className="text-[10px] text-slate-400">Pin (SoC):</span>
+                <span className="ml-auto text-[10px] font-bold text-success">{latestReading.socPercent}%</span>
+              </div>
+            )}
+            {latestReading.temperatureC != null && (
+              <div className="flex items-center gap-1.5 bg-white/[0.04] dark:bg-white/[0.03] border border-white/8 rounded-lg px-2.5 py-1.5">
+                <Thermometer className="w-3 h-3 text-danger shrink-0" />
+                <span className="text-[10px] text-slate-400">Nhiệt độ:</span>
+                <span className={cn("ml-auto text-[10px] font-bold", latestReading.temperatureC > 60 ? 'text-danger' : 'text-text-main')}>
+                  {Number(latestReading.temperatureC).toFixed(1)}°C
+                </span>
+              </div>
+            )}
+            <div className="flex items-center gap-1.5 bg-white/[0.04] dark:bg-white/[0.03] border border-white/8 rounded-lg px-2.5 py-1.5">
+              <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+              <span className="text-[10px] text-slate-400">Cập nhật:</span>
+              <span className="ml-auto text-[10px] font-mono text-slate-400">
+                {new Date(latestReading.recordedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : telLoading ? (
+        <div className="space-y-1">
+          {[1,2].map(i => <div key={i} className="h-7 rounded-lg bg-white/5 animate-pulse" />)}
+        </div>
+      ) : (
+        <p className="text-[11px] text-slate-400 italic">Chưa có dữ liệu telemetry cho phiên này.</p>
+      )}
+    </div>
+  );
+}
+
 export default function MapPage() {
   const { user } = useAuthStore();
   const isAdmin = user?.roles?.includes('admin');
@@ -54,7 +249,8 @@ export default function MapPage() {
   }, []);
 
   const renderPortal = (content: React.ReactNode) => {
-    return content;
+    if (!mounted || typeof document === 'undefined') return null;
+    return createPortal(content, document.body);
   };
 
   const [statusFilter, setStatusFilter] = useState('all');
@@ -65,11 +261,27 @@ export default function MapPage() {
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const { t } = useTranslation(['dashboard', 'common']);
 
-  const staffStationIds: string[] = user?.stationIds?.length
-    ? user.stationIds
-    : user?.stationId
-      ? [user.stationId]
-      : [];
+  // Fetch my staff profile to get the assigned stationId
+  const { data: staffProfileData } = useQuery<any>({
+    queryKey: ['my-staff-profile-map', user?.id],
+    queryFn: async () => {
+      if (!user || isAdmin) return null;
+      const res = await apiClient.get('/staff');
+      const items = res.data?.items || res.data || [];
+      return items[0] || null;
+    },
+    enabled: !!user && !isAdmin,
+  });
+
+  const staffStationId = staffProfileData?.stationId || null;
+
+  const staffStationIds: string[] = !isAdmin
+    ? (staffStationId ? [staffStationId] : [])
+    : (user?.stationIds?.length
+      ? user.stationIds
+      : user?.stationId
+        ? [user.stationId]
+        : []);
 
   const assignedStationId = staffStationIds[0] || null;
 
@@ -103,11 +315,11 @@ export default function MapPage() {
   // Attendance Check-in / Check-out handlers using navigator.geolocation
   const handleCheckIn = () => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      toast.error("Trình duyệt không hỗ trợ định vị GPS!");
+      toast.error(tSafe('common:gps.not_supported', 'Trình duyệt không hỗ trợ định vị GPS!'));
       return;
     }
     
-    toast.info("Đang lấy tọa độ GPS của bạn...");
+    toast.info(tSafe('common:gps.fetching', 'Đang lấy tọa độ GPS của bạn...'));
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         try {
@@ -116,14 +328,22 @@ export default function MapPage() {
             longitude: pos.coords.longitude,
             stationId: assignedStationId,
           });
-          toast.success("Điểm danh Check-in trạm thành công!");
+          toast.success(tSafe('dashboard:home.checkin.checkin_success', 'Điểm danh Check-in trạm thành công!'));
           refetchAttendance();
         } catch (err: any) {
-          toast.error(err?.response?.data?.message || "Check-in thất bại!");
+          const data = err?.response?.data;
+          const errMsg = data?.message;
+          const errStr = Array.isArray(errMsg) ? errMsg.join('; ') : (errMsg || '');
+          console.error('[Check-in error]', JSON.stringify(data));
+          if (/latitude|longitude|tọa độ|coordinates/i.test(errStr)) {
+            toast.error(tSafe('dashboard:home.checkin.out_of_range', 'Bạn cần đến trạm để thực hiện thao tác (GPS hiện tại ngoài phạm vi)'));
+          } else {
+            toast.error(translateMessage(errStr, 'dashboard:home.checkin.checkin_failed'));
+          }
         }
       },
       (err) => {
-        toast.error("Vui lòng cấp quyền truy cập GPS để điểm danh trạm sạc!");
+        toast.error(tSafe('common:gps.permission_denied', 'Vui lòng cấp quyền truy cập GPS để điểm danh trạm sạc!'));
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -131,11 +351,11 @@ export default function MapPage() {
 
   const handleCheckOut = () => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      toast.error("Trình duyệt không hỗ trợ định vị GPS!");
+      toast.error(tSafe('common:gps.not_supported', 'Trình duyệt không hỗ trợ định vị GPS!'));
       return;
     }
     
-    toast.info("Đang lấy tọa độ GPS của bạn...");
+    toast.info(tSafe('common:gps.fetching', 'Đang lấy tọa độ GPS của bạn...'));
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         try {
@@ -143,14 +363,22 @@ export default function MapPage() {
             latitude: pos.coords.latitude,
             longitude: pos.coords.longitude,
           });
-          toast.success("Điểm danh Check-out trạm thành công!");
+          toast.success(tSafe('dashboard:home.checkin.checkout_success', 'Điểm danh Check-out trạm thành công!'));
           refetchAttendance();
         } catch (err: any) {
-          toast.error(err?.response?.data?.message || "Check-out thất bại!");
+          const data = err?.response?.data;
+          const errMsg = data?.message;
+          const errStr = Array.isArray(errMsg) ? errMsg.join('; ') : (errMsg || '');
+          console.error('[Check-out error]', JSON.stringify(data));
+          if (/latitude|longitude|tọa độ|coordinates/i.test(errStr)) {
+            toast.error(tSafe('dashboard:home.checkin.out_of_range', 'Bạn cần đến trạm để thực hiện thao tác (GPS hiện tại ngoài phạm vi)'));
+          } else {
+            toast.error(translateMessage(errStr, 'dashboard:home.checkin.checkout_failed'));
+          }
         }
       },
       (err) => {
-        toast.error("Vui lòng cấp quyền truy cập GPS để điểm danh trạm sạc!");
+        toast.error(tSafe('common:gps.permission_denied', 'Vui lòng cấp quyền truy cập GPS để điểm danh trạm sạc!'));
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -181,10 +409,10 @@ export default function MapPage() {
         severity: incidentSeverity,
         description: incidentDescription,
       });
-      toast.success("Báo cáo sự cố trạm sạc cho Admin thành công!");
+      toast.success(tSafe('dashboard:map.report_incident_success', 'Báo cáo sự cố trạm sạc cho Admin thành công!'));
       setIsReportIncidentModalOpen(false);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Gửi báo cáo sự cố thất bại!");
+      toast.error(translateMessage(err?.response?.data?.message, 'dashboard:map.report_incident_error'));
     } finally {
       setIsSubmittingIncident(false);
     }
@@ -192,8 +420,23 @@ export default function MapPage() {
 
   // Fetch stations query
   const { data, isLoading, refetch } = useQuery<{ items: Station[]; total: number }>({
-    queryKey: ['stations', statusFilter, search, connectorType, page],
+    queryKey: ['stations', statusFilter, search, connectorType, page, isAdmin, assignedStationId],
     queryFn: async () => {
+      if (!isAdmin) {
+        if (!assignedStationId) {
+          return { items: [], total: 0 };
+        }
+        const res = await apiClient.get(`/stations/${assignedStationId}`);
+        const stationDetail = res.data?.data || res.data;
+        if (!stationDetail) {
+          return { items: [], total: 0 };
+        }
+        return {
+          items: [stationDetail],
+          total: 1
+        };
+      }
+
       const params: Record<string, any> = { limit: LIMIT, offset: (page - 1) * LIMIT };
       if (statusFilter !== 'all') params.status = statusFilter;
       if (search.trim()) params.search = search.trim();
@@ -201,6 +444,7 @@ export default function MapPage() {
       return (await apiClient.get('/stations', { params })).data;
     },
     refetchInterval: 60_000,
+    enabled: isAdmin || staffProfileData !== undefined,
   });
 
   // Fetch cities list for station form
@@ -237,6 +481,8 @@ export default function MapPage() {
 
   // Management states
   const [selectedChargerForDetails, setSelectedChargerForDetails] = useState<Charger | null>(null);
+  const [isUpdatingChargerStatus, setIsUpdatingChargerStatus] = useState(false);
+  const [isStatusEditOpen, setIsStatusEditOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingCharger, setEditingCharger] = useState<Charger | null>(null);
@@ -251,6 +497,110 @@ export default function MapPage() {
   // Station Management states
   const [isAddStationModalOpen, setIsAddStationModalOpen] = useState(false);
   const [isEditStationModalOpen, setIsEditStationModalOpen] = useState(false);
+
+  // Pricing Modal states
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
+  const [pricingRules, setPricingRules] = useState<any[]>([]);
+  const [isLoadingPricing, setIsLoadingPricing] = useState(false);
+
+  // Pricing Rule form states
+  const [isRuleFormOpen, setIsRuleFormOpen] = useState(false);
+  const [editingRule, setEditingRule] = useState<any | null>(null);
+  const [ruleConnectorType, setRuleConnectorType] = useState('CCS');
+  const [ruleHourStart, setRuleHourStart] = useState<number | ''>('');
+  const [ruleHourEnd, setRuleHourEnd] = useState<number | ''>('');
+  const [rulePricePerKwh, setRulePricePerKwh] = useState(3500);
+  const [ruleIdleFee, setRuleIdleFee] = useState(1000);
+  const [ruleIdleGrace, setRuleIdleGrace] = useState(20);
+  const [ruleLabel, setRuleLabel] = useState('');
+  const [isSubmittingRule, setIsSubmittingRule] = useState(false);
+
+  const fetchPricingRules = async (stationId: string) => {
+    setIsLoadingPricing(true);
+    try {
+      const resp = await apiClient.get('/stations/pricing-rules', {
+        params: { stationId, activeOnly: 'true' }
+      });
+      setPricingRules(resp.data);
+    } catch (err) {
+      console.error('Failed to fetch pricing rules:', err);
+      toast.error('Không thể tải bảng giá của trạm');
+    } finally {
+      setIsLoadingPricing(false);
+    }
+  };
+
+  const handleOpenAddRule = () => {
+    setEditingRule(null);
+    setRuleConnectorType('CCS');
+    setRuleHourStart('');
+    setRuleHourEnd('');
+    setRulePricePerKwh(3500);
+    setRuleIdleFee(1000);
+    setRuleIdleGrace(20);
+    setRuleLabel('');
+    setIsRuleFormOpen(true);
+  };
+
+  const handleOpenEditRule = (rule: any) => {
+    setEditingRule(rule);
+    setRuleConnectorType(rule.connectorType || 'CCS');
+    setRuleHourStart(rule.hourStart !== null ? rule.hourStart : '');
+    setRuleHourEnd(rule.hourEnd !== null ? rule.hourEnd : '');
+    setRulePricePerKwh(rule.pricePerKwh);
+    setRuleIdleFee(rule.idleFeePerMinute);
+    setRuleIdleGrace(rule.idleGraceMinutes);
+    setRuleLabel(rule.label || '');
+    setIsRuleFormOpen(true);
+  };
+
+  const handleSaveRule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStation) return;
+    setIsSubmittingRule(true);
+    try {
+      const payload: any = {
+        stationId: selectedStation.id,
+        connectorType: ruleConnectorType,
+        validFrom: new Date().toISOString(),
+        pricePerKwh: Number(rulePricePerKwh),
+        idleGraceMinutes: Number(ruleIdleGrace),
+        idleFeePerMinute: Number(ruleIdleFee),
+        label: ruleLabel || undefined,
+      };
+
+      if (ruleHourStart !== '') payload.hourStart = Number(ruleHourStart);
+      if (ruleHourEnd !== '') payload.hourEnd = Number(ruleHourEnd);
+
+      if (editingRule) {
+        await apiClient.patch(`/stations/pricing-rules/${editingRule.id}`, payload);
+        toast.success('Cập nhật quy tắc giá thành công!');
+      } else {
+        await apiClient.post('/stations/pricing-rules', payload);
+        toast.success('Thêm quy tắc giá mới thành công!');
+      }
+      setIsRuleFormOpen(false);
+      fetchPricingRules(selectedStation.id);
+    } catch (err: any) {
+      console.error('Failed to save pricing rule:', err);
+      toast.error(translateMessage(err?.response?.data?.message, 'Không thể lưu quy tắc giá'));
+    } finally {
+      setIsSubmittingRule(false);
+    }
+  };
+
+  const handleDeactivateRule = async (ruleId: string) => {
+    if (!selectedStation) return;
+    if (!window.confirm('Bạn có chắc chắn muốn vô hiệu hóa quy tắc giá này không?')) return;
+    try {
+      await apiClient.patch(`/stations/pricing-rules/${ruleId}/deactivate`);
+      toast.success('Đã vô hiệu hóa quy tắc giá');
+      fetchPricingRules(selectedStation.id);
+    } catch (err) {
+      console.error('Failed to deactivate rule:', err);
+      toast.error('Không thể vô hiệu hóa quy tắc giá');
+    }
+  };
 
   // Station Form states
   const [stationName, setStationName] = useState('');
@@ -302,10 +652,10 @@ export default function MapPage() {
       setIsAddStationModalOpen(false);
       refetch();
       setSelectedStation(newStation);
-      alert('Thêm trạm sạc mới thành công!');
+      toast.success(tSafe('dashboard:map.add_station_success', 'Thêm trạm sạc mới thành công!'));
     } catch (error: any) {
       console.error(error);
-      alert(error.response?.data?.message || 'Có lỗi xảy ra khi thêm trạm sạc.');
+      toast.error(translateMessage(error.response?.data?.message, 'dashboard:map.add_station_error'));
     }
   };
 
@@ -330,25 +680,27 @@ export default function MapPage() {
       });
       setIsEditStationModalOpen(false);
       refetch();
-      toast.success('Cập nhật thông tin trạm sạc thành công!');
+      toast.success(tSafe('dashboard:map.update_station_success', 'Cập nhật thông tin trạm sạc thành công!'));
     } catch (error: any) {
       console.error(error);
-      toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi cập nhật trạm sạc.');
+      const errMsg = error.response?.data?.message;
+      const formattedMsg = Array.isArray(errMsg) ? errMsg.join(', ') : errMsg;
+      toast.error(translateMessage(formattedMsg, 'dashboard:map.update_station_error'));
     }
   };
 
   const handleDeleteStation = async () => {
     if (!selectedStation) return;
-    const confirmDelete = window.confirm(`Bạn có chắc chắn muốn xóa trạm sạc "${selectedStation.name}" không? Thao tác này sẽ vô hiệu hóa trạm.`);
+    const confirmDelete = window.confirm(t('dashboard:map.confirm_delete_station', { name: selectedStation.name, defaultValue: `Bạn có chắc chắn muốn xóa trạm sạc "${selectedStation.name}" không? Thao tác này sẽ vô hiệu hóa trạm.` }));
     if (!confirmDelete) return;
     try {
       await apiClient.delete(`/stations/${selectedStation.id}`);
       setSelectedStation(null);
       refetch();
-      alert('Xóa trạm sạc thành công!');
+      toast.success(tSafe('dashboard:map.delete_station_success', 'Xóa trạm sạc thành công!'));
     } catch (error: any) {
       console.error(error);
-      alert(error.response?.data?.message || 'Có lỗi xảy ra khi xóa trạm sạc.');
+      toast.error(translateMessage(error.response?.data?.message, 'dashboard:map.delete_station_error'));
     }
   };
 
@@ -360,6 +712,7 @@ export default function MapPage() {
     setIsAddModalOpen(true);
   };
 
+  // Admin-only: open the full edit form for a charger
   const handleOpenEditModal = (charger: Charger) => {
     setEditingCharger(charger);
     setChargerName(charger.name);
@@ -402,10 +755,10 @@ export default function MapPage() {
       });
 
       setIsAddModalOpen(false);
-      alert('Thêm trụ sạc mới thành công!');
+      toast.success(tSafe('dashboard:map.add_charger_success', 'Thêm trụ sạc mới thành công!'));
     } catch (error: any) {
       console.error(error);
-      alert(error.response?.data?.message || 'Có lỗi xảy ra khi thêm trụ sạc.');
+      toast.error(translateMessage(error.response?.data?.message, 'dashboard:map.add_charger_error'));
     }
   };
 
@@ -446,31 +799,61 @@ export default function MapPage() {
 
       setIsEditModalOpen(false);
       setEditingCharger(null);
-      alert('Cập nhật thông tin trụ sạc thành công!');
+      toast.success(tSafe('dashboard:map.update_charger_success', 'Cập nhật thông tin trụ sạc thành công!'));
     } catch (error: any) {
       console.error(error);
-      alert(error.response?.data?.message || 'Có lỗi xảy ra khi cập nhật trụ sạc.');
+      toast.error(translateMessage(error.response?.data?.message, 'dashboard:map.update_charger_error'));
     }
   };
 
   const handleDeleteCharger = async (chargerId: string, name: string) => {
     if (!selectedStation) return;
 
-    const confirmDelete = window.confirm(`Bạn có chắc chắn muốn xóa trụ sạc ${name} không?`);
+    const confirmDelete = window.confirm(t('dashboard:map.confirm_delete_charger', { name, defaultValue: `Bạn có chắc chắn muốn xóa trụ sạc ${name} không?` }));
     if (!confirmDelete) return;
 
     try {
+      await apiClient.delete(`/stations/${selectedStation.id}/chargers/${chargerId}`);
       const updatedChargers = (selectedStation.chargers || []).filter(c => c.id !== chargerId);
-
       setSelectedStation({
         ...selectedStation,
         chargers: updatedChargers
       });
-
-      alert(`Xóa trụ sạc ${name} thành công!`);
+      toast.success(tSafe('dashboard:map.delete_charger_success', `Xóa trụ sạc ${name} thành công!`).replace('{{name}}', name));
     } catch (error: any) {
       console.error(error);
-      alert('Có lỗi xảy ra khi xóa trụ sạc.');
+      toast.error(tSafe('dashboard:map.delete_charger_error', 'Có lỗi xảy ra khi xóa trụ sạc.'));
+    }
+  };
+
+  // Quick status update from the charger detail (info) modal — available to both admin and staff
+  const handleUpdateChargerStatus = async (newStatus: string, newLabel: string) => {
+    if (!selectedStation || !selectedChargerForDetails) return;
+    const confirmed = window.confirm(
+      t('dashboard:map.confirm_change_charger_status', {
+        name: selectedChargerForDetails.name,
+        status: newLabel,
+        defaultValue: `Bạn có chắc chắn muốn đổi trạng thái trụ "${selectedChargerForDetails.name}" sang "${newLabel}" không?`
+      })
+    );
+    if (!confirmed) return;
+    setIsUpdatingChargerStatus(true);
+    try {
+      await apiClient.patch(`/stations/${selectedStation.id}/chargers/${selectedChargerForDetails.id}/status`, {
+        status: newStatus.toLowerCase()
+      });
+      const updatedChargers = (selectedStation.chargers || []).map(c =>
+        c.id === selectedChargerForDetails.id ? { ...c, status: newStatus.toLowerCase() } : c
+      );
+      const updatedCharger = { ...selectedChargerForDetails, status: newStatus.toLowerCase() };
+      setSelectedStation({ ...selectedStation, chargers: updatedChargers });
+      setSelectedChargerForDetails(updatedCharger);
+      setIsStatusEditOpen(false);
+      toast.success(tSafe('dashboard:map.update_charger_success', 'Cập nhật trạng thái trụ sạc thành công!'));
+    } catch (error: any) {
+      toast.error(translateMessage(error.response?.data?.message, 'dashboard:map.update_charger_error'));
+    } finally {
+      setIsUpdatingChargerStatus(false);
     }
   };
 
@@ -536,8 +919,6 @@ export default function MapPage() {
     };
   };
 
-  // Stations list and configuration queries are now declared at the top of the component
-
   const getStatusLabel = (status: string) => {
     const key = status.toUpperCase();
     switch(key) {
@@ -548,6 +929,17 @@ export default function MapPage() {
       default: return { label: t(`dashboard:data.status.${key}`, { defaultValue: status }), cls: 'badge-muted' };
     }
   };
+
+  // Status action options for the info modal quick-change buttons
+  const STATUS_ACTIONS = [
+    { value: 'available', label: 'Sẵn sàng', border: 'border-success/30', textCls: 'text-success', bg: 'hover:bg-success/10' },
+    { value: 'in_use', label: 'Đang sạc', border: 'border-cyan/30', textCls: 'text-cyan', bg: 'hover:bg-cyan/10' },
+    { value: 'reserved', label: 'Đã đặt', border: 'border-warning/30', textCls: 'text-warning', bg: 'hover:bg-warning/10' },
+    { value: 'offline', label: 'Ngoại tuyến', border: 'border-white/15', textCls: 'text-text-muted', bg: 'hover:bg-white/10' },
+    { value: 'faulted', label: 'Đang lỗi', border: 'border-danger/30', textCls: 'text-danger', bg: 'hover:bg-danger/10' },
+  ];
+
+  const canChangeChargerStatus = isAdmin || user?.roles?.includes('staff');
 
   return (
     <div className="flex flex-col h-[calc(100vh-var(--page-inset))] animate-fade-in gap-4">
@@ -949,8 +1341,22 @@ export default function MapPage() {
                           <MapPin className="w-3.5 h-3.5" /> Chỉ đường
                         </a>
 
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsPricingModalOpen(true);
+                              fetchPricingRules(selectedStation.id);
+                            }}
+                            className="px-3.5 py-1.5 rounded-full bg-cyan/15 hover:bg-cyan/25 border border-cyan/25 text-cyan text-[11px] font-bold flex items-center gap-1.5 shadow-md transition-all duration-200"
+                          >
+                            <DollarSign className="w-3.5 h-3.5" /> Xem bảng giá
+                          </button>
+                        )}
+
                         {!isAdmin && (
                           <button
+                            type="button"
                             onClick={() => handleOpenReportIncidentModal()}
                             className="px-3.5 py-1.5 rounded-full bg-danger/10 hover:bg-danger/20 border border-danger/25 text-danger text-[11px] font-bold flex items-center gap-1.5 shadow-md transition-all duration-200"
                           >
@@ -1027,35 +1433,34 @@ export default function MapPage() {
                                   </div>
                                 </div>
 
-                                {/* Right: Actions */}
-                                <div className="flex items-center gap-2 shrink-0">
+                                {/* Right: Actions — info button (for all), edit+delete (admin only) */}
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {/* Info button: opens detail modal with status-change actions for staff & admin */}
                                   <button
-                                    onClick={() => setSelectedChargerForDetails(charger)}
-                                    className="text-text-muted hover:text-text-main transition-colors duration-150 p-1 bg-white/5 hover:bg-white/10 rounded-md border border-white/5"
-                                    title="Xem chi tiết"
+                                    onClick={() => { setIsStatusEditOpen(false); setSelectedChargerForDetails(charger); }}
+                                    className="text-text-muted hover:text-cyan transition-colors duration-150 p-1 bg-white/5 hover:bg-cyan/10 rounded-md border border-cyan/20"
+                                    title="Xem chi tiết & thay đổi trạng thái"
                                   >
                                     <Info className="w-3.5 h-3.5" />
                                   </button>
 
-                                  {(isAdmin || user?.roles?.includes('staff')) && (
+                                  {/* Admin-only: full edit form + delete */}
+                                  {isAdmin && (
                                     <>
                                       <button
                                         onClick={() => handleOpenEditModal(charger)}
                                         className="text-text-muted hover:text-cyan transition-colors duration-150 p-1 bg-white/5 hover:bg-white/10 rounded-md border border-white/5"
-                                        title="Sửa trạng thái"
+                                        title="Chỉnh sửa thông tin trụ sạc"
                                       >
                                         <Edit className="w-3.5 h-3.5" />
                                       </button>
-
-                                      {isAdmin && (
-                                        <button
-                                          onClick={() => handleDeleteCharger(charger.id, charger.name)}
-                                          className="text-text-muted hover:text-danger transition-colors duration-150 p-1 bg-white/5 hover:bg-white/10 rounded-md border border-white/5"
-                                          title="Xóa trụ sạc"
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                      )}
+                                      <button
+                                        onClick={() => handleDeleteCharger(charger.id, charger.name)}
+                                        className="text-text-muted hover:text-danger transition-colors duration-150 p-1 bg-white/5 hover:bg-white/10 rounded-md border border-white/5"
+                                        title="Xóa trụ sạc"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
                                     </>
                                   )}
                                 </div>
@@ -1086,72 +1491,117 @@ export default function MapPage() {
         />
       </div>
 
-      {/* Xem Chi Tiết Trụ Sạc Modal */}
+      {/* Xem Chi Tiết Trụ Sạc Modal — with quick status-change actions in header */}
       {selectedChargerForDetails && renderPortal((() => {
         const computedPower = selectedChargerForDetails.maxPowerKw || Math.max(0, ...(selectedChargerForDetails.connectors?.map(c => c.maxPowerKw || 0) || [0]));
         const connectorString = selectedChargerForDetails.connectors?.map(c => `${c.connectorType} (${c.maxPowerKw}kW)`).join(', ') || 'Other';
+        const currentStyle = getChargerStyle(selectedChargerForDetails.status);
         return (
-          <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
             <div 
-              className="w-full max-w-sm p-6 rounded-2xl relative border shadow-2xl bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 animate-scale-up"
+              className="w-full max-w-sm rounded-2xl relative border shadow-2xl bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 animate-scale-up overflow-hidden"
             >
               <div className="corner-marker cm-tl" />
               <div className="corner-marker cm-tr" />
               <div className="corner-marker cm-bl" />
               <div className="corner-marker cm-br" />
 
-              <div className="flex items-center justify-between mb-4 border-b border-slate-100 dark:border-white/10 pb-2.5">
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 dark:border-white/10 bg-white/[0.01]">
                 <div className="flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-cyan" />
-                  <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">
-                    Chi tiết trụ sạc
-                  </h3>
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${currentStyle.color}22` }}>
+                    <Zap className="w-3.5 h-3.5" style={{ color: currentStyle.color }} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider leading-none">
+                      Chi tiết trụ sạc
+                    </h3>
+                    <p className="text-[10px] mt-0.5 font-semibold" style={{ color: currentStyle.color }}>
+                      {currentStyle.label}
+                    </p>
+                  </div>
                 </div>
                 <button 
                   onClick={() => setSelectedChargerForDetails(null)}
-                  className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-0.5 transition-colors"
+                  className="w-7 h-7 rounded-full bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              <div className="space-y-4 text-xs">
-                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-white/5">
+              {/* Info rows */}
+              <div className="px-5 py-4 space-y-3 text-xs">
+                <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-white/5">
                   <span className="text-slate-500 dark:text-slate-400">Tên trụ:</span>
                   <span className="text-slate-900 dark:text-white font-bold">{selectedChargerForDetails.name}</span>
                 </div>
-                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-white/5">
-                  <span className="text-slate-500 dark:text-slate-400">Mã định danh (External ID):</span>
+                <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-white/5">
+                  <span className="text-slate-500 dark:text-slate-400">Mã định danh:</span>
                   <span className="text-slate-900 dark:text-white font-mono">{selectedChargerForDetails.externalId || '---'}</span>
                 </div>
-                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-white/5">
+                <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-white/5">
                   <span className="text-slate-500 dark:text-slate-400">Công suất tối đa:</span>
                   <span className="text-cyan font-bold">{computedPower} kW</span>
                 </div>
-                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-white/5">
+                <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-white/5">
                   <span className="text-slate-500 dark:text-slate-400">Đầu cắm:</span>
-                  <span className="text-slate-900 dark:text-white font-semibold">
-                    {connectorString}
-                  </span>
+                  <span className="text-slate-900 dark:text-white font-semibold">{connectorString}</span>
                 </div>
-                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-white/5">
-                  <span className="text-slate-500 dark:text-slate-400">Trạng thái vận hành:</span>
-                  <span 
-                    className="font-bold uppercase" 
-                    style={{ color: getChargerStyle(selectedChargerForDetails.status).color }}
-                  >
-                    {getChargerStyle(selectedChargerForDetails.status).label}
-                  </span>
-                </div>
-              </div>
 
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={() => setSelectedChargerForDetails(null)}
-                  className="px-4 py-1.5 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white text-xs font-semibold transition-colors rounded-xl"
-                >
-                  Đóng
-                </button>
+                {/* Status row with inline edit toggle */}
+                <div className="flex items-center justify-between py-1.5">
+                  <span className="text-slate-500 dark:text-slate-400">Trạng thái vận hành:</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold uppercase" style={{ color: currentStyle.color }}>
+                      {currentStyle.label}
+                    </span>
+                    {canChangeChargerStatus && (
+                      <button
+                        onClick={() => setIsStatusEditOpen(v => !v)}
+                        title="Thay đổi trạng thái"
+                        className={cn(
+                          "w-6 h-6 rounded-md flex items-center justify-center transition-colors border",
+                          isStatusEditOpen
+                            ? "bg-cyan/15 border-cyan/30 text-cyan"
+                            : "bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 hover:text-cyan hover:bg-cyan/10 hover:border-cyan/25"
+                        )}
+                      >
+                        <Edit className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Inline status selector panel */}
+                {canChangeChargerStatus && isStatusEditOpen && (
+                  <div className="pt-1 pb-0.5">
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mb-2 uppercase tracking-wider font-semibold">Chọn trạng thái mới:</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {STATUS_ACTIONS.filter(s => s.value !== selectedChargerForDetails.status.toLowerCase()).map((s) => (
+                        <button
+                          key={s.value}
+                          onClick={() => handleUpdateChargerStatus(s.value, s.label)}
+                          disabled={isUpdatingChargerStatus}
+                          className={cn(
+                            "h-8 px-3 rounded-xl border text-[10px] font-bold uppercase tracking-wide transition-all duration-150 disabled:opacity-50 disabled:cursor-wait flex items-center justify-center gap-1.5",
+                            s.border, s.textCls, s.bg
+                          )}
+                        >
+                          {isUpdatingChargerStatus ? (
+                            <div className="w-3 h-3 rounded-full border border-current border-t-transparent animate-spin" />
+                          ) : (
+                            s.label
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Live Session & Telemetry — only for in_use chargers */}
+                {selectedChargerForDetails.status.toLowerCase() === 'in_use' && (
+                  <LiveSessionPanel chargerId={selectedChargerForDetails.id} stationId={selectedStation?.id ?? ''} />
+                )}
               </div>
             </div>
           </div>
@@ -1160,7 +1610,7 @@ export default function MapPage() {
 
       {/* Thêm Trụ Sạc Mới Modal */}
       {isAddModalOpen && renderPortal(
-        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
           <form 
             onSubmit={handleAddCharger}
             className="w-full max-w-sm p-6 rounded-2xl relative border shadow-2xl space-y-4 bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 animate-scale-up"
@@ -1262,9 +1712,9 @@ export default function MapPage() {
         </div>
       )}
 
-      {/* Sửa Trụ Sạc Modal */}
+      {/* Sửa Trụ Sạc Modal (Admin only) */}
       {isEditModalOpen && editingCharger && renderPortal(
-        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
           <form 
             onSubmit={handleEditCharger}
             className="w-full max-w-sm p-6 rounded-2xl relative border shadow-2xl space-y-4 bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 animate-scale-up"
@@ -1278,7 +1728,7 @@ export default function MapPage() {
               <div className="flex items-center gap-2">
                 <Edit className="w-4 h-4 text-cyan" />
                 <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">
-                  Cập nhật thông tin trụ sạc
+                  {t('dashboard:map.update_charger_title')}
                 </h3>
               </div>
               <button 
@@ -1370,7 +1820,7 @@ export default function MapPage() {
       )}
       {/* Thêm Trạm Sạc Mới Modal */}
       {isAddStationModalOpen && renderPortal(
-        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
           <form 
             onSubmit={handleAddStation}
             className="w-full max-w-sm p-6 rounded-2xl relative border shadow-2xl space-y-4 bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 animate-scale-up"
@@ -1494,7 +1944,7 @@ export default function MapPage() {
       )}
       {/* Báo Cáo Sự Cố Modal */}
       {isReportIncidentModalOpen && selectedStation && renderPortal(
-        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
           <form 
             onSubmit={handleReportIncident}
             className="w-full max-w-sm p-6 rounded-2xl relative border shadow-2xl space-y-4 bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 animate-scale-up"
@@ -1597,6 +2047,338 @@ export default function MapPage() {
           </form>
         </div>
       )}
+
+      {/* Xem Bảng Giá Modal */}
+      {isPricingModalOpen && selectedStation && renderPortal((() => {
+        const groupedRules = pricingRules.reduce((acc: Record<string, any[]>, rule: any) => {
+          const conn = rule.connectorType || 'Other';
+          if (!acc[conn]) acc[conn] = [];
+          acc[conn].push(rule);
+          return acc;
+        }, {});
+
+        return (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+            <div className="w-full max-w-lg rounded-2xl relative border shadow-2xl bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 animate-scale-up overflow-hidden flex flex-col max-h-[85vh]">
+              <div className="corner-marker cm-tl" />
+              <div className="corner-marker cm-tr" />
+              <div className="corner-marker cm-bl" />
+              <div className="corner-marker cm-br" />
+
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-white/10 bg-white/[0.01]">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-cyan/10 flex items-center justify-center">
+                    <DollarSign className="w-4 h-4 text-cyan" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 dark:text-white text-sm uppercase tracking-wider leading-none">
+                      {isRuleFormOpen ? (editingRule ? 'Cập nhật giá sạc' : 'Thêm giá sạc') : 'Bảng giá dịch vụ sạc'}
+                    </h3>
+                    <p className="text-[10px] mt-1 text-slate-500 dark:text-slate-400 font-medium truncate max-w-[200px]">
+                      {selectedStation.name}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0 font-bold">
+                  {!isRuleFormOpen && (
+                    <button
+                      onClick={handleOpenAddRule}
+                      className="text-[10px] text-cyan hover:text-cyan/80 transition-colors duration-150 flex items-center gap-1 bg-cyan/10 border border-cyan/20 px-2.5 py-1 rounded-md"
+                    >
+                      <Plus className="w-3 h-3" /> Thêm quy tắc
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => { setIsPricingModalOpen(false); setIsRuleFormOpen(false); }}
+                    className="w-7 h-7 rounded-full bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-5 space-y-5">
+                {isRuleFormOpen ? (
+                  <form onSubmit={handleSaveRule} className="space-y-4 text-xs">
+                    <div className="p-3.5 rounded-2xl bg-cyan/5 border border-cyan/15 text-[11px] text-cyan font-medium leading-relaxed">
+                      {editingRule ? 'Chỉnh sửa quy tắc giá hiện tại của trạm sạc.' : 'Thiết lập quy tắc giá mới theo cổng sạc và khung giờ.'}
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-slate-500 dark:text-slate-400 font-semibold">Loại đầu sạc</label>
+                      <CustomSelect
+                        value={ruleConnectorType}
+                        onChange={setRuleConnectorType}
+                        options={[
+                          { value: 'CCS', label: 'CCS (DC fast)' },
+                          { value: 'CCS2', label: 'CCS2 (DC fast)' },
+                          { value: 'CHAdeMO', label: 'CHAdeMO' },
+                          { value: 'Type2', label: 'Type 2 (AC)' },
+                          { value: 'GB/T', label: 'GB/T' },
+                          { value: 'Other', label: 'Khác' },
+                        ]}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-slate-500 dark:text-slate-400 font-semibold">Giờ bắt đầu</label>
+                        <CustomSelect
+                          value={ruleHourStart === '' ? '' : String(ruleHourStart)}
+                          onChange={(val) => setRuleHourStart(val === '' ? '' : Number(val))}
+                          options={[
+                            { value: '', label: 'Không giới hạn (00:00)' },
+                            ...Array.from({ length: 24 }, (_, i) => ({
+                              value: String(i),
+                              label: `${String(i).padStart(2, '0')}:00`,
+                            })),
+                          ]}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-slate-500 dark:text-slate-400 font-semibold">Giờ kết thúc</label>
+                        <CustomSelect
+                          value={ruleHourEnd === '' ? '' : String(ruleHourEnd)}
+                          onChange={(val) => setRuleHourEnd(val === '' ? '' : Number(val))}
+                          options={[
+                            { value: '', label: 'Không giới hạn (24:00)' },
+                            ...Array.from({ length: 24 }, (_, i) => ({
+                              value: String(i),
+                              label: `${String(i).padStart(2, '0')}:00`,
+                            })),
+                          ]}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-slate-500 dark:text-slate-400 font-semibold">Giá sạc điện (VND/kWh)</label>
+                        <input 
+                          type="number"
+                          required
+                          min={0}
+                          value={rulePricePerKwh}
+                          onChange={(e) => setRulePricePerKwh(Number(e.target.value))}
+                          className="ev-input w-full h-8 px-2.5 text-xs font-bold text-cyan"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-slate-500 dark:text-slate-400 font-semibold">Nhãn gói (Ví dụ: DC Peak)</label>
+                        <input 
+                          type="text"
+                          value={ruleLabel}
+                          onChange={(e) => setRuleLabel(e.target.value)}
+                          placeholder="Nhãn phân biệt"
+                          className="ev-input w-full h-8 px-2.5 text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-slate-500 dark:text-slate-400 font-semibold">Thời gian chờ miễn phí (Phút)</label>
+                        <input 
+                          type="number"
+                          required
+                          min={0}
+                          value={ruleIdleGrace}
+                          onChange={(e) => setRuleIdleGrace(Number(e.target.value))}
+                          className="ev-input w-full h-8 px-2.5 text-xs"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-slate-500 dark:text-slate-400 font-semibold">Phí nhàn rỗi (VND/Phút)</label>
+                        <input 
+                          type="number"
+                          required
+                          min={0}
+                          value={ruleIdleFee}
+                          onChange={(e) => setRuleIdleFee(Number(e.target.value))}
+                          className="ev-input w-full h-8 px-2.5 text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => setIsRuleFormOpen(false)}
+                        className="px-3.5 py-1.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white text-xs font-semibold rounded-xl transition-colors"
+                      >
+                        Hủy
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSubmittingRule}
+                        className="px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-cyan/20 rounded-xl transition-all flex items-center gap-1"
+                        style={{ background: 'var(--grad-cyan-lime)' }}
+                      >
+                        {isSubmittingRule && (
+                          <div className="w-3 h-3 rounded-full border border-white border-t-transparent animate-spin shrink-0" />
+                        )}
+                        Lưu quy tắc
+                      </button>
+                    </div>
+                  </form>
+                ) : isLoadingPricing ? (
+                  <div className="py-12 flex flex-col items-center justify-center gap-3">
+                    <div className="w-8 h-8 rounded-full border-2 border-cyan border-t-transparent animate-spin" />
+                    <p className="text-xs text-text-muted">Đang tải bảng giá...</p>
+                  </div>
+                ) : Object.keys(groupedRules).length > 0 ? (
+                  Object.entries(groupedRules).map(([connector, rules]: [string, any]) => (
+                    <div key={connector} className="space-y-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="badge badge-cyan text-[10px] font-bold tracking-wider uppercase px-2 py-0.5">
+                          Cổng sạc: {connector}
+                        </span>
+                      </div>
+
+                      <div className="overflow-hidden rounded-xl border border-slate-150 dark:border-white/5">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                            <tr className="bg-slate-50 dark:bg-white/[0.02] border-b border-slate-150 dark:border-white/5">
+                              <th className="px-3.5 py-2 font-semibold text-slate-500 dark:text-slate-400">Khung giờ</th>
+                              <th className="px-3.5 py-2 font-semibold text-slate-500 dark:text-slate-400 text-right">Đơn giá điện</th>
+                              <th className="px-3.5 py-2 font-semibold text-slate-500 dark:text-slate-400 text-right">Phí nhàn rỗi</th>
+                              <th className="px-3.5 py-2 font-semibold text-slate-500 dark:text-slate-400">Tên gói / Nhãn</th>
+                              <th className="px-3.5 py-2 font-semibold text-slate-500 dark:text-slate-400 text-center">Thao tác</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-150 dark:divide-white/5">
+                            {rules.sort((a: any, b: any) => (a.hourStart ?? 0) - (b.hourStart ?? 0)).map((rule: any) => {
+                              const timeStr = rule.hourStart !== null && rule.hourEnd !== null
+                                ? `${String(rule.hourStart).padStart(2, '0')}:00 - ${String(rule.hourEnd).padStart(2, '0')}:00`
+                                : 'Mặc định (Cả ngày)';
+                              return (
+                                <tr key={rule.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.005] transition-colors">
+                                  <td className="px-3.5 py-2.5 font-medium text-slate-900 dark:text-white">{timeStr}</td>
+                                  <td className="px-3.5 py-2.5 text-right font-bold text-cyan">
+                                    {rule.pricePerKwh?.toLocaleString()} ₫/kWh
+                                  </td>
+                                  <td className="px-3.5 py-2.5 text-right text-slate-600 dark:text-slate-300">
+                                    {rule.idleFeePerMinute > 0 ? (
+                                      <span>
+                                        {rule.idleFeePerMinute.toLocaleString()} ₫/p
+                                        <span className="text-[9px] text-slate-400 dark:text-slate-500 block">
+                                          (Free {rule.idleGraceMinutes || 20}m)
+                                        </span>
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-400 dark:text-slate-500">Miễn phí</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3.5 py-2.5 text-slate-500 dark:text-slate-400 italic">
+                                    {rule.label || '---'}
+                                  </td>
+                                  <td className="px-3.5 py-2.5 text-center">
+                                    <div className="flex items-center justify-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenEditRule(rule)}
+                                        className="text-text-muted hover:text-cyan transition-colors duration-150 p-1 bg-white/5 hover:bg-white/10 rounded-md border border-white/5"
+                                        title="Chỉnh sửa quy tắc giá"
+                                      >
+                                        <Edit className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeactivateRule(rule.id)}
+                                        className="text-text-muted hover:text-danger transition-colors duration-150 p-1 bg-white/5 hover:bg-white/10 rounded-md border border-white/5"
+                                        title="Vô hiệu hóa quy tắc giá"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/15 text-amber-500 leading-relaxed text-xs">
+                      ⚠️ Trạm sạc này chưa được thiết lập bảng giá riêng (Custom Pricing Rules). Hệ thống đang áp dụng **Bảng giá mặc định** dưới đây:
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Default Rates display */}
+                      {[
+                        {
+                          connector: 'CCS / CCS2 / CHAdeMO (Sạc nhanh DC)',
+                          rates: [
+                            { time: 'Giờ cao điểm (09:00 - 12:00, 17:00 - 20:00)', price: 4500, label: 'DC Peak' },
+                            { time: 'Giờ thấp điểm (22:00 - 06:00)', price: 2500, label: 'DC Off-Peak' },
+                            { time: 'Giờ bình thường (Các giờ còn lại)', price: 3500, label: 'DC Normal' },
+                          ]
+                        },
+                        {
+                          connector: 'Type 2 (Sạc chậm AC)',
+                          rates: [
+                            { time: 'Giờ cao điểm (09:00 - 12:00, 17:00 - 20:00)', price: 4200, label: 'AC Peak' },
+                            { time: 'Giờ thấp điểm (22:00 - 06:00)', price: 2300, label: 'AC Off-Peak' },
+                            { time: 'Giờ bình thường (Các giờ còn lại)', price: 3200, label: 'AC Normal' },
+                          ]
+                        }
+                      ].map((group) => (
+                        <div key={group.connector} className="space-y-2">
+                          <p className="font-bold text-slate-800 dark:text-slate-300 text-xs">{group.connector}</p>
+                          <div className="overflow-hidden rounded-xl border border-slate-150 dark:border-white/5">
+                            <table className="w-full text-left border-collapse text-xs">
+                              <thead>
+                                <tr className="bg-slate-50 dark:bg-white/[0.01] border-b border-slate-150 dark:border-white/5">
+                                  <th className="px-3.5 py-1.5 font-semibold text-slate-500 dark:text-slate-400">Khung giờ</th>
+                                  <th className="px-3.5 py-1.5 font-semibold text-slate-500 dark:text-slate-400 text-right">Giá điện</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-150 dark:divide-white/5">
+                                {group.rates.map((r) => (
+                                  <tr key={r.time}>
+                                    <td className="px-3.5 py-2 text-slate-800 dark:text-slate-300">{r.time}</td>
+                                    <td className="px-3.5 py-2 text-right font-bold text-cyan">{r.price.toLocaleString()} ₫/kWh</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.01] border border-slate-150 dark:border-white/5 space-y-1 text-xs">
+                        <p className="font-bold text-slate-800 dark:text-slate-300">Phí nhàn rỗi mặc định (Idle Fee):</p>
+                        <p className="text-slate-600 dark:text-slate-400">
+                          • Miễn phí <strong>20 phút</strong> đầu tiên sau khi pin đầy.
+                        </p>
+                        <p className="text-slate-600 dark:text-slate-400">
+                          • Thu phí <strong>1,000 ₫/phút</strong> cho các phút tiếp theo nếu tiếp tục chiếm dụng cổng sạc.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="p-4 border-t border-slate-100 dark:border-white/10 bg-slate-50 dark:bg-white/[0.005] flex justify-end shrink-0">
+                <button
+                  type="button"
+                  onClick={() => { setIsPricingModalOpen(false); setIsRuleFormOpen(false); }}
+                  className="px-4 py-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white text-xs font-bold transition-colors rounded-xl"
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })())}
       {/* End of modals */}
 
 

@@ -52,15 +52,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           children: [
             Text(
               'Quên mật khẩu',
-              style: AppTypography.displayMd.copyWith(
+              style: AppTypography.headingLg.copyWith(
                 color: Theme.of(context).colorScheme.onSurface,
                 fontWeight: FontWeight.w700,
+                fontSize: 22,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             Text(
               'Nhập email của bạn để nhận liên kết khôi phục mật khẩu.',
-              style: AppTypography.bodyMd.copyWith(
+              style: AppTypography.caption.copyWith(
                 color: AppColors.textMuted,
               ),
             ),

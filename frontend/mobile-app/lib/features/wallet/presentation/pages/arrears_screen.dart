@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:go_router/go_router.dart';
 import '../../../auth/domain/entities/user_entity.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../bloc/wallet_bloc.dart';
@@ -66,7 +67,7 @@ class _ArrearsScreenState extends State<ArrearsScreen> {
               onRefresh: () async => context.read<WalletBloc>().add(const WalletLoad()),
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: AppLayout.paddingWithHeader(context),
+                padding: AppLayout.paddingWithHeaderAndNavbar(context),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -103,12 +104,6 @@ class _ArrearsScreenState extends State<ArrearsScreen> {
                         _buildInsufficientBalanceBanner(),
                         const SizedBox(height: AppSpacing.md),
                         EVButton(label: 'Thanh toán nợ trực tiếp bằng VNPay', variant: EVButtonVariant.primary, onPressed: () => context.read<WalletBloc>().add(const WalletPayArrearsVNPayInitiate())),
-                        const SizedBox(height: AppSpacing.md),
-                        _buildDivider(),
-                        const SizedBox(height: AppSpacing.md),
-                        Text('Nạp tiền nhanh để trả nợ', style: AppTypography.headingMd),
-                        const SizedBox(height: AppSpacing.sm),
-                        _buildQuickTopupChips(context, isDark),
                         const SizedBox(height: AppSpacing.md),
                       ],
                     ],
@@ -215,33 +210,37 @@ class _ArrearsScreenState extends State<ArrearsScreen> {
   }
 
   Widget _buildWalletTile(bool isDark, double balance, bool canPayDirect) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.pillBgDark : AppColors.pillBgLight,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? AppColors.pillBorderDark : AppColors.pillBorderLight),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.02), blurRadius: 12, offset: const Offset(0, 4))],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.15), shape: BoxShape.circle, boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.1), blurRadius: 12)]),
-            child: const Icon(Icons.account_balance_wallet_outlined, color: AppColors.primary, size: 22),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Ví điện tử EVolt', style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.w800, color: isDark ? Colors.white : AppColors.black)),
-                const SizedBox(height: 2),
-                Text('Số dư khả dụng: ${VndFormatter.format(balance)}', style: AppTypography.caption.copyWith(color: canPayDirect ? AppColors.primary : AppColors.error, fontWeight: FontWeight.w700)),
-              ],
+    return GestureDetector(
+      onTap: () => context.go('/wallet'),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.pillBgDark : AppColors.pillBgLight,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: isDark ? AppColors.pillBorderDark : AppColors.pillBorderLight),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.02), blurRadius: 12, offset: const Offset(0, 4))],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.15), shape: BoxShape.circle, boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.1), blurRadius: 12)]),
+              child: const Icon(Icons.account_balance_wallet_outlined, color: AppColors.primary, size: 22),
             ),
-          ),
-        ],
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Ví điện tử EVolt', style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.w800, color: isDark ? Colors.white : AppColors.black)),
+                  const SizedBox(height: 2),
+                  Text('Số dư khả dụng: ${VndFormatter.format(balance)}', style: AppTypography.caption.copyWith(color: canPayDirect ? AppColors.primary : AppColors.error, fontWeight: FontWeight.w700)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+          ],
+        ),
       ),
     );
   }
@@ -263,40 +262,7 @@ class _ArrearsScreenState extends State<ArrearsScreen> {
     );
   }
 
-  Widget _buildDivider() {
-    return Row(
-      children: [
-        const Expanded(child: Divider()),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-          child: Text('hoặc nạp tiền vào ví', style: AppTypography.caption.copyWith(color: AppColors.textMuted)),
-        ),
-        const Expanded(child: Divider()),
-      ],
-    );
-  }
 
-  Widget _buildQuickTopupChips(BuildContext context, bool isDark) {
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: [50000, 100000, 200000, 500000]
-          .map((amt) => GestureDetector(
-                onTap: () => context.read<WalletBloc>().add(WalletTopUpInitiate(amount: amt.toDouble())),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-                    boxShadow: [if (!isDark) BoxShadow(color: AppColors.primary.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 4))],
-                  ),
-                  child: Text('+${VndFormatter.compact(amt.toDouble())}', style: AppTypography.labelMd.copyWith(color: AppColors.primary, fontWeight: FontWeight.w800)),
-                ),
-              ))
-          .toList(),
-    );
-  }
 
   Widget _buildDetailPill({required IconData icon, required String label, required String value, Color? valueColor, bool isBold = false}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;

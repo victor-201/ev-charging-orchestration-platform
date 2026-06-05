@@ -1,9 +1,9 @@
 import {
   Controller,
-  Post, Get, Delete,
+  Post, Get, Delete, Patch,
   Body, Param, Query,
   HttpCode, HttpStatus,
-  ParseUUIDPipe, NotFoundException, UnauthorizedException,
+  ParseUUIDPipe, NotFoundException, UnauthorizedException, BadRequestException,
   UseGuards,
   Inject,
   Header,
@@ -11,9 +11,9 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
-import { ChargerReadModelOrmEntity } from '../../infrastructure/persistence/typeorm/entities/booking.orm-entities';
+import { ChargerReadModelOrmEntity, BookingOrmEntity } from '../../infrastructure/persistence/typeorm/entities/booking.orm-entities';
 import { CreateBookingUseCase, GetAvailabilityUseCase } from '../../application/use-cases/create-booking.use-case';
-import { CancelBookingUseCase } from '../../application/use-cases/booking-lifecycle.use-case';
+import { CancelBookingUseCase, AutoConfirmBookingUseCase } from '../../application/use-cases/booking-lifecycle.use-case';
 import { GetQueuePositionUseCase } from '../../application/use-cases/booking-jobs.use-case';
 import {
   JoinQueueUseCase,
@@ -56,6 +56,7 @@ export class BookingController {
   constructor(
     private readonly createBooking:       CreateBookingUseCase,
     private readonly cancelBooking:        CancelBookingUseCase,
+    private readonly autoConfirmBooking:   AutoConfirmBookingUseCase,
     private readonly getAvailability:      GetAvailabilityUseCase,
     private readonly joinQueue:            JoinQueueUseCase,
     private readonly leaveQueue:           LeaveQueueUseCase,
@@ -65,6 +66,8 @@ export class BookingController {
     private readonly bookingRepo:          IBookingRepository,
     @InjectRepository(ChargerReadModelOrmEntity)
     private readonly chargerReadRepo:      Repository<ChargerReadModelOrmEntity>,
+    @InjectRepository(BookingOrmEntity)
+    private readonly bookingOrmRepo:       Repository<BookingOrmEntity>,
   ) {}
 
   /**
@@ -265,6 +268,62 @@ export class BookingController {
       userId:    booking.userId,
       reason:    dto.reason ?? (isAdmin ? 'Admin cancelled' : isStaff ? 'Staff cancelled' : 'User cancelled'),
     });
+  }
+
+  // Admin intervention endpoints
+
+  /**
+   * POST /api/v1/bookings/:id/confirm
+   * Admin/Staff manually confirms a booking (bypasses payment deposit flow).
+   * Useful for walk-ins or when payment gateway fails but payment was received.
+   */
+  @Post(':id/confirm')
+  @HttpCode(HttpStatus.OK)
+  @Roles('admin', 'staff')
+  @SkipArrearsCheck()
+  async adminConfirm(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<BookingResponseDto> {
+    const booking = await this.bookingRepo.findById(id);
+    if (!booking) throw new NotFoundException(`Booking ${id} does not exist`);
+
+    const terminatedStatuses = ['cancelled', 'completed', 'no_show'];
+    if (terminatedStatuses.includes(booking.status.toLowerCase())) {
+      throw new BadRequestException(`Cannot confirm a booking with status: ${booking.status}`);
+    }
+
+    const transactionId = `admin-manual-${Date.now()}-${user.id.slice(0, 8)}`;
+    const confirmed = await this.autoConfirmBooking.execute({ bookingId: id, transactionId });
+    if (!confirmed) {
+      throw new BadRequestException('Booking could not be confirmed. It may already be confirmed or in an invalid state.');
+    }
+    return this.toDto(confirmed);
+  }
+
+  /**
+   * DELETE /api/v1/bookings/:id/record
+   * Admin permanently removes a booking record from the database.
+   * Only for terminal-state bookings (cancelled, completed, no_show).
+   */
+  @Delete(':id/record')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Roles('admin')
+  @SkipArrearsCheck()
+  async adminHardDelete(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    const booking = await this.bookingRepo.findById(id);
+    if (!booking) throw new NotFoundException(`Booking ${id} does not exist`);
+
+    const allowedStatuses = ['cancelled', 'completed', 'no_show'];
+    if (!allowedStatuses.includes(booking.status.toLowerCase())) {
+      throw new BadRequestException(
+        `Cannot delete booking with status: ${booking.status}. Only cancelled/completed/no_show bookings can be deleted.`,
+      );
+    }
+
+    await this.bookingOrmRepo.delete({ id });
   }
 
   // Queue endpoints

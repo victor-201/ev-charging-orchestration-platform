@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 import {
   IQueueRepository,
   QUEUE_REPOSITORY,
@@ -13,6 +14,8 @@ import { CreateBookingUseCase } from './create-booking.use-case';
 import { JoinQueueCommand, LeaveQueueCommand } from '../commands/booking.commands';
 import { QueuePositionResponseDto } from '../dtos/response.dto';
 import { IEventBus, EVENT_BUS } from '../../infrastructure/messaging/event-bus.interface';
+import { QueueOrmEntity, OutboxOrmEntity, ChargerReadModelOrmEntity } from '../../infrastructure/persistence/typeorm/entities/booking.orm-entities';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class JoinQueueUseCase {
@@ -110,5 +113,83 @@ export class ProcessQueueUseCase {
       this.priorityQueue.enqueue(next);
       this.logger.warn(`Auto-assign failed for ${chargerId}, re-queued user ${next.userId}`);
     }
+  }
+}
+
+@Injectable()
+export class NotifyQueueHeadUseCase {
+  private readonly logger = new Logger(NotifyQueueHeadUseCase.name);
+
+  constructor(
+    @Inject(QUEUE_REPOSITORY) private readonly queueRepo: IQueueRepository,
+    private readonly priorityQueue: PriorityQueueService,
+    @InjectRepository(QueueOrmEntity)
+    private readonly queueOrmRepo: Repository<QueueOrmEntity>,
+    @InjectRepository(ChargerReadModelOrmEntity)
+    private readonly chargerRmRepo: Repository<ChargerReadModelOrmEntity>,
+    @InjectRepository(OutboxOrmEntity)
+    private readonly outboxRepo: Repository<OutboxOrmEntity>,
+  ) {}
+
+  async execute(chargerId: string, manager?: EntityManager): Promise<void> {
+    const queueRepoLocal = manager ? manager.getRepository(QueueOrmEntity) : this.queueOrmRepo;
+    
+    // Find first waiting user in line
+    const waiting = await queueRepoLocal.find({
+      where: { chargerId, status: 'waiting' },
+      order: { priority: 'ASC', joinedAt: 'ASC' },
+    });
+
+    if (waiting.length === 0) {
+      this.logger.debug(`No users waiting in queue for charger ${chargerId}`);
+      return;
+    }
+
+    const head = waiting[0];
+
+    // 1. Transition queue entry to 'notified' status
+    head.status = 'notified';
+    head.notifiedAt = new Date();
+    head.expiresAt = new Date(Date.now() + 5 * 60_000); // 5 minutes grace period
+    await queueRepoLocal.save(head);
+
+    // 2. Remove the user from the in-memory min-heap
+    this.priorityQueue.removeByUser(head.userId, chargerId);
+
+    // 3. Resolve stationId and names for the outbox event
+    const chargerRmRepoLocal = manager ? manager.getRepository(ChargerReadModelOrmEntity) : this.chargerRmRepo;
+    const chargerRm = await chargerRmRepoLocal.findOneBy({ chargerId });
+    const stationId = chargerRm?.stationId ?? 'unknown';
+    const stationName = chargerRm?.stationName ?? 'unknown';
+
+    // 4. Emit charger.queue.ready domain event via outbox pattern
+    const outboxRepoLocal = manager ? manager.getRepository(OutboxOrmEntity) : this.outboxRepo;
+    const eventId = uuidv4();
+    await outboxRepoLocal.save(
+      outboxRepoLocal.create({
+        id:            eventId,
+        aggregateType: 'charger',
+        aggregateId:   chargerId,
+        eventType:     'charger.queue.ready',
+        payload:       {
+          eventId,
+          queueId:     head.id,
+          userId:      head.userId,
+          chargerId,
+          stationId,
+          stationName,
+          chargerName: `Trụ sạc #${chargerId.slice(0, 8)}`,
+          position:    1,
+          availableAt: new Date().toISOString(),
+          notifiedAt:  new Date().toISOString(),
+        },
+        status:      'pending',
+        processedAt: null,
+      }),
+    );
+
+    this.logger.log(
+      `Queue head notified for charger ${chargerId}: user ${head.userId} queue ${head.id}`
+    );
   }
 }

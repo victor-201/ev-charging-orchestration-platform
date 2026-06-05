@@ -586,8 +586,8 @@ class _MfaSetupWizardScreenState extends State<MfaSetupWizardScreen> {
 
   Widget _buildOtpBox(int index, bool isDark) {
     return SizedBox(
-      width: 44,
-      height: 54,
+      width: 32,
+      height: 48,
       child: TextFormField(
         controller: _controllers[index],
         focusNode: _focusNodes[index],
@@ -595,19 +595,34 @@ class _MfaSetupWizardScreenState extends State<MfaSetupWizardScreen> {
         textInputAction: index < 5 ? TextInputAction.next : TextInputAction.done,
         textAlign: TextAlign.center,
         maxLength: 1,
-        style: AppTypography.headingLg.copyWith(
+        style: AppTypography.headingMd.copyWith(
           fontWeight: FontWeight.w700,
+          fontSize: 18,
           color: isDark ? Colors.white : AppColors.pillTextLight,
         ),
         decoration: InputDecoration(
           counterText: '',
+          filled: true,
+          fillColor: isDark 
+              ? Colors.black.withValues(alpha: 0.25) 
+              : AppColors.bgLight.withValues(alpha: 0.6),
           contentPadding: EdgeInsets.zero,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.outlineLight),
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(
+              color: AppColors.primary.withValues(alpha: 0.35),
+              width: 1.2,
+            ),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(
+              color: AppColors.primary.withValues(alpha: 0.35),
+              width: 1.2,
+            ),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             borderSide: const BorderSide(color: AppColors.primary, width: 2),
           ),
         ),

@@ -140,6 +140,37 @@ class WalletRepositoryImpl implements IWalletRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, SessionPaymentResultEntity>> sessionPay({
+    required double amount,
+    required String sessionId,
+  }) async {
+    try {
+      final response = await _client.post(
+        ApiPaths.paymentsPay,
+        data: {
+          'amount': amount,
+          'currency': 'VND',
+          'description': 'Thanh toán phiên sạc',
+          'metadata': {'sessionId': sessionId},
+        },
+        withIdempotency: true,
+      );
+      final data = response.data as Map<String, dynamic>? ?? {};
+      return Right(SessionPaymentResultEntity(
+        method: data['method']?.toString() ?? 'gateway',
+        transactionId: data['transactionId']?.toString() ?? '',
+        paymentUrl: data['paymentUrl']?.toString(),
+        balanceAfter: data['balanceAfter'] != null
+            ? double.tryParse(data['balanceAfter'].toString())
+            : null,
+        status: data['status']?.toString() ?? 'PENDING',
+      ));
+    } on DioException catch (e) {
+      return Left(ErrorMapper.fromDioException(e));
+    }
+  }
+
   TransactionEntity _parseTransaction(Map<String, dynamic> data) {
     final rawMeta = data['meta'] ?? data['_meta'];
     final Map<String, dynamic>? parsedMeta = rawMeta is Map<String, dynamic>

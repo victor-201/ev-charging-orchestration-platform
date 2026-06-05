@@ -1,9 +1,12 @@
 import { Injectable, Logger, Inject, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, EntityManager } from 'typeorm';
+import { Repository, DataSource, EntityManager, In } from 'typeorm';
 import { RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { v4 as uuidv4 } from 'uuid';
+import { IBookingRepository, BOOKING_REPOSITORY } from '../../domain/repositories/booking.repository.interface';
+import { IEventBus, EVENT_BUS } from '../../infrastructure/messaging/event-bus.interface';
+import { BookingStatus } from '../../domain/value-objects/booking-status.vo';
 
 // Domain
 import { ChargingSession } from '../../domain/entities/charging-session.aggregate';
@@ -30,11 +33,12 @@ import {
   SessionOrmEntity,
   TelemetryOrmEntity,
   ProcessedEventOrmEntity,
-  OutboxOrmEntity,
   ChargerStateOrmEntity,
   BookingReadModelOrmEntity,
 } from '../../infrastructure/persistence/typeorm/entities/session.orm-entities';
-import { ChargerReadModelOrmEntity } from '../../infrastructure/persistence/typeorm/entities/booking.orm-entities';
+import { OutboxOrmEntity, ChargerReadModelOrmEntity, ConnectorReadModelOrmEntity, QueueOrmEntity } from '../../infrastructure/persistence/typeorm/entities/booking.orm-entities'; // Shared outbox
+import { PriorityQueueService } from '../../domain/services/priority-queue.service'; 
+import { ChargingGateway } from '../../infrastructure/realtime/charging.gateway';
 
 
 
@@ -91,6 +95,13 @@ export class StartSessionUseCase {
     @Inject(SESSION_REPOSITORY) private readonly sessionRepo: ISessionRepository,
     @InjectRepository(BookingReadModelOrmEntity)
     private readonly bookingRmRepo: Repository<BookingReadModelOrmEntity>,
+    @InjectRepository(ConnectorReadModelOrmEntity)
+    private readonly connectorRmRepo: Repository<ConnectorReadModelOrmEntity>,
+    @InjectRepository(ChargerReadModelOrmEntity)
+    private readonly chargerRmRepo: Repository<ChargerReadModelOrmEntity>,
+    @InjectRepository(QueueOrmEntity)
+    private readonly queueOrmRepo: Repository<QueueOrmEntity>,
+    private readonly priorityQueue: PriorityQueueService,
     private readonly ds: DataSource,
   ) {}
 
@@ -102,6 +113,19 @@ export class StartSessionUseCase {
   }): Promise<ChargingSession> {
     let bookingDepositAmount = 0;
     let bookingDepositTransactionId: string | null = null;
+
+    let physicalChargerId = cmd.chargerId;
+    const connectorRm = await this.connectorRmRepo.findOneBy({ connectorId: cmd.chargerId });
+    if (connectorRm) {
+      physicalChargerId = connectorRm.chargerId;
+      this.logger.log(`Resolved physical charger ID for connector ${cmd.chargerId} -> ${physicalChargerId} (from local read model)`);
+    } else {
+      const chargerRm = await this.chargerRmRepo.findOneBy({ chargerId: cmd.chargerId });
+      if (chargerRm) {
+        physicalChargerId = chargerRm.chargerId;
+        this.logger.log(`Resolved physical charger ID (direct matching) -> ${physicalChargerId}`);
+      }
+    }
 
     if (cmd.bookingId) {
       const bookingRm = await this.bookingRmRepo.findOneBy({ bookingId: cmd.bookingId });
@@ -124,11 +148,40 @@ export class StartSessionUseCase {
       const latest   = bookingRm.endTime.getTime()   + StartSessionUseCase.LATE_BUFFER_MS;
 
       if (now < earliest) {
-        const minutesUntil = Math.ceil((earliest - now) / 60_000);
-        throw new ConflictException(
-          `It is not yet time for your charging session. You can start in ${minutesUntil} minutes ` +
-          `(from ${new Date(earliest).toISOString().split('T')[1].substring(0, 5)}).`,
-        );
+        // Check if charger is completely free to allow early check-in
+        const activeSession = await this.sessionRepo.findActiveByCharger(physicalChargerId);
+        
+        let hasConflict = false;
+        if (activeSession) {
+          this.logger.log(`Early check-in for booking ${cmd.bookingId} denied: charger has an active session ${activeSession.id}.`);
+          hasConflict = true;
+        } else {
+          // Check for conflicting bookings
+          const conflictingBooking = await this.bookingRmRepo.createQueryBuilder('b')
+            .where('b.chargerId = :chargerId', { chargerId: physicalChargerId })
+            .andWhere('b.bookingId != :bookingId', { bookingId: cmd.bookingId })
+            .andWhere('b.endTime > :now', { now: new Date(now) })
+            .andWhere('b.startTime < :bookingStartTime', { bookingStartTime: bookingRm.startTime })
+            .getOne();
+
+          if (conflictingBooking) {
+            this.logger.log(`Early check-in for booking ${cmd.bookingId} denied: conflicting booking ${conflictingBooking.bookingId} found.`);
+            hasConflict = true;
+          }
+        }
+
+        if (hasConflict) {
+          const minutesUntil = Math.ceil((earliest - now) / 60_000);
+          throw new ConflictException(
+            `It is not yet time for your charging session. You cannot start early because the charger is not free. ` +
+            `You can start in ${minutesUntil} minutes ` +
+            `(from ${new Date(earliest).toISOString().split('T')[1].substring(0, 5)}).`,
+          );
+        } else {
+          this.logger.log(
+            `Early check-in allowed for booking ${cmd.bookingId}: charger ${physicalChargerId} is completely free before scheduled time.`,
+          );
+        }
       }
 
       if (now > latest) {
@@ -138,7 +191,7 @@ export class StartSessionUseCase {
         );
       }
 
-      if (bookingRm.chargerId !== cmd.chargerId) {
+      if (bookingRm.chargerId !== physicalChargerId) {
         throw new ConflictException(
           `This booking is for another charger (${bookingRm.chargerId}), not ${cmd.chargerId}.`,
         );
@@ -166,7 +219,7 @@ export class StartSessionUseCase {
       }
 
       const activeSession = await mgr.findOne(SessionOrmEntity, {
-        where: { chargerId: cmd.chargerId, status: 'active' },
+        where: { chargerId: physicalChargerId, status: 'active' },
       });
       if (activeSession) {
         throw new ConflictException(
@@ -177,13 +230,21 @@ export class StartSessionUseCase {
       const startSocPercent = ChargingSession.generateStartSoc();
       const session = ChargingSession.create({
         userId:         cmd.userId,
-        chargerId:      cmd.chargerId,
+        chargerId:      physicalChargerId,
         bookingId:      cmd.bookingId,
         startMeterWh:   cmd.startMeterWh ?? 0,
         startSocPercent,
         initiatedBy:    'user',
       });
       session.activate();
+
+      // Dequeue if user was in virtual queue
+      await mgr.update(
+        QueueOrmEntity,
+        { userId: cmd.userId, chargerId: physicalChargerId, status: In(['waiting', 'notified']) },
+        { status: 'served', servedAt: new Date() }
+      );
+      this.priorityQueue.removeByUser(cmd.userId, physicalChargerId);
 
       // Cap walk-in session duration to protect subsequent reserved slots.
       let scheduledStopAt: Date | null = null;
@@ -192,7 +253,7 @@ export class StartSessionUseCase {
         const lookaheadEnd = new Date(now.getTime() + StartSessionUseCase.UPCOMING_BOOKING_LOOKAHEAD_MS);
         const nextBooking = await mgr
           .createQueryBuilder(BookingReadModelOrmEntity, 'b')
-          .where('b.chargerId = :chargerId', { chargerId: cmd.chargerId })
+          .where('b.chargerId = :chargerId', { chargerId: physicalChargerId })
           .andWhere('b.startTime > :now', { now })
           .andWhere('b.startTime <= :lookaheadEnd', { lookaheadEnd })
           .orderBy('b.startTime', 'ASC')
@@ -228,7 +289,7 @@ export class StartSessionUseCase {
       await mgr.upsert(
         ChargerStateOrmEntity,
         {
-          chargerId:       cmd.chargerId,
+          chargerId:       physicalChargerId,
           availability:    'occupied',
           activeSessionId: session.id,
           errorCode:       null,
@@ -237,7 +298,7 @@ export class StartSessionUseCase {
         ['chargerId'],
       );
 
-      const chargerRm = await mgr.findOneBy(ChargerReadModelOrmEntity, { chargerId: cmd.chargerId });
+      const chargerRm = await mgr.findOneBy(ChargerReadModelOrmEntity, { chargerId: physicalChargerId });
       const stationId = chargerRm?.stationId ?? 'unknown';
 
       const event = new SessionStartedEvent(
@@ -254,16 +315,16 @@ export class StartSessionUseCase {
       await mgr.save(OutboxOrmEntity, mgr.create(OutboxOrmEntity, {
         id:            statusEventId,
         aggregateType: 'charger',
-        aggregateId:   cmd.chargerId,
+        aggregateId:   physicalChargerId,
         eventType:     'charger.status.changed',
-        payload:       { eventId: statusEventId, chargerId: cmd.chargerId, stationId, newStatus: 'in_use', changedAt: new Date().toISOString() },
+        payload:       { eventId: statusEventId, chargerId: physicalChargerId, stationId, newStatus: 'in_use', changedAt: new Date().toISOString() },
         status:        'pending',
         processedAt:   null,
       }));
 
       this.logger.log(
         `Session started by user ${cmd.userId}: ${session.id} ` +
-        `charger=${cmd.chargerId} booking=${cmd.bookingId ?? 'walk-in'}`,
+        `charger=${physicalChargerId} booking=${cmd.bookingId ?? 'walk-in'}`,
       );
       return session;
     });
@@ -369,8 +430,8 @@ export class StopSessionUseCase {
           Math.round(durationMs / 60000),
           calculatedEnergyFee,
           session.idleFeeVnd,
-          cmd.depositAmount ?? 0,
-          cmd.depositTransactionId ?? null,
+          cmd.depositAmount ?? (entity.depositAmount !== null && entity.depositAmount !== undefined ? Number(entity.depositAmount) : 0),
+          cmd.depositTransactionId ?? entity.depositTransactionId ?? null,
         );
         eventPayload = buildOutboxEntry(mgr, ev, session.id);
       }
@@ -529,6 +590,8 @@ export class GetSessionUseCase {
   constructor(
     @Inject(SESSION_REPOSITORY)
     private readonly sessionRepo: ISessionRepository,
+    @InjectRepository(ConnectorReadModelOrmEntity)
+    private readonly connectorRmRepo: Repository<ConnectorReadModelOrmEntity>,
   ) {}
 
   async execute(sessionId: string): Promise<ChargingSession | null> {
@@ -536,6 +599,13 @@ export class GetSessionUseCase {
   }
 
   async getActiveByCharger(chargerId: string): Promise<ChargingSession | null> {
+    let physicalChargerId = chargerId;
+    const connectorRm = await this.connectorRmRepo.findOneBy({ connectorId: chargerId });
+    if (connectorRm) {
+      physicalChargerId = connectorRm.chargerId;
+    }
+    const sessionByPhysical = await this.sessionRepo.findActiveByCharger(physicalChargerId);
+    if (sessionByPhysical) return sessionByPhysical;
     return this.sessionRepo.findActiveByCharger(chargerId);
   }
 
@@ -688,6 +758,9 @@ export class PaymentCompletedConsumer {
     @InjectRepository(OutboxOrmEntity)
     private readonly outboxRepo: Repository<OutboxOrmEntity>,
     @Inject(SESSION_REPOSITORY) private readonly sessionDomainRepo: ISessionRepository,
+    @Inject(BOOKING_REPOSITORY) private readonly bookingRepo: IBookingRepository,
+    @Inject(EVENT_BUS)          private readonly eventBus: IEventBus,
+    private readonly chargingGateway: ChargingGateway,
   ) {}
 
   @RabbitSubscribe({
@@ -700,7 +773,7 @@ export class PaymentCompletedConsumer {
     eventId?: string;
     transactionId: string;
     userId: string;
-    relatedId?: string;       // bookingId
+    relatedId?: string;       // bookingId or sessionId
     relatedType?: string;
     amount: number;
   }): Promise<void> {
@@ -717,6 +790,11 @@ export class PaymentCompletedConsumer {
       ? await this.sessionDomainRepo.findById(payload.relatedId!)
       : await this.sessionDomainRepo.findByBookingId(payload.relatedId!);
 
+    if (!session && payload.relatedType === 'booking') {
+      // Fallback: relatedId might be a sessionId even if relatedType is booking
+      session = await this.sessionDomainRepo.findById(payload.relatedId!);
+    }
+
     if (!session) {
       this.logger.warn(`No session found for payment ${payload.transactionId} relatedId=${payload.relatedId}`);
       return;
@@ -729,12 +807,42 @@ export class PaymentCompletedConsumer {
     }
 
     session.bill();
+    session.completeSession();
 
     await this.sessionRepo.update(session.id, {
       status: session.status,
+      billedAt: session.billedAt,
     });
 
-    this.logger.log(`Session ${session.id} -> BILLED (payment ${payload.transactionId})`);
+    this.logger.log(`Session ${session.id} -> BILLED & COMPLETED (payment ${payload.transactionId})`);
+
+    try {
+      this.chargingGateway.broadcastToSession(session.id, 'payment_completed', {
+        sessionId: session.id,
+        transactionId: payload.transactionId,
+        amount: payload.amount,
+        status: session.status,
+      });
+      this.logger.log(`Broadcasted payment_completed event for session ${session.id}`);
+    } catch (err: any) {
+      this.logger.error(`Failed to broadcast payment completion: ${err.message}`);
+    }
+
+    // Complete the booking if it exists
+    if (session.bookingId) {
+      try {
+        const booking = await this.bookingRepo.findById(session.bookingId);
+        if (booking && booking.status !== BookingStatus.COMPLETED) {
+          booking.complete();
+          await this.bookingRepo.save(booking);
+          await this.eventBus.publishAll(booking.domainEvents);
+          booking.clearDomainEvents();
+          this.logger.log(`Booking ${session.bookingId} completed upon session completion.`);
+        }
+      } catch (err: any) {
+        this.logger.warn(`Failed to complete booking ${session.bookingId}: ${err.message}`);
+      }
+    }
   }
 }
 

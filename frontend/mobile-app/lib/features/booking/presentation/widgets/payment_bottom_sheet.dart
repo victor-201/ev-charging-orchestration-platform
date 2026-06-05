@@ -37,6 +37,7 @@ class PaymentBottomSheet extends StatefulWidget {
 
 class _PaymentBottomSheetState extends State<PaymentBottomSheet> {
   String _selectedMethod = 'wallet';
+  bool _isPaying = false;
 
   @override
   void initState() {
@@ -46,6 +47,8 @@ class _PaymentBottomSheetState extends State<PaymentBottomSheet> {
   }
 
   void _onPay() {
+    if (_isPaying) return;
+    _isPaying = true;
     context.read<BookingBloc>().add(BookingPay(
           bookingId: widget.booking.id,
           amount: widget.booking.depositAmount,
@@ -197,13 +200,19 @@ class _PaymentBottomSheetState extends State<PaymentBottomSheet> {
                   ],
 
                   const SizedBox(height: 32),
-                  BlocBuilder<BookingBloc, BookingState>(
+                  BlocConsumer<BookingBloc, BookingState>(
+                    listenWhen: (previous, current) => _isPaying,
+                    listener: (context, bookingState) {
+                      if (bookingState is BookingPaymentInitiated || bookingState is BookingError) {
+                        _isPaying = false;
+                      }
+                    },
                     builder: (context, bookingState) {
                       final isLoading = bookingState is BookingLoading;
                       return EVButton(
                         label: isLoading ? 'Đang xử lý...' : 'Xác nhận thanh toán',
                         isLoading: isLoading,
-                        onPressed: (loadingWallet || insufficientBalance || isLoading) ? null : _onPay,
+                        onPressed: (loadingWallet || insufficientBalance || isLoading || _isPaying) ? null : _onPay,
                       );
                     },
                   ),

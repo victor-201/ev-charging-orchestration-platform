@@ -16,6 +16,13 @@ class ChargingSessionEntity extends Equatable {
   final DateTime startedAt;
   final DateTime? endedAt;
   final String? transactionId;
+  final double? startSocPercent;
+  final double? startMeterWh;
+  final double? endMeterWh;
+  final String? stationName;
+  final String? cityName;
+  final String? connectorType;
+  final double? maxPowerKw;
 
   const ChargingSessionEntity({
     required this.id,
@@ -31,6 +38,13 @@ class ChargingSessionEntity extends Equatable {
     required this.startedAt,
     this.endedAt,
     this.transactionId,
+    this.startSocPercent,
+    this.startMeterWh,
+    this.endMeterWh,
+    this.stationName,
+    this.cityName,
+    this.connectorType,
+    this.maxPowerKw,
   });
 
   bool get isActive =>
@@ -55,6 +69,13 @@ class ChargingSessionEntity extends Equatable {
         currentA,
         temperatureC,
         amountDue,
+        startSocPercent,
+        startMeterWh,
+        endMeterWh,
+        stationName,
+        cityName,
+        connectorType,
+        maxPowerKw,
       ];
 }
 

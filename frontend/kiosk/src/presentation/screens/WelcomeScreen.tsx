@@ -6,7 +6,7 @@
 
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Zap, ShieldCheck, Wifi, ArrowRight, Sun, Moon, WrenchIcon, QrCode } from "lucide-react";
+import { Zap, ShieldCheck, Wifi, ArrowRight, WrenchIcon, QrCode } from "lucide-react";
 import { CHARGER_ID, STATION_ID, POINT_ID, setChargerId } from "../../data/sources/localStorage";
 import { GetStationDetailUseCase, GetAvailabilitySlotsUseCase } from "../../application/useCases";
 import type { ChargerInfo } from "../../domain/entities/entities";
@@ -14,8 +14,6 @@ import type { ChargerInfo } from "../../domain/entities/entities";
 interface WelcomeScreenProps {
   onStart: () => Promise<void>;
   onScanQrBooking: () => void;
-  theme: "light" | "dark";
-  onToggleTheme: () => void;
   triggerMaintenance: () => void;
   triggerOffline: () => void;
   triggerReserved: () => void;
@@ -28,8 +26,6 @@ const getAvailabilitySlotsUseCase = new GetAvailabilitySlotsUseCase();
 const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   onStart,
   onScanQrBooking,
-  theme,
-  onToggleTheme,
   triggerMaintenance,
   triggerOffline,
   triggerReserved,
@@ -51,7 +47,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         setChargers(list);
         setStationName(detail.name || "");
         setStationAddress(detail.address || "");
-        
+
         // Default select first available or first charger
         if (list.length > 0) {
           const defaultCharger = list.find(c => c.id === POINT_ID || c.connectors?.some(conn => conn.id === CHARGER_ID)) || list[0];
@@ -108,7 +104,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       const todayStr = getTodayDateString();
       const slots = await getAvailabilitySlotsUseCase.execute(selectedCharger, todayStr);
       const now = new Date();
-      
+
       const upcomingBookings = slots
         .filter((s: any) => s.isBooked)
         .map((s: any) => ({
@@ -164,7 +160,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   const isReserved = statusUpper === 'RESERVED';
 
   // Compute connector details dynamically
-  const maxPowerKwText = currentCharger?.connectors?.length 
+  const maxPowerKwText = currentCharger?.connectors?.length
     ? `${Math.max(...currentCharger.connectors.map((c: any) => c.maxPowerKw || 0))} kW`
     : (currentCharger?.maxPowerKw ? `${currentCharger.maxPowerKw} kW` : '350 kW');
 
@@ -249,24 +245,6 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               ISO 15118
             </span>
           </div>
-          <button 
-            onClick={onToggleTheme}
-            className="glass-pill w-10 h-10 flex items-center justify-center transition-all duration-300 active:scale-95 hover:scale-105 cursor-pointer"
-            style={{
-              background: 'var(--pill-bg)',
-              borderColor: 'var(--pill-border)',
-              color: 'var(--pill-text)',
-              boxShadow: 'var(--pill-shadow)',
-              backdropFilter: 'blur(10px)',
-              WebkitBackdropFilter: 'blur(10px)',
-            }}
-          >
-            {theme === "dark" ? (
-              <Sun size={15} style={{ color: 'var(--warning)' }} />
-            ) : (
-              <Moon size={15} style={{ color: 'var(--accent)' }} />
-            )}
-          </button>
         </div>
       </header>
 
@@ -315,9 +293,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.55 }}
-              className={`flex items-center gap-4 transition-all duration-300 font-black uppercase tracking-wider relative overflow-hidden group btn-primary ${
-                buttonDisabled ? "cursor-not-allowed opacity-60" : "hover:scale-[1.02] active:scale-[0.98]"
-              }`}
+              className={`flex items-center gap-4 transition-all duration-300 font-black uppercase tracking-wider relative overflow-hidden group btn-primary ${buttonDisabled ? "cursor-not-allowed opacity-60" : "hover:scale-[1.02] active:scale-[0.98]"
+                }`}
               onClick={handleStart}
               disabled={buttonDisabled}
               style={{
@@ -328,15 +305,15 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                 background: isOffline
                   ? "#dc2626"
                   : isInUse || isReserved
-                  ? "rgba(100,116,139,0.3)"
-                  : "linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%)",
+                    ? "rgba(100,116,139,0.3)"
+                    : "linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%)",
                 color: "#ffffff",
                 border: "none",
                 boxShadow: isOffline
                   ? "0 0 24px rgba(220,38,38,0.35), 0 4px 16px rgba(0,0,0,0.25)"
                   : buttonDisabled
-                  ? "none"
-                  : "0 0 32px var(--cyan-glow), 0 4px 16px rgba(0,0,0,0.3)",
+                    ? "none"
+                    : "0 0 32px var(--cyan-glow), 0 4px 16px rgba(0,0,0,0.3)",
                 opacity: 1,
               }}
             >
@@ -444,8 +421,10 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                     <motion.span
                       animate={{ opacity: [1, 0.5, 1] }}
                       transition={{ duration: 1.2, repeat: Infinity }}
-                      className="text-lg"
-                    >⚡</motion.span>
+                      className="inline-flex items-center text-lg text-white"
+                    >
+                      <Zap size={18} fill="white" className="shrink-0 text-white" />
+                    </motion.span>
                     <span className="text-white font-black text-xs uppercase tracking-wider leading-tight">
                       {(currentCharger?.name || 'TRỤ SẠC').toUpperCase()}<br />ĐANG BẢO TRÌ / OFFLINE
                     </span>
@@ -549,40 +528,39 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                   isOffline || statusUpper === "FAULTED"
                     ? "#dc2626"
                     : isInUse || isReserved
-                    ? "rgba(245,158,11,0.15)"
-                    : "rgba(34,197,94,0.15)",
+                      ? "rgba(245,158,11,0.15)"
+                      : "rgba(34,197,94,0.15)",
                 color:
                   isOffline || statusUpper === "FAULTED"
                     ? "#fff"
                     : isInUse || isReserved
-                    ? "#d97706"
-                    : "#16a34a",
+                      ? "#d97706"
+                      : "#16a34a",
                 border:
                   isOffline || statusUpper === "FAULTED"
                     ? "none"
                     : isInUse || isReserved
-                    ? "1px solid rgba(245,158,11,0.3)"
-                    : "1px solid rgba(34,197,94,0.3)",
+                      ? "1px solid rgba(245,158,11,0.3)"
+                      : "1px solid rgba(34,197,94,0.3)",
               }}
             >
               <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  isOffline || statusUpper === "FAULTED"
+                className={`w-1.5 h-1.5 rounded-full ${isOffline || statusUpper === "FAULTED"
                     ? "bg-white"
                     : isInUse || isReserved
-                    ? "bg-[#d97706]"
-                    : "bg-[#16a34a]"
-                }`}
+                      ? "bg-[#d97706]"
+                      : "bg-[#16a34a]"
+                  }`}
               />
               {isOffline
                 ? "OFFLINE"
                 : statusUpper === "FAULTED"
-                ? "LỖI TRỤ SẠC"
-                : isInUse
-                ? "ĐANG SỬ DỤNG"
-                : isReserved
-                ? "ĐÃ ĐẶT TRƯỚC"
-                : "SẴN SÀNG"}
+                  ? "LỖI TRỤ SẠC"
+                  : isInUse
+                    ? "ĐANG SỬ DỤNG"
+                    : isReserved
+                      ? "ĐÃ ĐẶT TRƯỚC"
+                      : "SẴN SÀNG"}
             </span>
           </div>
         </div>

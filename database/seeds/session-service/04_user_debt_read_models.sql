@@ -1,7 +1,7 @@
 -- ============================================
 -- Service : session-service
 -- Table   : user_debt_read_models
--- File    : database/seeds/session-service/03_user_debt_read_models.sql
+-- File    : database/seeds/session-service/04_user_debt_read_models.sql
 -- Depends : iam-service (users)
 -- Records : 500
 -- NOTE    : Schema aligned to 1700000000000-InitialSchema.ts

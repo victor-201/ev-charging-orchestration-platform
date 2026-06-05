@@ -40,6 +40,9 @@ abstract class IStationRepository {
   /// Resolves station details containing the given charger.
   Future<Either<Failure, StationEntity>> getStationByChargerId(String chargerId);
 
+  /// Resolves stations containing any of the given charger IDs (batch lookup).
+  Future<Either<Failure, List<StationEntity>>> getStationsByChargerIds(List<String> chargerIds);
+
   /// Searches for charging stations matching a keyword query (name or address).
   /// Optionally filter by [connectorType] — pushed to the server so [limit] is applied
   /// only to stations that already have the requested connector type.

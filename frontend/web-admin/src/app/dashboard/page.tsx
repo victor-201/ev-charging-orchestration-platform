@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/services/api-client';
-import { formatCurrency, formatDate, relativeTimeLocale } from '@/i18n/formatter';
+import { formatCurrency, formatDate, relativeTimeLocale, tSafe, translateMessage } from '@/i18n/formatter';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import {
@@ -110,22 +110,46 @@ export default function DashboardPage() {
     setMounted(true);
   }, []);
 
-  // -- Staff: derive assigned station IDs from JWT (no redundant /staff query) --
-  const staffStationIds: string[] = user?.stationIds?.length
-    ? user.stationIds
-    : user?.stationId
-      ? [user.stationId]
-      : [];
+  // -- Staff: fetch assigned staff profiles directly to get accurate stations --
+  const { data: myStaffProfiles = [], isLoading: loadingStaffProfile } = useQuery<any[]>({
+    queryKey: ['my-staff-profile', user?.id],
+    queryFn: async () => {
+      const res = await apiClient.get('/staff');
+      return res.data?.items ?? [];
+    },
+    enabled: !!user && isStaff,
+  });
 
-  const primaryStationId = staffStationIds[0] || null;
-  const hasNoAssignment = isStaff && staffStationIds.length === 0;
+  const staffStations = myStaffProfiles.map((s: any) => ({
+    id: s.stationId,
+    name: s.stationName || 'EV Station',
+  }));
+
+  const staffStationIds = staffStations.map(s => s.id);
+
+  const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (staffStationIds.length > 0 && !selectedStationId) {
+      setSelectedStationId(staffStationIds[0]);
+    }
+  }, [staffStationIds, selectedStationId]);
+
+  const hasNoAssignment = isStaff && !loadingStaffProfile && staffStations.length === 0;
+
+  const todayStr = new Date().toISOString().split('T')[0];
 
   // -- Staff queries --
   const { data: attendanceData, refetch: refetchAttendance, isLoading: loadingAttendance } = useQuery({
-    queryKey: ['my-attendance-dashboard', user?.id],
+    queryKey: ['my-attendance-dashboard', user?.id, todayStr],
     queryFn: async () => {
       if (isAdmin) return null;
-      const res = await apiClient.get('/attendance');
+      const res = await apiClient.get('/attendance', {
+        params: {
+          fromDate: todayStr,
+          toDate: todayStr,
+        }
+      });
       const items = res.data?.items || res.data || [];
       return Array.isArray(items) ? items.map((item: any) => ({
         ...item,
@@ -138,7 +162,6 @@ export default function DashboardPage() {
     enabled: !!user && isStaff,
   });
 
-  const todayStr = new Date().toISOString().split('T')[0];
   const myTodayAttendance = Array.isArray(attendanceData)
     ? attendanceData.find((a: any) => {
         const isMe = a.userId === user?.id;
@@ -148,48 +171,136 @@ export default function DashboardPage() {
     : null;
 
   const { data: staffStation, isLoading: loadingStation } = useQuery({
-    queryKey: ['staff-station-detail', primaryStationId],
+    queryKey: ['staff-station-detail', selectedStationId],
     queryFn: async () => {
-      if (!primaryStationId) return null;
-      const res = await apiClient.get(`/stations/${primaryStationId}`);
+      if (!selectedStationId) return null;
+      const res = await apiClient.get(`/stations/${selectedStationId}`);
       return res.data?.data || res.data;
     },
-    enabled: !!primaryStationId && isStaff,
+    enabled: !!selectedStationId && isStaff,
   });
 
   const { data: recentIncidents = [], isLoading: loadingIncidents } = useQuery({
-    queryKey: ['staff-recent-incidents', primaryStationId],
+    queryKey: ['staff-recent-incidents', selectedStationId],
     queryFn: async () => {
-      if (!primaryStationId) return [];
+      if (!selectedStationId) return [];
       const res = await apiClient.get('/stations/incidents', {
-        params: { limit: 5, stationId: primaryStationId },
+        params: { limit: 5, stationId: selectedStationId },
       });
       return Array.isArray(res.data) ? res.data : (res.data?.items ?? []);
     },
-    enabled: !!primaryStationId && isStaff,
+    enabled: !!selectedStationId && isStaff,
   });
 
-  const isLoadingStaff = loadingAttendance || loadingStation || loadingIncidents;
+  // Station analytics summary metrics
+  const { data: stationMetrics, isLoading: loadingMetrics } = useQuery({
+    queryKey: ['staff-station-metrics', selectedStationId],
+    queryFn: async () => {
+      if (!selectedStationId) return null;
+      const res = await apiClient.get(`/analytics/stations/${selectedStationId}/metrics`, {
+        params: { days: 30 }
+      });
+      return res.data;
+    },
+    enabled: !!selectedStationId && isStaff,
+  });
+
+  // Station daily revenue (last 30 days) for the chart
+  const { data: stationRevenue, isLoading: loadingRevenue } = useQuery({
+    queryKey: ['staff-station-revenue', selectedStationId],
+    queryFn: async () => {
+      if (!selectedStationId) return null;
+      const res = await apiClient.get('/analytics/revenue', {
+        params: { range: 'daily', stationId: selectedStationId, days: 30 }
+      });
+      return res.data;
+    },
+    enabled: !!selectedStationId && isStaff,
+  });
+
+  // Station peak hours (last 28 days) with forecast
+  const { data: stationPeakHours, isLoading: loadingPeakHours } = useQuery({
+    queryKey: ['staff-station-peak-hours', selectedStationId],
+    queryFn: async () => {
+      if (!selectedStationId) return null;
+      const res = await apiClient.get('/analytics/peak-hours', {
+        params: { stationId: selectedStationId, forecast: true, lookbackDays: 28 }
+      });
+      return res.data;
+    },
+    enabled: !!selectedStationId && isStaff,
+  });
+
+  const isLoadingStaff = loadingStaffProfile || loadingAttendance || loadingStation || loadingIncidents || loadingMetrics || loadingRevenue || loadingPeakHours;
 
   const handleCheckIn = async () => {
-    if (!primaryStationId) return;
+    if (!selectedStationId) return;
+    
+    // Get station coords as fallback
+    let lat = staffStation?.latitude ?? 10.8231;
+    let lng = staffStation?.longitude ?? 106.6297;
+    
     try {
-      await apiClient.post('/attendance/check-in', { stationId: primaryStationId });
-      toast.success(t('dashboard:home.checkin.checkin_success'));
-      refetchAttendance();
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            lat = position.coords.latitude;
+            lng = position.coords.longitude;
+            await sendCheckIn(lat, lng);
+          },
+          async () => {
+            // Geolocation failed or blocked: fallback to station coords
+            await sendCheckIn(lat, lng);
+          }
+        );
+      } else {
+        await sendCheckIn(lat, lng);
+      }
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || t('dashboard:home.checkin.checkin_failed'));
+      toast.error(translateMessage(err?.response?.data?.message, 'dashboard:home.checkin.checkin_failed'));
     }
   };
 
+  const sendCheckIn = async (latitude: number, longitude: number) => {
+    await apiClient.post('/attendance/check-in', {
+      stationId: selectedStationId,
+      latitude,
+      longitude,
+    });
+    toast.success(t('dashboard:home.checkin.checkin_success'));
+    refetchAttendance();
+  };
+
   const handleCheckOut = async () => {
+    let lat = staffStation?.latitude ?? 10.8231;
+    let lng = staffStation?.longitude ?? 106.6297;
     try {
-      await apiClient.post('/attendance/check-out', {});
-      toast.success(t('dashboard:home.checkin.checkout_success'));
-      refetchAttendance();
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            lat = position.coords.latitude;
+            lng = position.coords.longitude;
+            await sendCheckOut(lat, lng);
+          },
+          async () => {
+            await sendCheckOut(lat, lng);
+          }
+        );
+      } else {
+        await sendCheckOut(lat, lng);
+      }
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || t('dashboard:home.checkin.checkout_failed'));
+      toast.error(translateMessage(err?.response?.data?.message, 'dashboard:home.checkin.checkout_failed'));
     }
+  };
+
+  const sendCheckOut = async (latitude: number, longitude: number) => {
+    await apiClient.post('/attendance/check-out', {
+      latitude,
+      longitude,
+    });
+    toast.success(t('dashboard:home.checkin.checkout_success'));
+    refetchAttendance();
   };
 
   // -- Admin analytics query --
@@ -222,6 +333,22 @@ export default function DashboardPage() {
       );
     }
 
+    const staffChartData = stationRevenue?.daily
+      ? stationRevenue.daily.map((r: any) => ({
+          date: r.metric_date,
+          revenueVnd: parseInt(r.total_revenue_vnd ?? '0'),
+          sessions: parseInt(r.total_sessions ?? '0'),
+        }))
+      : [];
+
+    const staffPeakChartData = stationPeakHours?.peakHours
+      ? [...stationPeakHours.peakHours].sort((a, b) => a.hourOfDay - b.hourOfDay)
+      : [];
+
+    const staffPeakPeriods = stationPeakHours?.peakHours
+      ? [...stationPeakHours.peakHours].filter((h: any) => h.isPeak).sort((a: any, b: any) => a.rank - b.rank)
+      : [];
+
     return (
       <div className="flex flex-col h-[calc(100vh-var(--page-inset))] animate-fade-in gap-6">
         {/* Staff Header */}
@@ -230,9 +357,26 @@ export default function DashboardPage() {
             <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-main)', letterSpacing: '-0.5px' }}>
               {t('dashboard:home.title')}
             </h1>
-            <p className="text-sm mt-1" style={{ color: 'var(--text-faded)' }}>
-              {staffStation?.name || primaryStationId}
-            </p>
+            {staffStations.length > 1 ? (
+              <div className="mt-1.5 flex items-center gap-2">
+                <span className="text-xs font-medium text-[var(--text-faded)]">Trạm đang làm việc:</span>
+                <select
+                  value={selectedStationId || ''}
+                  onChange={(e) => setSelectedStationId(e.target.value)}
+                  className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs font-semibold text-[var(--text-main)] outline-none focus:border-cyan"
+                >
+                  {staffStations.map((st) => (
+                    <option key={st.id} value={st.id} className="bg-[var(--bg-secondary)]">
+                      {st.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <p className="text-sm mt-1" style={{ color: 'var(--text-faded)' }}>
+                {staffStation?.name || selectedStationId || 'EV Station'}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2 px-4 py-2 rounded-full" style={{ background: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.25)' }}>
             <span className="glow-dot bg-success animate-pulse-glow" />
@@ -263,7 +407,7 @@ export default function DashboardPage() {
                     <div>
                       <h3 className="font-semibold text-sm" style={{ color: 'var(--text-main)' }}>{t('dashboard:home.checkin.title')}</h3>
                       <p className="text-xs mt-0.5" style={{ color: 'var(--text-faded)' }}>
-                        {staffStation?.name || primaryStationId}
+                        {staffStation?.name || selectedStationId}
                       </p>
                     </div>
                   </div>
@@ -300,7 +444,7 @@ export default function DashboardPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <MetricCard
                   title={t('dashboard:home.staff_kpi.station_status')}
-                  value={staffStation?.status || '—'}
+                  value={staffStation?.status ? t('dashboard:data.status.' + staffStation.status.toUpperCase(), { defaultValue: staffStation.status }) : '—'}
                   icon={MapPin}
                   gradient="var(--grad-cyan-lime)"
                   glow="var(--glow-cyan)"
@@ -314,11 +458,159 @@ export default function DashboardPage() {
                 />
                 <MetricCard
                   title={t('dashboard:home.staff_kpi.active_sessions')}
-                  value={staffStation ? `${(staffStation.totalChargers ?? 0) - (staffStation.availableChargers ?? 0)}` : '—'}
+                  value={staffStation ? `${staffStation.chargers?.filter((c: any) => c.status === 'in_use').length ?? 0}` : '—'}
                   icon={Zap}
                   gradient="var(--grad-yellow-orange)"
                   glow="var(--glow-orange)"
                 />
+              </div>
+
+              {/* Station Performance Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <MetricCard
+                  title={t('dashboard:home.staff_kpi_ext.energy_charged')}
+                  value={stationMetrics?.summary?.totalKwh !== undefined ? `${stationMetrics.summary.totalKwh.toFixed(1)} kWh` : '—'}
+                  icon={Zap}
+                  gradient="var(--grad-blue-cyan)"
+                  glow="var(--glow-blue)"
+                />
+                <MetricCard
+                  title={t('dashboard:home.staff_kpi_ext.sessions_count')}
+                  value={stationMetrics?.summary?.totalSessions !== undefined ? stationMetrics.summary.totalSessions : '—'}
+                  icon={Activity}
+                  gradient="var(--grad-cyan-lime)"
+                  glow="var(--glow-cyan)"
+                />
+                <MetricCard
+                  title={t('dashboard:home.staff_kpi_ext.station_revenue')}
+                  value={stationMetrics?.summary?.totalRevenueVnd !== undefined ? formatCurrency(stationMetrics.summary.totalRevenueVnd) : '—'}
+                  icon={DollarSign}
+                  gradient="var(--grad-yellow-orange)"
+                  glow="var(--glow-orange)"
+                />
+              </div>
+
+              {/* Charts Row for Staff */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <GlassCard className="lg:col-span-2 p-7 flex flex-col" showShine showMarkers>
+                  <div className="flex items-center justify-between mb-5">
+                    <div>
+                      <h3 className="font-semibold" style={{ color: 'var(--text-main)' }}>{t('dashboard:home.charts.revenue_title')}</h3>
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--text-faded)' }}>{t('dashboard:home.charts.revenue_sub')}</p>
+                    </div>
+                    <Activity className="w-5 h-5" style={{ color: 'var(--text-faded)' }} />
+                  </div>
+                  <div className="flex-1 w-full h-[calc(100%-60px)] min-h-[240px] relative">
+                    <div className="absolute inset-0">
+                      {mounted && (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={staffChartData} margin={{ top: 10, right: 15, left: 5, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="var(--brand-cyan)" stopOpacity={0.35} />
+                                <stop offset="95%" stopColor="var(--brand-lime)" stopOpacity={0} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                            <XAxis dataKey="date" tick={{ fill: 'var(--text-faded)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => formatDate(v, { month: 'short', day: 'numeric' })} />
+                            <YAxis width={45} tick={{ fill: 'var(--text-faded)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1e6).toFixed(0)}M`} />
+                            <Tooltip content={<CustomTooltip />} />
+                            <Area type="monotone" dataKey="revenueVnd" stroke="var(--brand-cyan)" strokeWidth={2} fill="url(#revenueGrad)" />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+                  </div>
+                </GlassCard>
+
+                <GlassCard className="p-7 flex flex-col justify-between h-full" showShine showMarkers>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold" style={{ color: 'var(--text-main)' }}>{t('dashboard:home.charts.peak_title')}</h3>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--text-faded)' }}>{t('dashboard:home.charts.peak_sub')}</p>
+                      </div>
+                      <Zap className="w-5 h-5 text-danger animate-pulse" />
+                    </div>
+
+                    <div className="w-full h-[180px] relative">
+                      {mounted && (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={staffPeakChartData} margin={{ top: 15, right: 15, left: 15, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="peakHoursGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="var(--brand-warning)" stopOpacity={0.4} />
+                                <stop offset="95%" stopColor="var(--brand-warning)" stopOpacity={0} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                            <XAxis dataKey="hourOfDay" tick={{ fill: 'var(--text-faded)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}h`} />
+                            <YAxis width={30} tick={{ fill: 'var(--text-faded)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                            <Tooltip
+                              contentStyle={{
+                                background: 'var(--card-bg)',
+                                backdropFilter: 'blur(20px)',
+                                border: '1px solid var(--card-border)',
+                                borderRadius: '12px',
+                                fontSize: 12,
+                                color: 'var(--text-main)',
+                              }}
+                              cursor={{ stroke: 'rgba(255, 255, 255, 0.1)', strokeWidth: 1 }}
+                              formatter={(value: any, name: any) => [
+                                `${value} ${t('dashboard:home.charts.peak_tooltip_session')}`,
+                                name === 'avgSessions' ? t('dashboard:home.charts.peak_tooltip_load') : name
+                              ]}
+                              labelFormatter={(label) => t('dashboard:home.charts.peak_tooltip_time', { start: label, end: Number(label) + 1 })}
+                            />
+                            <Area
+                              type="monotone"
+                              dataKey="avgSessions"
+                              stroke="var(--brand-warning)"
+                              strokeWidth={2.5}
+                              fill="url(#peakHoursGrad)"
+                              dot={CustomPeakDot}
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Peak Periods Summary List */}
+                  {staffPeakPeriods.length > 0 && (
+                    <div className="pt-4 border-t border-white/5 space-y-2.5">
+                      <p className="text-[10px] uppercase tracking-wider font-semibold text-text-muted flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-danger animate-pulse" />
+                        {t('dashboard:home.charts.peak_legend')}
+                      </p>
+                      <div className="grid grid-cols-1 gap-2">
+                        {staffPeakPeriods.slice(0, 3).map((p: any) => (
+                          <div
+                            key={p.hourOfDay}
+                            className="flex items-center justify-between p-2.5 rounded-xl border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] transition-colors"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 rounded-lg bg-danger/10 border border-danger/20 flex items-center justify-center shrink-0">
+                                <Zap className="w-3.5 h-3.5 text-danger" />
+                              </div>
+                              <div>
+                                <p className="text-xs font-bold text-text-main">
+                                  {p.hourOfDay.toString().padStart(2, '0')}:00 - {(p.hourOfDay + 1).toString().padStart(2, '0')}:00
+                                </p>
+                                <p className="text-[10px] text-text-muted">
+                                  {p.avgSessions.toFixed(2)} {t('dashboard:home.charts.peak_sessions_unit')} • {p.avgKwh.toFixed(0)} {t('dashboard:home.charts.peak_avg_kwh')}
+                                </p>
+                              </div>
+                            </div>
+                            <span className="badge badge-danger text-[10px] font-semibold py-0.5 px-2">
+                              {t('dashboard:home.charts.peak_load', { percent: (p.peakScore * 100).toFixed(0) })}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </GlassCard>
               </div>
 
               {/* Recent Incidents */}

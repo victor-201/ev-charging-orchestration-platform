@@ -1,19 +1,21 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, In } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import {
   IBookingRepository,
   BOOKING_REPOSITORY,
 } from '../../domain/repositories/booking.repository.interface';
+import { IQueueRepository, QUEUE_REPOSITORY } from '../../domain/repositories/queue.repository.interface';
 import { IEventBus, EVENT_BUS } from '../../infrastructure/messaging/event-bus.interface';
+import { NotifyQueueHeadUseCase } from './queue.use-case';
 import { Booking } from '../../domain/aggregates/booking.aggregate';
 import {
   ChargerStateOrmEntity,
   OutboxOrmEntity,
 } from '../../infrastructure/persistence/typeorm/entities/session.orm-entities';
-import { ChargerReadModelOrmEntity } from '../../infrastructure/persistence/typeorm/entities/booking.orm-entities';
+import { ChargerReadModelOrmEntity, QueueOrmEntity, UserReadModelOrmEntity } from '../../infrastructure/persistence/typeorm/entities/booking.orm-entities';
 
 // Auto Expire Bookings Job
 
@@ -79,6 +81,7 @@ export class NoShowDetectionJob {
     private readonly outboxRepo: Repository<OutboxOrmEntity>,
     @InjectRepository(ChargerReadModelOrmEntity)
     private readonly chargerRmRepo: Repository<ChargerReadModelOrmEntity>,
+    private readonly notifyQueueHead: NotifyQueueHeadUseCase,
   ) {}
 
   @Cron('* * * * *') // every 1 minute
@@ -125,18 +128,21 @@ export class NoShowDetectionJob {
             aggregateType: 'charger',
             aggregateId:   booking.chargerId,
             eventType:     'charger.status.changed',
-            payload:       {
-              eventId:   statusEventId,
-              chargerId: booking.chargerId,
-              stationId,
-              newStatus: 'available',
-              changedAt: new Date().toISOString(),
-            },
-            status:      'pending',
-            processedAt: null,
-          }),
-        );
-      });
+              payload:       {
+                eventId:   statusEventId,
+                chargerId: booking.chargerId,
+                stationId,
+                newStatus: 'available',
+                changedAt: new Date().toISOString(),
+              },
+              status:      'pending',
+              processedAt: null,
+            }),
+          );
+
+          // Notify next user in virtual queue
+          await this.notifyQueueHead.execute(booking.chargerId, manager);
+        });
 
       this.logger.warn(
         `NO_SHOW: booking=${booking.id} user=${booking.userId} ` +
@@ -153,7 +159,11 @@ export class NoShowDetectionJob {
 @Injectable()
 export class GetQueuePositionUseCase {
   constructor(
-    @Inject(BOOKING_REPOSITORY) private readonly bookingRepo: IBookingRepository,
+    @Inject(QUEUE_REPOSITORY) private readonly queueRepo: IQueueRepository,
+    @InjectRepository(QueueOrmEntity)
+    private readonly queueOrmRepo: Repository<QueueOrmEntity>,
+    @InjectRepository(UserReadModelOrmEntity)
+    private readonly userReadRepo: Repository<UserReadModelOrmEntity>,
   ) {}
 
   async execute(userId: string, chargerId: string): Promise<{
@@ -161,13 +171,40 @@ export class GetQueuePositionUseCase {
     estimatedWaitMinutes: number;
     userId: string;
     chargerId: string;
+    waitingList: any[];
   }> {
-    const position = await this.bookingRepo.getQueuePosition(userId, chargerId);
+    const position = await this.queueRepo.getPosition(userId, chargerId);
+    
+    // Fetch all active waiting/notified queue entries for the charger
+    const entries = await this.queueOrmRepo.find({
+      where: { chargerId, status: In(['waiting', 'notified']) },
+      order: { priority: 'ASC', joinedAt: 'ASC' },
+    });
+
+    // Resolve user details in a batch
+    const userIds = entries.map((e) => e.userId);
+    const users = userIds.length > 0 ? await this.userReadRepo.find({ where: { userId: In(userIds) } }) : [];
+    const userMap = new Map(users.map((u) => [u.userId, u]));
+
+    // Construct the waitlist array
+    const waitingList = entries.map((e, idx) => {
+      const user = userMap.get(e.userId);
+      return {
+        position: e.status === 'notified' ? 0 : idx + 1,
+        userId: e.userId,
+        fullName: user?.fullName ?? null,
+        email: user?.email ?? null,
+        joinedAt: e.joinedAt,
+        isCurrentUser: e.userId === userId,
+      };
+    });
+
     return {
       position,
-      estimatedWaitMinutes: position * 45, // avg 45min/session
+      estimatedWaitMinutes: position > 0 ? position * 45 : 0,
       userId,
       chargerId,
+      waitingList,
     };
   }
 }

@@ -252,6 +252,16 @@ export class ListStationsUseCase {
   ) {}
 
   async execute(query: ListStationsQueryDto): Promise<PaginatedResult<StationResponse>> {
+    // Parse comma-separated ids if provided
+    const ids = query.ids
+      ? query.ids.split(',').map((id) => id.trim()).filter(Boolean)
+      : undefined;
+
+    // Parse comma-separated chargerIds if provided
+    const chargerIds = query.chargerIds
+      ? query.chargerIds.split(',').map((id) => id.trim()).filter(Boolean)
+      : undefined;
+
     const filter: StationFilter = {
       cityId:        query.cityId,
       status:        query.status,
@@ -260,6 +270,8 @@ export class ListStationsUseCase {
       radiusKm:      query.radiusKm,
       search:        query.search,
       connectorType: query.connectorType,
+      ids,
+      chargerIds,
       limit:         query.limit ?? 20,
       offset:        query.offset ?? 0,
     };
@@ -280,11 +292,12 @@ export class GetNearbyStationsUseCase {
     @Inject(STATION_REPOSITORY) private readonly stationRepo: IStationRepository,
   ) {}
 
-  async execute(lat: number, lng: number, radiusKm = 10, limit = 20, status?: StationStatus): Promise<StationResponse[]> {
+  async execute(lat: number, lng: number, radiusKm = 10, limit = 20, status?: StationStatus, ids?: string[]): Promise<StationResponse[]> {
     const result = await this.stationRepo.findMany({
       nearLat:  lat,
       nearLng:  lng,
       radiusKm,
+      ids,
       // If caller requests a specific status, honor it.
       // Otherwise exclude 'inactive' (permanently offline) — shown on request via filter only.
       ...(status

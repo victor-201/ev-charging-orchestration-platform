@@ -215,10 +215,12 @@ export class DeliveryEngine {
   private async dispatchPush(notification: Notification): Promise<void> {
     try {
       await this.fcm.sendToUser({
-        userId: notification.userId,
-        title:  notification.title,
-        body:   notification.body,
-        data:   {
+        userId:            notification.userId,
+        title:             notification.title,
+        body:              notification.body,
+        notificationType:  notification.type,
+        notifPayload:      notification.metadata,
+        data: {
           notificationId: notification.id,
           type:           notification.type,
           ...this.serializeMetadataForFcm(notification.metadata),

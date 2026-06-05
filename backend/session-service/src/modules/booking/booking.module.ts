@@ -11,6 +11,7 @@ import {
   QueueOrmEntity,
   SchedulingSlotOrmEntity,
   VehicleReadModelOrmEntity,
+  UserReadModelOrmEntity,
 } from '../../infrastructure/persistence/typeorm/entities/booking.orm-entities';
 import { UserDebtReadModelOrmEntity, ChargerStateOrmEntity, SessionOrmEntity } from '../../infrastructure/persistence/typeorm/entities/session.orm-entities';
 import { SuggestChargerUseCase } from '../../application/use-cases/suggest-charger.use-case';
@@ -38,6 +39,7 @@ import {
   JoinQueueUseCase,
   LeaveQueueUseCase,
   ProcessQueueUseCase,
+  NotifyQueueHeadUseCase,
 } from '../../application/use-cases/queue.use-case';
 import { SchedulingEngine } from '../../domain/services/scheduling-engine.service';
 import { PriorityQueueService } from '../../domain/services/priority-queue.service';
@@ -56,6 +58,7 @@ import {
   BookingChargerStatusConsumer,
 } from '../../infrastructure/messaging/consumers/booking.consumers';
 import { StationStatusChangedConsumer } from '../../infrastructure/messaging/consumers/station-status-sync.consumer';
+import { UserSyncConsumer } from '../../infrastructure/messaging/consumers/user-sync.consumer';
 
 @Module({
   imports: [
@@ -85,6 +88,7 @@ import { StationStatusChangedConsumer } from '../../infrastructure/messaging/con
       VehicleReadModelOrmEntity,
       ChargerStateOrmEntity,       // NoShowDetectionJob needs to release charger
       SessionOrmEntity,
+      UserReadModelOrmEntity,
     ]),
   ],
   controllers: [BookingController],
@@ -121,11 +125,13 @@ import { StationStatusChangedConsumer } from '../../infrastructure/messaging/con
     JoinQueueUseCase,
     LeaveQueueUseCase,
     ProcessQueueUseCase,
+    NotifyQueueHeadUseCase,
     // RabbitMQ consumers
     BillingDeductedConsumer, BillingDeductionFailedConsumer, BookingPaymentCompletedConsumer,   // successful payment -> auto confirm
     SessionStartedConsumer,      // session started -> auto complete
     BookingChargerStatusConsumer,       // charger available -> serve queue
     StationStatusChangedConsumer,
+    UserSyncConsumer,
     // Arrears Sync Consumers (Lock Bad Debt)
     BookingArrearsCreatedConsumer,  // wallet.arrears.created -> block user
     BookingArrearsClearedConsumer,  // wallet.arrears.cleared -> unblock user
@@ -141,6 +147,8 @@ import { StationStatusChangedConsumer } from '../../infrastructure/messaging/con
     SystemCancelBookingUseCase,
     CHARGER_REPOSITORY,
     BOOKING_REPOSITORY,
+    NotifyQueueHeadUseCase,
+    PriorityQueueService,
   ],
 })
 export class BookingModule {}

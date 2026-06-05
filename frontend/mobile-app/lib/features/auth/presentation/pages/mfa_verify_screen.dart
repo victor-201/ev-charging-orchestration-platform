@@ -6,13 +6,10 @@ import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../bloc/auth_bloc.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
-import '../../../../core/design_system/theme/app_layout.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
 import '../../../../core/design_system/widgets/ev_toast.dart';
-import '../../../../core/design_system/widgets/liquid_glass_scaffold.dart';
-import '../../../../core/design_system/widgets/ev_header.dart';
-import '../../../../core/design_system/widgets/glass_container.dart';
+import '../widgets/auth_layout.dart';
 
 /// Multi-Factor Authentication Verification Screen — Liquid Glass Design System
 ///
@@ -136,171 +133,149 @@ class _MFAVerifyScreenState extends State<MFAVerifyScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return LiquidGlassScaffold(
-      extendBodyBehindAppBar: true,
-      appBar: EVHeader(
-        title: 'Bảo mật 2 lớp',
-        showBackButton: true,
-        onBackTapped: () => context.go('/auth/login'),
-      ),
-      child: SafeArea(
-        child: BlocConsumer<AuthBloc, AuthState>(
-          listener: (context, state) {
-            if (state is AuthAuthenticated) {
-              final savedRoute =
-                  HydratedBloc.storage.read('last_visited_route') as String?;
-              if (savedRoute != null && savedRoute.isNotEmpty) {
-                context.go(savedRoute);
-              } else {
-                context.go('/map');
-              }
-            } else if (state is AuthError) {
-              EVToast.show(context, message: state.message, isError: true);
-              for (final c in _controllers) {
-                c.clear();
-              }
-              _focusNodes[0].requestFocus();
-              _checkClipboard(); // Re-check clipboard in case they copied a new one
+    return AuthLayout(
+      onBackPressed: () => context.go('/auth/login'),
+      child: BlocConsumer<AuthBloc, AuthState>(
+        listener: (context, state) {
+          if (state is AuthAuthenticated) {
+            final savedRoute =
+                HydratedBloc.storage.read('last_visited_route') as String?;
+            if (savedRoute != null && savedRoute.isNotEmpty) {
+              context.go(savedRoute);
+            } else {
+              context.go('/map');
             }
-          },
-          builder: (context, state) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppLayout.sidePadding,
-                vertical: AppSpacing.xl,
+          } else if (state is AuthError) {
+            EVToast.show(context, message: state.message, isError: true);
+            for (final c in _controllers) {
+              c.clear();
+            }
+            _focusNodes[0].requestFocus();
+            _checkClipboard(); // Re-check clipboard in case they copied a new one
+          }
+        },
+        builder: (context, state) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Premium Lock Shield Icon
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: AppColors.secondary.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.secondary.withValues(alpha: 0.25),
+                    width: 1.5,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.security_outlined,
+                  color: AppColors.secondary,
+                  size: 32,
+                ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const SizedBox(height: AppSpacing.xxl),
+              const SizedBox(height: AppSpacing.md),
 
-                  // Premium Lock Shield Icon
-                  Container(
-                    width: 80,
-                    height: 80,
+              Text(
+                'Nhập mã xác thực',
+                style: AppTypography.headingMd.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'Nhập mã 6 chữ số từ ứng dụng Authenticator của bạn.',
+                style: AppTypography.caption.copyWith(color: AppColors.grey600),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.xl),
+
+              // Floating Clipboard Auto-fill Pill
+              if (_detectedClipboardCode != null) ...[
+                GestureDetector(
+                  onTap: _pasteFromClipboard,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
-                      color: AppColors.secondary.withValues(alpha: 0.12),
-                      shape: BoxShape.circle,
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(AppRadius.full),
                       border: Border.all(
-                        color: AppColors.secondary.withValues(alpha: 0.25),
-                        width: 1.5,
+                        color: AppColors.primary.withValues(alpha: 0.35),
                       ),
                     ),
-                    child: const Icon(
-                      Icons.security_outlined,
-                      color: AppColors.secondary,
-                      size: 40,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-
-                  Text(
-                    'Nhập mã xác thực',
-                    style: AppTypography.headingMd,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    'Nhập mã 6 chữ số từ ứng dụng Authenticator của bạn.',
-                    style: AppTypography.bodyMd.copyWith(color: AppColors.grey600),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: AppSpacing.xxl),
-
-                  // Floating Clipboard Auto-fill Pill
-                  if (_detectedClipboardCode != null) ...[
-                    GestureDetector(
-                      onTap: _pasteFromClipboard,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(AppRadius.full),
-                          border: Border.all(
-                            color: AppColors.primary.withValues(alpha: 0.35),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.08),
-                              blurRadius: 8,
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.paste_rounded,
-                              size: 15,
-                              color: AppColors.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Dán mã $_detectedClipboardCode',
-                              style: AppTypography.labelMd.copyWith(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
-                  ],
-
-                  // 6 Box Grid
-                  GlassContainer(
-                    padding: const EdgeInsets.all(AppSpacing.lg),
-                    child: Column(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: List.generate(
-                            6,
-                            (index) => _buildOtpBox(index, isDark),
-                          ),
+                        const Icon(
+                          Icons.paste_rounded,
+                          size: 15,
+                          color: AppColors.primary,
                         ),
-                        const SizedBox(height: AppSpacing.lg),
-
-                        // QR Code Scanner Action
-                        TextButton.icon(
-                          onPressed: _openQRScanner,
-                          icon: const Icon(Icons.qr_code_scanner_outlined, size: 20),
-                          label: Text(
-                            'Quét mã QR OTP',
-                            style: AppTypography.labelMd.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Dán mã $_detectedClipboardCode',
+                          style: AppTypography.labelMd.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.xxl),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+              ],
 
-                  EVButton(
-                    label: 'Xác nhận',
-                    icon: Icons.login_outlined,
-                    onPressed: _otpCode.length == 6 ? _submit : null,
-                    isLoading: state is AuthLoading,
-                  ),
-                ],
+              // 6 Box Grid
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: List.generate(
+                  6,
+                  (index) => _buildOtpBox(index, isDark),
+                ),
               ),
-            );
-          },
-        ),
+              const SizedBox(height: AppSpacing.md),
+
+              // QR Code Scanner Action
+              Center(
+                child: TextButton.icon(
+                  onPressed: _openQRScanner,
+                  icon: const Icon(Icons.qr_code_scanner_outlined, size: 20),
+                  label: Text(
+                    'Quét mã QR OTP',
+                    style: AppTypography.labelMd.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+
+              EVButton(
+                label: 'Xác nhận',
+                icon: Icons.login_outlined,
+                onPressed: _otpCode.length == 6 ? _submit : null,
+                isLoading: state is AuthLoading,
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
   Widget _buildOtpBox(int index, bool isDark) {
     return SizedBox(
-      width: 44,
-      height: 54,
+      width: 32,
+      height: 48,
       child: TextFormField(
         controller: _controllers[index],
         focusNode: _focusNodes[index],
@@ -308,19 +283,34 @@ class _MFAVerifyScreenState extends State<MFAVerifyScreen> {
         textInputAction: index < 5 ? TextInputAction.next : TextInputAction.done,
         textAlign: TextAlign.center,
         maxLength: 1,
-        style: AppTypography.headingLg.copyWith(
+        style: AppTypography.headingMd.copyWith(
           fontWeight: FontWeight.w800,
+          fontSize: 18,
           color: isDark ? Colors.white : AppColors.pillTextLight,
         ),
         decoration: InputDecoration(
           counterText: '',
+          filled: true,
+          fillColor: isDark 
+              ? Colors.black.withValues(alpha: 0.25) 
+              : AppColors.bgLight.withValues(alpha: 0.6),
           contentPadding: EdgeInsets.zero,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.outlineLight),
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(
+              color: AppColors.primary.withValues(alpha: 0.35),
+              width: 1.2,
+            ),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(
+              color: AppColors.primary.withValues(alpha: 0.35),
+              width: 1.2,
+            ),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             borderSide: const BorderSide(color: AppColors.primary, width: 2),
           ),
         ),
@@ -401,7 +391,6 @@ class _MfaQRScannerSheetState extends State<_MfaQRScannerSheet> {
               child: Stack(
                 children: [
                   ..._buildCorners(),
-                  // scanning red horizontal line placeholder/animation is skipped for cleaner view
                 ],
               ),
             ),

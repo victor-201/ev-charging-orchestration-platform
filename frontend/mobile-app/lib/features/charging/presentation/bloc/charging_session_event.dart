@@ -52,3 +52,17 @@ class ChargingSessionFetchRequested extends ChargingEvent {
 class ChargingReset extends ChargingEvent {
   const ChargingReset();
 }
+
+class ChargingSessionSyncRequested extends ChargingEvent {
+  const ChargingSessionSyncRequested();
+}
+
+/// Lightweight periodic poll — fetches session data WITHOUT showing loading
+/// spinner. Used as a fallback when WebSocket telemetry is unavailable.
+class ChargingSessionPollRequested extends ChargingEvent {
+  final String sessionId;
+  const ChargingSessionPollRequested({required this.sessionId});
+  @override
+  List<Object?> get props => [sessionId];
+}
+

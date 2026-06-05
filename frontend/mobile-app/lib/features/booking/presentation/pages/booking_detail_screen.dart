@@ -49,6 +49,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
   String? _stationError;
   bool _didShowPayment = false;
   bool _isBottomSheetOpen = false;
+  bool _paymentInitiated = false; // guards duplicate VNPay launch
 
   @override
   void initState() {
@@ -61,7 +62,9 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
     final chargerId = booking.chargerId;
 
     // If already loaded and matches chargerId, skip
-    if (_station != null && _charger != null && _charger!.id == chargerId) {
+    if (_station != null &&
+        _charger != null &&
+        (_charger!.id == chargerId || _charger!.connectorId == chargerId)) {
       return;
     }
     setState(() {
@@ -84,7 +87,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
           (station) async {
             ChargerEntity? matchingCharger;
             for (final c in station.chargers) {
-              if (c.id == chargerId) {
+              if (c.id == chargerId || c.connectorId == chargerId) {
                 matchingCharger = c;
                 break;
               }
@@ -145,6 +148,11 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
         });
       }
     }
+  }
+
+  /// Returns the raw booking.qrToken.
+  String _bookingQrData(BookingEntity booking) {
+    return booking.qrToken ?? '';
   }
 
   Future<void> _openGoogleMaps() async {
@@ -242,6 +250,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
               EVToast.show(context, message: state.message, isError: true);
             }
             if (state is BookingPaymentInitiated) {
+              if (_paymentInitiated) return; // prevent duplicate VNPay launch
+              _paymentInitiated = true;
               if (_isBottomSheetOpen) {
                 _isBottomSheetOpen = false;
                 if (Navigator.canPop(context)) Navigator.pop(context);
@@ -385,7 +395,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         QrImageView(
-                          data: b.qrToken!,
+                          data: _bookingQrData(b),
                           version: QrVersions.auto,
                           size: 220,
                           eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: AppColors.primary),
@@ -492,7 +502,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
             ],
             if (b.penaltyAmount != null) ...[
               const Divider(height: AppSpacing.lg),
-              BookingInfoRow(icon: Icons.warning_amber_outlined, label: 'Phạt vi phạm (NO_SHOW)',
+              BookingInfoRow(icon: Icons.warning_amber_outlined, label: 'Phạt vi phạm (Không đến)',
                   value: VndFormatter.format(b.penaltyAmount!), valueColor: AppColors.error),
             ],
           ]),

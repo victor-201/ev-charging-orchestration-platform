@@ -104,7 +104,6 @@ export class PricingHttpClient {
     startTime:     Date;
     endTime:       Date;
   }): PricingQuote {
-    const MIN_DEPOSIT = 50_000;
     const hour = opts.startTime.getHours();
     const isPeak     = (hour >= 9 && hour < 12) || (hour >= 17 && hour < 20);
     const isOffPeak  = hour >= 22 || hour < 6;
@@ -113,7 +112,7 @@ export class PricingHttpClient {
     // Assume standard 22kW charging speed at 85% efficiency for AC chargers.
     const estimatedKwh   = durationHours * 22 * 0.85;
     const estimatedTotal = Math.ceil(estimatedKwh * pricePerKwhVnd);
-    const deposit        = Math.max(Math.ceil(estimatedTotal * 1.2), MIN_DEPOSIT);
+    const deposit        = Math.ceil(estimatedTotal * 1.2);
 
     return {
       stationId:             opts.stationId,

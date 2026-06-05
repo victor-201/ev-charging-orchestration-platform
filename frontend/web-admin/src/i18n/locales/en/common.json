@@ -46,7 +46,24 @@
     "loading_error": "An error occurred while loading data",
     "retry": "Retry",
     "filter": "Filter",
-    "clear_filter": "Clear filters"
+    "clear_filter": "Clear filters",
+    "data_refreshed": "Data refreshed",
+    "copied_user_id": "User ID copied",
+    "copied_session_id": "Session ID copied",
+    "copied_charger_id": "Charger ID copied",
+    "copied_booking_id": "Booking ID copied",
+    "copied_station_id": "Station ID copied",
+    "copied_coordinates": "Station coordinates copied",
+    "copied_tx_id": "Transaction ID copied",
+    "copied_ref_id": "Reference ID copied",
+    "copied_wallet_id": "Wallet ID copied",
+    "copied_arrear_id": "Arrears ID copied",
+    "copied_related_id": "Related ID copied"
+  },
+  "gps": {
+    "not_supported": "Browser does not support GPS location!",
+    "fetching": "Retrieving GPS coordinates...",
+    "permission_denied": "Please grant GPS access permission!"
   },
   "api_errors": {
     "UNKNOWN_ERROR": "Unknown system error",

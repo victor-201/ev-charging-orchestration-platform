@@ -28,7 +28,7 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
-    let base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    let base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/").replace(/=/g, "");
     while (base64.length % 4) {
       base64 += "=";
     }
@@ -37,6 +37,28 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
   } catch {
     return null;
   }
+}
+
+/** Choose the best rear/environment camera for QR scanning */
+async function resolveCameraConfig(): Promise<string | MediaTrackConstraints> {
+  try {
+    const devices = await Html5Qrcode.getCameras();
+    if (devices && devices.length > 0) {
+      const label = devices[0].label?.toLowerCase() ?? '';
+      // If first camera is clearly front-facing, try to find a rear one
+      if (label.includes('front') || label.includes('trước')) {
+        const rear = devices.find(d =>
+          d.label?.toLowerCase().includes('back') ||
+          d.label?.toLowerCase().includes('rear') ||
+          d.label?.toLowerCase().includes('sau') ||
+          d.label?.toLowerCase().includes('environment')
+        );
+        if (rear) return rear.id;
+      }
+      return devices[0].id;
+    }
+  } catch {}
+  return { facingMode: "environment" };
 }
 
 const QrScannerScreen: React.FC<QrScannerScreenProps> = ({
@@ -71,18 +93,30 @@ const QrScannerScreen: React.FC<QrScannerScreenProps> = ({
 
       const rawToken = decodedText.trim();
 
-      // 1. Check standard non-JWT format (EV-XXXX-XXXX)
-      if (rawToken.startsWith("EV-") || !rawToken.includes(".")) {
+      // 1. Fallback: EV-XXXX-XXXX (legacy app QR). Try extracting booking shortId.
+      if (rawToken.startsWith("EV-")) {
+        // EV-{SHORTID}-{HEX} — the middle segment is the booking shortId
+        const parts = rawToken.split("-");
+        const shortId = parts.length >= 3 ? parts[1] : "";
         setScanState("SUCCESS");
-        setScannedData({ bookingId: "Đặt lịch", qrToken: rawToken });
+        setScannedData({ bookingId: shortId || "Đặt lịch", qrToken: rawToken });
 
         setTimeout(() => {
-          onScanSuccessRef.current("", rawToken);
+          onScanSuccessRef.current("", rawToken); // Pass empty bookingId so backend resolves correct UUID via qrToken
         }, 1200);
         return;
       }
 
-      // 2. Legacy/Fallback check: attempt to decode payload to extract bookingId
+      // 2. Non-JWT format (unrecognized) — try as-is
+      if (!rawToken.includes(".")) {
+        setScanState("ERROR");
+        setErrorMsg(
+          "Mã QR không hợp lệ. Vui lòng yêu cầu khách mở ứng dụng → Đặt lịch → Chi tiết lịch."
+        );
+        return;
+      }
+
+      // 3. JWT format: decode payload to extract bookingId + qrToken
       const payload = decodeJwtPayload(rawToken);
 
       if (!payload || typeof payload.bookingId !== "string") {
@@ -94,12 +128,13 @@ const QrScannerScreen: React.FC<QrScannerScreenProps> = ({
       }
 
       const bookingId = payload.bookingId as string;
+      const qrToken = (payload.qrToken as string) || rawToken;
       setScanState("SUCCESS");
-      setScannedData({ bookingId, qrToken: rawToken });
+      setScannedData({ bookingId, qrToken });
 
       // Slight delay for success animation, then start session
       setTimeout(() => {
-        onScanSuccessRef.current(bookingId, rawToken);
+        onScanSuccessRef.current(bookingId, qrToken);
       }, 1200);
     },
     []
@@ -112,22 +147,16 @@ const QrScannerScreen: React.FC<QrScannerScreenProps> = ({
 
     const startScanner = async () => {
       try {
-        const devices = await Html5Qrcode.getCameras();
+        const cameraConfig = await resolveCameraConfig();
         if (!isMounted) return;
-
-        let cameraConfig: string | MediaTrackConstraints;
-        if (devices && devices.length > 0) {
-          cameraConfig = devices[0].id;
-        } else {
-          cameraConfig = { facingMode: "environment" };
-        }
 
         await html5QrCode.start(
           cameraConfig,
           {
-            fps: 10,
+            fps: 15,
             qrbox: { width: 320, height: 320 },
             aspectRatio: 1.0,
+            videoConstraints: { width: { max: 1280 }, height: { max: 720 } },
           },
           handleScanSuccess,
           (errorMsg) => {
@@ -180,20 +209,15 @@ const QrScannerScreen: React.FC<QrScannerScreenProps> = ({
       scannerRef.current = html5QrCode;
 
       try {
-        const devices = await Html5Qrcode.getCameras();
-        let cameraConfig: string | MediaTrackConstraints;
-        if (devices && devices.length > 0) {
-          cameraConfig = devices[0].id;
-        } else {
-          cameraConfig = { facingMode: "environment" };
-        }
+        const cameraConfig = await resolveCameraConfig();
 
         await html5QrCode.start(
           cameraConfig,
           {
-            fps: 10,
+            fps: 15,
             qrbox: { width: 320, height: 320 },
             aspectRatio: 1.0,
+            videoConstraints: { width: { max: 1280 }, height: { max: 720 } },
           },
           handleScanSuccess,
           (errorMsg) => {

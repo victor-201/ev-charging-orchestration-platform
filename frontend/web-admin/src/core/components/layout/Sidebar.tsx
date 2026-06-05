@@ -97,7 +97,9 @@ export default function Sidebar() {
       <nav className="flex-1 flex flex-col gap-1 overflow-hidden">
         {NAV_ITEMS.filter(({ key }) => {
           const isAdmin = user?.roles?.includes('admin');
-          if (!isAdmin && ['staff', 'analytics', 'settings', 'billing', 'users'].includes(key)) {
+          // Pages exclusively for admins: staff mgmt, analytics, billing, user mgmt
+          // Staff can see: dashboard, map, sessions, bookings, maintenance, notifications, settings
+          if (!isAdmin && ['staff', 'analytics', 'billing', 'users'].includes(key)) {
             return false;
           }
           return true;

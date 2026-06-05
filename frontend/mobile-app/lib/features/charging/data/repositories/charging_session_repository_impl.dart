@@ -18,10 +18,20 @@ class ChargingSessionModel extends ChargingSessionEntity {
     required super.energyKwh,
     required super.socPercent,
     required super.powerW,
+    super.voltageV,
+    super.currentA,
+    super.temperatureC,
     required super.amountDue,
     required super.startedAt,
     super.endedAt,
     super.transactionId,
+    super.startSocPercent,
+    super.startMeterWh,
+    super.endMeterWh,
+    super.stationName,
+    super.cityName,
+    super.connectorType,
+    super.maxPowerKw,
   });
 
   factory ChargingSessionModel.fromJson(Map<String, dynamic> json) {
@@ -43,6 +53,13 @@ class ChargingSessionModel extends ChargingSessionEntity {
           ? DateTime.parse(json['endedAt'].toString())
           : null,
       transactionId: json['transactionId']?.toString(),
+      startSocPercent: (json['startSocPercent'] as num?)?.toDouble(),
+      startMeterWh: (json['startMeterWh'] as num?)?.toDouble(),
+      endMeterWh: (json['endMeterWh'] as num?)?.toDouble(),
+      stationName: json['stationName']?.toString(),
+      cityName: json['cityName']?.toString(),
+      connectorType: json['connectorType']?.toString(),
+      maxPowerKw: (json['maxPowerKw'] as num?)?.toDouble(),
     );
   }
 }
@@ -104,7 +121,10 @@ class ChargingSessionRepositoryImpl
     try {
       final response =
           await _client.get(ApiPaths.chargingSessionById(sessionId));
-      final data = response.data['data'] as Map<String, dynamic>? ?? {};
+      final raw = response.data as Map<String, dynamic>? ?? {};
+      final data = (raw['data'] is Map<String, dynamic>)
+          ? raw['data'] as Map<String, dynamic>
+          : raw;
       return Right(ChargingSessionModel.fromJson(data));
     } on DioException catch (e) {
       return Left(ErrorMapper.fromDioException(e));
@@ -146,20 +166,37 @@ class ChargingSessionRepositoryImpl
     required String sessionId,
     required void Function(TelemetryData) onData,
   }) {
-    final baseUrl = AppConfig.current.wsBaseUrl;
+    // Already connected — just re-join room
+    if (_socket != null && _socket!.connected) {
+      _socket!.emit('join', {'sessionId': sessionId});
+      return;
+    }
 
-    // Parse WS URL to support both ngrok and local dev
+    // Socket exists but still connecting — don't kill it, let it finish
+    if (_socket != null) return;
+
+    final rawUrl = AppConfig.current.wsBaseUrl;
+
+    // Parse WS URL into origin + Socket.IO path.
+    // WEBSOCKET_URL may already be the full path (e.g.
+    // wss://host/socket.io/charging) or just an origin derived from
+    // API_BASE_URL.  Always normalise to origin + /socket.io/charging
+    // so Kong can route to the session-service.
     String connectionUrl;
     String socketPath;
+    const kRoutePath = '/socket.io/charging';
 
     try {
-      final parsed = Uri.parse(baseUrl);
+      final parsed = Uri.parse(rawUrl);
       connectionUrl = '${parsed.scheme}://${parsed.host}${parsed.port != 0 ? ':${parsed.port}' : ''}/charging';
-      socketPath = '/socket.io';
+      socketPath = rawUrl.contains('/socket.io/charging') ? kRoutePath : kRoutePath;
     } catch (_) {
-      connectionUrl = '$baseUrl/charging';
-      socketPath = '/socket.io';
+      connectionUrl = rawUrl.endsWith('/') ? '${rawUrl}charging' : '$rawUrl/charging';
+      socketPath = kRoutePath;
     }
+
+    // ignore: avoid_print
+    print('[WS] connecting to $connectionUrl path=$socketPath session=$sessionId');
 
     _socket = io.io(connectionUrl, <String, dynamic>{
       'path': socketPath,
@@ -169,17 +206,34 @@ class ChargingSessionRepositoryImpl
     });
 
     _socket!.onConnect((_) {
+      // ignore: avoid_print
+      print('[WS] connected — joining room $sessionId');
       _socket!.emit('join', {'sessionId': sessionId});
     });
 
     _socket!.on('charging_updated', (dynamic raw) {
-      if (raw is! Map) return;
-      final json = raw as Map<String, dynamic>;
+      if (raw == null || raw is! Map) return;
+
+      // Dart socket.io_client may deliver `Map<dynamic, dynamic>` from JS interop.
+      // A direct `as Map<String, dynamic>` cast throws CastError at runtime.
+      // Map<String, dynamic>.from() safely creates a correctly-typed copy.
+      final Map<String, dynamic> json;
+      try {
+        json = Map<String, dynamic>.from(raw as Map);
+      } catch (_) {
+        // ignore: avoid_print
+        print('[WS] charging_updated: failed to parse payload, skipping');
+        return;
+      }
+
       final powerKw = (json['powerKw'] as num?)?.toDouble();
       final powerW = powerKw != null ? powerKw * 1000 : 0.0;
       final voltageV = (json['voltageV'] as num?)?.toDouble() ?? 0;
       final currentA = (json['currentA'] as num?)?.toDouble() ?? 0;
       final temperatureC = (json['temperatureC'] as num?)?.toDouble() ?? 0;
+
+      // ignore: avoid_print
+      print('[WS] charging_updated: power=${powerW}W soc=${json['socPercent']}%');
 
       onData(TelemetryData(
         chargerId: json['chargerId']?.toString() ?? '',
@@ -196,8 +250,19 @@ class ChargingSessionRepositoryImpl
       ));
     });
 
-    _socket!.onConnectError((_) {});
-    _socket!.onDisconnect((_) {});
+    _socket!.onConnectError((err) {
+      // ignore: avoid_print
+      print('[WS] connectError: $err');
+    });
+    _socket!.onDisconnect((reason) {
+      // ignore: avoid_print
+      print('[WS] disconnected: $reason');
+    });
+    _socket!.onReconnect((_) {
+      // ignore: avoid_print
+      print('[WS] reconnected — re-joining room');
+      _socket!.emit('join', {'sessionId': sessionId});
+    });
   }
 
   @override

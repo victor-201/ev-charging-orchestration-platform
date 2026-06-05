@@ -22,7 +22,8 @@ import {
   ChargerReadModelOrmEntity, VehicleReadModelOrmEntity,
   PricingSnapshotOrmEntity, QueueOrmEntity,
   SchedulingSlotOrmEntity, ProcessedEventOrmEntity,
-  OutboxOrmEntity,
+  OutboxOrmEntity, ConnectorReadModelOrmEntity,
+  UserReadModelOrmEntity,
 } from './infrastructure/persistence/typeorm/entities/booking.orm-entities';
 import { BookingModule } from './modules/booking/booking.module';
 import { SessionModule } from './modules/main/session.module';
@@ -51,7 +52,8 @@ import { OutboxOrmEntity as OutboxEntity } from './infrastructure/messaging/outb
           ChargerReadModelOrmEntity, VehicleReadModelOrmEntity,
           PricingSnapshotOrmEntity, QueueOrmEntity,
           SchedulingSlotOrmEntity, ProcessedEventOrmEntity,
-          OutboxOrmEntity,
+          OutboxOrmEntity, ConnectorReadModelOrmEntity,
+          UserReadModelOrmEntity,
           SessionOrmEntity, TelemetryOrmEntity,
           ChargerStateOrmEntity, UserDebtReadModelOrmEntity,
           BookingReadModelOrmEntity,

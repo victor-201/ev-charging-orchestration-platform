@@ -12,7 +12,7 @@ import {
   CreateStationUseCase, UpdateStationUseCase,
   ListStationsUseCase, GetStationUseCase,
   AddChargerUseCase, UpdateChargerStatusUseCase,
-  GetChargersUseCase,
+  GetChargersUseCase, GetNearbyStationsUseCase,
 } from '../../src/application/use-cases/station.use-cases';
 import {
   STATION_REPOSITORY,
@@ -463,6 +463,41 @@ describe('UpdateStationUseCase', () => {
     await expect(
       useCase.execute('nonexistent', { name: 'New Name' }),
     ).rejects.toThrow(StationNotFoundException);
+  });
+});
+
+describe('GetNearbyStationsUseCase', () => {
+  let useCase: GetNearbyStationsUseCase;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        GetNearbyStationsUseCase,
+        { provide: STATION_REPOSITORY, useValue: mockStationRepo },
+      ],
+    }).compile();
+    useCase = module.get(GetNearbyStationsUseCase);
+  });
+
+  it('should search nearby stations and pass ids list', async () => {
+    mockStationRepo.findMany.mockResolvedValue({
+      items: [makeStation()],
+      total: 1,
+      limit: 20,
+      offset: 0,
+    });
+
+    const result = await useCase.execute(10.7769, 106.7009, 10, 20, undefined, ['station-uuid-1']);
+
+    expect(result).toHaveLength(1);
+    expect(mockStationRepo.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nearLat: 10.7769,
+        nearLng: 106.7009,
+        ids: ['station-uuid-1'],
+      }),
+    );
   });
 });
 

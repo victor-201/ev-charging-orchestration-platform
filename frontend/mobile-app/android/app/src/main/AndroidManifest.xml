@@ -73,5 +73,10 @@
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="http"/>
         </intent>
+        <!-- Cho phép url_launcher mở ứng dụng Authenticator qua otpauth scheme -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="otpauth"/>
+        </intent>
     </queries>
 </manifest>

@@ -10,8 +10,9 @@ import CustomSelect from '@/core/components/ui/CustomSelect';
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { formatDate } from '@/i18n/formatter';
+import { formatDate, tSafe, translateMessage } from '@/i18n/formatter';
 import { useAuthStore } from '@/features/auth/store/auth.store';
+import Portal from '@/core/components/ui/Portal';
 
 type Staff = {
   id: string;
@@ -198,7 +199,8 @@ export default function StaffPage() {
     const { data: stationsData } = useQuery({
       queryKey: ['stations-list-lookup', staffStationIds],
       queryFn: async () => {
-        const params: Record<string, any> = { limit: 1000 };
+        // When scoped by ids, limit=50 is far more than enough; avoids full-scan
+        const params: Record<string, any> = { limit: 50 };
         if (!isAdmin && staffStationIds.length > 0) params.ids = staffStationIds.join(',');
         const res = await apiClient.get('/stations', { params });
         return res.data?.items ?? [];
@@ -294,7 +296,7 @@ export default function StaffPage() {
 
     const handleAddStaffSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!newUserId.trim()) { toast.error('Vui lòng nhập User ID của nhân viên'); return; }
+      if (!newUserId.trim()) { toast.error(tSafe('dashboard:staff.enter_user_id', 'Vui lòng nhập User ID của nhân viên')); return; }
       setIsSubmittingAdd(true);
       try {
         const selectedStation = stations.find((st: any) => st.id === newStationId);
@@ -303,10 +305,10 @@ export default function StaffPage() {
           notes: newNotes.trim() || null, stationId: newStationId || '00000000-0000-0000-0000-000000000000',
           stationName: selectedStation ? selectedStation.name : 'EV Station',
         });
-        toast.success('Thêm hồ sơ nhân viên mới thành công');
+        toast.success(tSafe('dashboard:staff.add_success', 'Thêm hồ sơ nhân viên mới thành công'));
         setIsAddModalOpen(false); setNewUserId(''); setNewNotes(''); setNewStationId('');
         refetchStaff();
-      } catch (err: any) { toast.error(err?.response?.data?.message || 'Có lỗi xảy ra khi tạo hồ sơ nhân viên'); }
+      } catch (err: any) { toast.error(translateMessage(err?.response?.data?.message, 'dashboard:staff.add_error')); }
       finally { setIsSubmittingAdd(false); }
     };
 
@@ -316,20 +318,20 @@ export default function StaffPage() {
       setIsSubmittingEdit(true);
       try {
         await apiClient.patch(`/staff/${editingStaff.id}`, { position: editPosition, shift: editShift, status: editStatus });
-        toast.success('Cập nhật hồ sơ nhân viên thành công');
+        toast.success(tSafe('dashboard:staff.update_success', 'Cập nhật hồ sơ nhân viên thành công'));
         setIsEditModalOpen(false); setEditingStaff(null);
         refetchStaff();
-      } catch (err: any) { toast.error(err?.response?.data?.message || 'Không thể cập nhật thông tin nhân viên'); }
+      } catch (err: any) { toast.error(translateMessage(err?.response?.data?.message, 'dashboard:staff.update_error')); }
       finally { setIsSubmittingEdit(false); }
     };
 
     const handleDeleteStaff = async (staffId: string) => {
-      if (!window.confirm('Bạn có chắc chắn muốn xóa hồ sơ nhân sự này khỏi hệ thống không?')) return;
+      if (!window.confirm(tSafe('dashboard:staff.confirm_delete', 'Bạn có chắc chắn muốn xóa hồ sơ nhân sự này khỏi hệ thống không?'))) return;
       try {
         await apiClient.delete(`/staff/${staffId}`);
-        toast.success('Đã xóa hồ sơ nhân viên thành công');
+        toast.success(tSafe('dashboard:staff.delete_success', 'Đã xóa hồ sơ nhân viên thành công'));
         setSelectedStaff(null); refetchStaff();
-      } catch (err: any) { toast.error(err?.response?.data?.message || 'Xóa hồ sơ nhân viên thất bại'); }
+      } catch (err: any) { toast.error(translateMessage(err?.response?.data?.message, 'dashboard:staff.delete_error')); }
     };
 
     const openEditModal = (s: Staff) => {
@@ -392,11 +394,48 @@ export default function StaffPage() {
             )}
 
             {tab === 'staff' && (
-              <button onClick={() => setIsAddModalOpen(true)}
-                className="px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-cyan/20 rounded-xl transition-all flex items-center gap-1.5"
-                style={{ background: 'var(--grad-cyan-lime)' }}>
-                <UserPlus className="w-3.5 h-3.5" /> {t('dashboard:staff.add')}
-              </button>
+              <>
+                <div className="flex items-center gap-1.5 text-text-muted text-xs">
+                  <Filter className="w-3.5 h-3.5" />
+                  <span>Lọc:</span>
+                </div>
+                <CustomSelect
+                  value={staffPosition}
+                  onChange={(val) => { setStaffPosition(val); resetStaffPage(); }}
+                  options={[
+                    { value: '', label: 'Tất cả vị trí' },
+                    { value: 'manager', label: 'Quản lý' },
+                    { value: 'supervisor', label: 'Giám sát viên' },
+                    { value: 'operator', label: 'Vận hành viên' },
+                    { value: 'technician', label: 'Kỹ thuật viên' },
+                  ]}
+                  className="w-36 h-9"
+                />
+                <CustomSelect
+                  value={staffShift}
+                  onChange={(val) => { setStaffShift(val); resetStaffPage(); }}
+                  options={[
+                    { value: '', label: 'Tất cả ca làm' },
+                    { value: 'morning', label: 'Ca sáng' },
+                    { value: 'afternoon', label: 'Ca chiều' },
+                    { value: 'night', label: 'Ca đêm' },
+                  ]}
+                  className="w-36 h-9"
+                />
+                {(staffPosition || staffShift) && (
+                  <button
+                    onClick={() => { setStaffPosition(''); setStaffShift(''); resetStaffPage(); }}
+                    className="text-xs text-text-muted hover:text-danger transition-colors mr-1"
+                  >
+                    Xóa bộ lọc
+                  </button>
+                )}
+                <button onClick={() => setIsAddModalOpen(true)}
+                  className="px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-cyan/20 rounded-xl transition-all flex items-center gap-1.5"
+                  style={{ background: 'var(--grad-cyan-lime)' }}>
+                  <UserPlus className="w-3.5 h-3.5" /> {t('dashboard:staff.add')}
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -404,7 +443,7 @@ export default function StaffPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0">
           {/* Staff List (left column) */}
           <div className={cn("glass flex flex-col overflow-hidden min-h-0",
-            tab === 'attendance' ? "lg:col-span-3" : selectedStaff ? "lg:col-span-1" : "lg:max-w-5xl lg:mx-auto w-full")}>
+            tab === 'attendance' ? "lg:col-span-3" : selectedStaff ? "lg:col-span-1" : "lg:col-span-3 w-full")}>
             {tab === 'staff' ? (
               <>
                 <div className="px-5 py-4 border-b border-white/5 shrink-0 flex items-center justify-between">
@@ -476,12 +515,7 @@ export default function StaffPage() {
                     )}
                   </div>
                 </div>
-                {tab === 'staff' && (
-                  <div className="border-t border-white/5 px-5 py-3 shrink-0">
-                    <Pagination page={staffPage} totalPages={staffTotalPages} onPageChange={setStaffPage}
-                      total={staffTotal} currentItemsCount={staffList.length} itemLabel="nhân viên" />
-                  </div>
-                )}
+
               </>
             ) : (
               <>
@@ -525,10 +559,10 @@ export default function StaffPage() {
                       return (
                         <div key={day}
                           className={`aspect-square rounded-xl border p-1.5 flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer hover:bg-white/5 ${bgColor}`}
-                          title={att ? `${att.status === 'late' ? 'Đi muộn' : att.status === 'absent' ? 'Vắng' : att.status === 'leave' ? 'Nghỉ phép' : 'Có mặt'}: ${new Date(att.checkInTime).toLocaleTimeString()}` : ''}>
+                          title={att ? `${att.status === 'late' ? 'Đi muộn' : att.status === 'absent' ? 'Vắng' : att.status === 'leave' ? 'Nghỉ phép' : 'Có mặt'}: ${new Date(att.checkInTime).toLocaleTimeString('vi-VN')}` : ''}>
                           <span className={`text-xs ${textColor}`}>{day}</span>
                           {status && <div className={`w-1.5 h-1.5 rounded-full ${STATUS_COLORS[status]}`} />}
-                          {att?.checkInTime && <span className="text-[8px] text-text-muted">{new Date(att.checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                          {att?.checkInTime && <span className="text-[8px] text-text-muted">{new Date(att.checkInTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>}
                         </div>
                       );
                     })}</div>
@@ -545,45 +579,43 @@ export default function StaffPage() {
                 )}
 
                 {viewMode === 'table' && (
-                  <div className="flex-1 overflow-y-auto min-h-0">
-                    <div className="overflow-x-auto">
-                      <table className="ev-table">
-                        <thead><tr>
-                          <th>{t('dashboard:staff.table_att.employee')}</th>
-                          <th>{t('dashboard:staff.table_att.station')}</th>
-                          <th>{t('dashboard:staff.table_att.checkin')}</th>
-                          <th>{t('dashboard:staff.table_att.checkout')}</th>
-                          <th>{t('dashboard:staff.table_att.gps')}</th>
-                          <th>Trạng thái</th>
-                        </tr></thead>
-                        <tbody>
-                          {loadingAtt ? Array.from({ length: LIMIT }).map((_, i) => (
-                            <tr key={i}>{Array.from({ length: 6 }).map((_, j) => (
-                              <td key={j}><div className="h-4 bg-white/5 rounded animate-pulse" /></td>
-                            ))}</tr>
-                          )) : attendanceList.length ? attendanceList.map((a: Attendance) => (
-                            <motion.tr key={a.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                              <td className="text-text-main font-medium">{a.User?.fullName || a.userId.slice(0, 8)}…</td>
-                              <td className="font-mono text-xs">{a.stationId ? a.stationId.slice(0, 8) : '—'}…</td>
-                              <td><div className="flex items-center gap-1.5 text-xs"><Clock className="w-3.5 h-3.5 text-success" />{new Date(a.checkInTime).toLocaleTimeString()}</div>
-                                <p className="text-[10px] text-text-muted mt-0.5">{new Date(a.checkInTime).toLocaleDateString()}</p></td>
-                              <td>{a.checkOutTime ? (<><div className="flex items-center gap-1.5 text-xs text-text-muted"><Clock className="w-3.5 h-3.5" />{new Date(a.checkOutTime).toLocaleTimeString()}</div>
-                                <p className="text-[10px] text-text-muted mt-0.5">{new Date(a.checkOutTime).toLocaleDateString()}</p></>) : (
-                                <span className="badge badge-warning">Đang trực</span>)}</td>
-                              <td className="font-mono text-xs text-text-muted">{a.latitude?.toFixed(4)}, {a.longitude?.toFixed(4)}</td>
-                              <td><span className={`badge ${
-                                a.status === 'present' ? 'badge-success' : a.status === 'late' ? 'badge-warning' : a.status === 'absent' ? 'badge-danger' : 'badge-muted'
-                              }`}>{formatAttendanceStatus(a.status ?? 'unknown')}</span></td>
-                            </motion.tr>
-                          )) : (
-                            <tr><td colSpan={6} className="text-center py-8 text-text-muted">Không có dữ liệu</td></tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                    <div className="border-t border-white/5 px-5 py-3">
-                      <Pagination page={attPage} totalPages={attTotalPages} onPageChange={setAttPage}
-                        total={attTotal} currentItemsCount={attendanceList.length} itemLabel="lượt chấm công" />
+                  <div className="flex-1 flex flex-col min-h-0">
+                    <div className="flex-1 overflow-y-auto min-h-0">
+                      <div className="overflow-x-auto">
+                        <table className="ev-table">
+                          <thead><tr>
+                            <th>{t('dashboard:staff.table_att.employee')}</th>
+                            <th>{t('dashboard:staff.table_att.station')}</th>
+                            <th>{t('dashboard:staff.table_att.checkin')}</th>
+                            <th>{t('dashboard:staff.table_att.checkout')}</th>
+                            <th>{t('dashboard:staff.table_att.gps')}</th>
+                            <th>Trạng thái</th>
+                          </tr></thead>
+                          <tbody>
+                            {loadingAtt ? Array.from({ length: LIMIT }).map((_, i) => (
+                              <tr key={i}>{Array.from({ length: 6 }).map((_, j) => (
+                                <td key={j}><div className="h-4 bg-white/5 rounded animate-pulse" /></td>
+                              ))}</tr>
+                            )) : attendanceList.length ? attendanceList.map((a: Attendance) => (
+                              <motion.tr key={a.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                                <td className="text-text-main font-medium">{a.User?.fullName || a.userId.slice(0, 8)}…</td>
+                                <td className="font-mono text-xs">{a.stationId ? a.stationId.slice(0, 8) : '—'}…</td>
+                                <td><div className="flex items-center gap-1.5 text-xs"><Clock className="w-3.5 h-3.5 text-success" />{new Date(a.checkInTime).toLocaleTimeString('vi-VN')}</div>
+                                  <p className="text-[10px] text-text-muted mt-0.5">{new Date(a.checkInTime).toLocaleDateString('vi-VN')}</p></td>
+                                <td>{a.checkOutTime ? (<><div className="flex items-center gap-1.5 text-xs text-text-muted"><Clock className="w-3.5 h-3.5" />{new Date(a.checkOutTime).toLocaleTimeString('vi-VN')}</div>
+                                  <p className="text-[10px] text-text-muted mt-0.5">{new Date(a.checkOutTime).toLocaleDateString('vi-VN')}</p></>) : (
+                                  <span className="badge badge-warning">Đang trực</span>)}</td>
+                                <td className="font-mono text-xs text-text-muted">{a.latitude?.toFixed(4)}, {a.longitude?.toFixed(4)}</td>
+                                <td><span className={`badge ${
+                                  a.status === 'present' ? 'badge-success' : a.status === 'late' ? 'badge-warning' : a.status === 'absent' ? 'badge-danger' : 'badge-muted'
+                                }`}>{formatAttendanceStatus(a.status ?? 'unknown')}</span></td>
+                              </motion.tr>
+                            )) : (
+                              <tr><td colSpan={6} className="text-center py-8 text-text-muted">Không có dữ liệu</td></tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -707,10 +739,10 @@ export default function StaffPage() {
                         return (
                           <div key={day}
                             className={`aspect-square rounded-xl border p-1.5 flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer hover:bg-white/5 ${bgColor}`}
-                            title={att ? `${status === 'late' ? 'Đi muộn' : status === 'absent' ? 'Vắng' : status === 'leave' ? 'Nghỉ phép' : 'Có mặt'}: ${new Date(att.checkInTime).toLocaleTimeString()}` : ''}>
+                            title={att ? `${status === 'late' ? 'Đi muộn' : status === 'absent' ? 'Vắng' : status === 'leave' ? 'Nghỉ phép' : 'Có mặt'}: ${new Date(att.checkInTime).toLocaleTimeString('vi-VN')}` : ''}>
                             <span className={`text-xs ${textColor}`}>{day}</span>
                             {status && <div className={`w-1.5 h-1.5 rounded-full ${STATUS_COLORS[status]}`} />}
-                            {att?.checkInTime && <span className="text-[7px] text-text-muted">{new Date(att.checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                            {att?.checkInTime && <span className="text-[7px] text-text-muted">{new Date(att.checkInTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>}
                           </div>
                         );
                       })}</div>
@@ -739,78 +771,109 @@ export default function StaffPage() {
       )}
     </div>
 
+    {/* Standalone Pagination */}
+    {tab === 'staff' && (
+      <div className="glass px-4 shrink-0">
+        <Pagination
+          page={staffPage}
+          totalPages={staffTotalPages}
+          onPageChange={setStaffPage}
+          total={staffTotal}
+          currentItemsCount={staffList.length}
+          itemLabel="nhân viên"
+        />
+      </div>
+    )}
+
+    {tab === 'attendance' && viewMode === 'table' && (
+      <div className="glass px-4 shrink-0">
+        <Pagination
+          page={attPage}
+          totalPages={attTotalPages}
+          onPageChange={setAttPage}
+          total={attTotal}
+          currentItemsCount={attendanceList.length}
+          itemLabel="lượt chấm công"
+        />
+      </div>
+    )}
+
         {/* Add Staff Modal */}
         {isAddModalOpen && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-            <form onSubmit={handleAddStaffSubmit} className="w-full max-w-sm p-6 rounded-2xl relative border shadow-2xl space-y-4 bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 animate-scale-up">
-              <div className="corner-marker cm-tl" /><div className="corner-marker cm-tr" /><div className="corner-marker cm-bl" /><div className="corner-marker cm-br" />
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-2.5">
-                <div className="flex items-center gap-2"><UserPlus className="w-4 h-4 text-cyan" /><h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">Thêm nhân viên mới</h3></div>
-                <button type="button" onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-0.5 transition-colors"><X className="w-4 h-4" /></button>
-              </div>
-              <div className="space-y-3.5 text-xs">
-                <div className="flex flex-col gap-1"><label className="text-slate-500 dark:text-slate-400 font-semibold">Mã tài khoản người dùng (User UUID) <span className="text-danger">*</span></label>
-                  <input type="text" required value={newUserId} onChange={(e) => setNewUserId(e.target.value)} className="ev-input w-full h-8 px-2.5 text-xs font-mono" placeholder="Nhập UUID tài khoản người dùng..." /></div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1"><label className="text-slate-500 dark:text-slate-400 font-semibold">Vị trí trực</label>
-                    <CustomSelect value={newPosition} onChange={setNewPosition} options={[
-                      { value: 'manager', label: 'Quản lý' }, { value: 'supervisor', label: 'Giám sát viên' }, { value: 'operator', label: 'Vận hành viên' }, { value: 'technician', label: 'Kỹ thuật viên' },
-                    ]} /></div>
-                  <div className="flex flex-col gap-1"><label className="text-slate-500 dark:text-slate-400 font-semibold">Ca làm việc</label>
-                    <CustomSelect value={newShift} onChange={setNewShift} options={[
-                      { value: 'morning', label: 'Ca sáng (Morning)' }, { value: 'afternoon', label: 'Ca chiều' }, { value: 'night', label: 'Ca tối (Night)' },
-                    ]} /></div>
+          <Portal>
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+              <form onSubmit={handleAddStaffSubmit} className="w-full max-w-sm p-6 rounded-2xl relative border shadow-2xl space-y-4 bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 animate-scale-up">
+                <div className="corner-marker cm-tl" /><div className="corner-marker cm-tr" /><div className="corner-marker cm-bl" /><div className="corner-marker cm-br" />
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-2.5">
+                  <div className="flex items-center gap-2"><UserPlus className="w-4 h-4 text-cyan" /><h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">Thêm nhân viên mới</h3></div>
+                  <button type="button" onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-0.5 transition-colors"><X className="w-4 h-4" /></button>
                 </div>
-                <div className="flex flex-col gap-1"><label className="text-slate-500 dark:text-slate-400 font-semibold">Trạm sạc liên kết</label>
-                  <CustomSelect value={newStationId} onChange={setNewStationId} options={[
-                    { value: '', label: 'Tất cả trạm sạc' }, ...stations.map((st: any) => ({ value: st.id, label: st.name })),
-                  ]} /></div>
-                <div className="flex flex-col gap-1"><label className="text-slate-500 dark:text-slate-400 font-semibold">Ghi chú</label>
-                  <input type="text" value={newNotes} onChange={(e) => setNewNotes(e.target.value)} className="ev-input w-full h-8 px-2.5 text-xs" placeholder="Ghi chú về phân công, vị trí..." /></div>
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-3.5 py-1.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white text-xs font-semibold transition-colors rounded-xl">Hủy</button>
-                <button type="submit" disabled={isSubmittingAdd} className="px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-cyan/20 rounded-xl transition-all flex items-center gap-1.5" style={{ background: 'var(--grad-cyan-lime)' }}>
-                  {isSubmittingAdd && <div className="w-3 h-3 rounded-full border border-white border-t-transparent animate-spin" />}Tạo mới</button>
-              </div>
-            </form>
-          </div>
+                <div className="space-y-3.5 text-xs">
+                  <div className="flex flex-col gap-1"><label className="text-slate-500 dark:text-slate-400 font-semibold">Mã tài khoản người dùng (User UUID) <span className="text-danger">*</span></label>
+                    <input type="text" required value={newUserId} onChange={(e) => setNewUserId(e.target.value)} className="ev-input w-full h-8 px-2.5 text-xs font-mono" placeholder="Nhập UUID tài khoản người dùng..." /></div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1"><label className="text-slate-500 dark:text-slate-400 font-semibold">Vị trí trực</label>
+                      <CustomSelect value={newPosition} onChange={setNewPosition} options={[
+                        { value: 'manager', label: 'Quản lý' }, { value: 'supervisor', label: 'Giám sát viên' }, { value: 'operator', label: 'Vận hành viên' }, { value: 'technician', label: 'Kỹ thuật viên' },
+                      ]} /></div>
+                    <div className="flex flex-col gap-1"><label className="text-slate-500 dark:text-slate-400 font-semibold">Ca làm việc</label>
+                      <CustomSelect value={newShift} onChange={setNewShift} options={[
+                        { value: 'morning', label: 'Ca sáng (Morning)' }, { value: 'afternoon', label: 'Ca chiều' }, { value: 'night', label: 'Ca tối (Night)' },
+                      ]} /></div>
+                  </div>
+                  <div className="flex flex-col gap-1"><label className="text-slate-500 dark:text-slate-400 font-semibold">Trạm sạc liên kết</label>
+                    <CustomSelect value={newStationId} onChange={setNewStationId} options={[
+                      { value: '', label: 'Tất cả trạm sạc' }, ...stations.map((st: any) => ({ value: st.id, label: st.name })),
+                    ]} /></div>
+                  <div className="flex flex-col gap-1"><label className="text-slate-500 dark:text-slate-400 font-semibold">Ghi chú</label>
+                    <input type="text" value={newNotes} onChange={(e) => setNewNotes(e.target.value)} className="ev-input w-full h-8 px-2.5 text-xs" placeholder="Ghi chú về phân công, vị trí..." /></div>
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-3.5 py-1.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white text-xs font-semibold transition-colors rounded-xl">Hủy</button>
+                  <button type="submit" disabled={isSubmittingAdd} className="px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-cyan/20 rounded-xl transition-all flex items-center gap-1.5" style={{ background: 'var(--grad-cyan-lime)' }}>
+                    {isSubmittingAdd && <div className="w-3 h-3 rounded-full border border-white border-t-transparent animate-spin" />}Tạo mới</button>
+                </div>
+              </form>
+            </div>
+          </Portal>
         )}
 
         {/* Edit Staff Modal */}
         {isEditModalOpen && editingStaff && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-            <form onSubmit={handleEditStaffSubmit} className="w-full max-w-sm p-6 rounded-2xl relative border shadow-2xl space-y-4 bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 animate-scale-up">
-              <div className="corner-marker cm-tl" /><div className="corner-marker cm-tr" /><div className="corner-marker cm-bl" /><div className="corner-marker cm-br" />
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-2.5">
-                <div className="flex items-center gap-2"><Edit className="w-4 h-4 text-cyan" /><h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">Cập nhật thông tin nhân viên</h3></div>
-                <button type="button" onClick={() => { setIsEditModalOpen(false); setEditingStaff(null); }} className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-0.5 transition-colors"><X className="w-4 h-4" /></button>
-              </div>
-              <div className="space-y-3.5 text-xs">
-                <div className="flex flex-col gap-1"><label className="text-slate-500 dark:text-slate-400 font-semibold">Tên nhân viên</label>
-                  <div className="font-bold text-slate-900 dark:text-white text-sm bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl px-3 py-1.5">{editingStaff.User?.fullName || 'Chưa cập nhật hồ sơ'}</div></div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1"><label className="text-slate-500 dark:text-slate-400 font-semibold">Vị trí trực</label>
-                    <CustomSelect value={editPosition} onChange={setEditPosition} options={[
-                      { value: 'manager', label: 'Quản lý' }, { value: 'supervisor', label: 'Giám sát viên' }, { value: 'operator', label: 'Vận hành viên' }, { value: 'technician', label: 'Kỹ thuật viên' },
-                    ]} /></div>
-                  <div className="flex flex-col gap-1"><label className="text-slate-500 dark:text-slate-400 font-semibold">Ca làm việc</label>
-                    <CustomSelect value={editShift} onChange={setEditShift} options={[
-                      { value: 'morning', label: 'Ca sáng (Morning)' }, { value: 'afternoon', label: 'Ca chiều' }, { value: 'night', label: 'Ca tối (Night)' },
+          <Portal>
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+              <form onSubmit={handleEditStaffSubmit} className="w-full max-w-sm p-6 rounded-2xl relative border shadow-2xl space-y-4 bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 animate-scale-up">
+                <div className="corner-marker cm-tl" /><div className="corner-marker cm-tr" /><div className="corner-marker cm-bl" /><div className="corner-marker cm-br" />
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-2.5">
+                  <div className="flex items-center gap-2"><Edit className="w-4 h-4 text-cyan" /><h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">Cập nhật thông tin nhân viên</h3></div>
+                  <button type="button" onClick={() => { setIsEditModalOpen(false); setEditingStaff(null); }} className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-0.5 transition-colors"><X className="w-4 h-4" /></button>
+                </div>
+                <div className="space-y-3.5 text-xs">
+                  <div className="flex flex-col gap-1"><label className="text-slate-500 dark:text-slate-400 font-semibold">Tên nhân viên</label>
+                    <div className="font-bold text-slate-900 dark:text-white text-sm bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl px-3 py-1.5">{editingStaff.User?.fullName || 'Chưa cập nhật hồ sơ'}</div></div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1"><label className="text-slate-500 dark:text-slate-400 font-semibold">Vị trí trực</label>
+                      <CustomSelect value={editPosition} onChange={setEditPosition} options={[
+                        { value: 'manager', label: 'Quản lý' }, { value: 'supervisor', label: 'Giám sát viên' }, { value: 'operator', label: 'Vận hành viên' }, { value: 'technician', label: 'Kỹ thuật viên' },
+                      ]} /></div>
+                    <div className="flex flex-col gap-1"><label className="text-slate-500 dark:text-slate-400 font-semibold">Ca làm việc</label>
+                      <CustomSelect value={editShift} onChange={setEditShift} options={[
+                        { value: 'morning', label: 'Ca sáng (Morning)' }, { value: 'afternoon', label: 'Ca chiều' }, { value: 'night', label: 'Ca tối (Night)' },
+                      ]} /></div>
+                  </div>
+                  <div className="flex flex-col gap-1"><label className="text-slate-500 dark:text-slate-400 font-semibold">Trạng thái hoạt động</label>
+                    <CustomSelect value={editStatus} onChange={setEditStatus} options={[
+                      { value: 'ACTIVE', label: 'Hoạt động (ACTIVE)' }, { value: 'INACTIVE', label: 'Không hoạt động (INACTIVE)' },
                     ]} /></div>
                 </div>
-                <div className="flex flex-col gap-1"><label className="text-slate-500 dark:text-slate-400 font-semibold">Trạng thái hoạt động</label>
-                  <CustomSelect value={editStatus} onChange={setEditStatus} options={[
-                    { value: 'ACTIVE', label: 'Hoạt động (ACTIVE)' }, { value: 'INACTIVE', label: 'Không hoạt động (INACTIVE)' },
-                  ]} /></div>
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => { setIsEditModalOpen(false); setEditingStaff(null); }} className="px-3.5 py-1.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white text-xs font-semibold transition-colors rounded-xl">Hủy</button>
-                <button type="submit" disabled={isSubmittingEdit} className="px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-cyan/20 rounded-xl transition-all flex items-center gap-1.5" style={{ background: 'var(--grad-cyan-lime)' }}>
-                  {isSubmittingEdit && <div className="w-3 h-3 rounded-full border border-white border-t-transparent animate-spin" />}Lưu thay đổi</button>
-              </div>
-            </form>
-          </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button type="button" onClick={() => { setIsEditModalOpen(false); setEditingStaff(null); }} className="px-3.5 py-1.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white text-xs font-semibold transition-colors rounded-xl">Hủy</button>
+                  <button type="submit" disabled={isSubmittingEdit} className="px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-cyan/20 rounded-xl transition-all flex items-center gap-1.5" style={{ background: 'var(--grad-cyan-lime)' }}>
+                    {isSubmittingEdit && <div className="w-3 h-3 rounded-full border border-white border-t-transparent animate-spin" />}Lưu thay đổi</button>
+                </div>
+              </form>
+            </div>
+          </Portal>
         )}
       </div>
     );
@@ -822,7 +885,8 @@ export default function StaffPage() {
   const { data: stationsData } = useQuery({
     queryKey: ['staff-stations', staffStationIds],
     queryFn: async () => {
-      const params: Record<string, any> = { limit: 1000 };
+      // Always scoped by ids (staff-assigned stations); limit=50 covers any realistic count
+      const params: Record<string, any> = { limit: 50 };
       if (staffStationIds.length > 0) params.ids = staffStationIds.join(',');
       const res = await apiClient.get('/stations', { params });
       return (res.data?.items ?? []) as Station[];
@@ -888,30 +952,50 @@ export default function StaffPage() {
   const myTodayAttendance = attendanceList.find((a: Attendance) => a.userId === user?.id && a.checkInTime?.startsWith(todayStr));
 
   const handleCheckIn = () => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) { toast.error('Trình duyệt không hỗ trợ định vị GPS!'); return; }
-    toast.info('Đang lấy tọa độ GPS...');
+    if (typeof navigator === 'undefined' || !navigator.geolocation) { toast.error(tSafe('common:gps.not_supported', 'Trình duyệt không hỗ trợ định vị GPS!')); return; }
+    toast.info(tSafe('common:gps.fetching', 'Đang lấy tọa độ GPS...'));
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         try {
           const stationId = staffStationIds[0] || undefined;
           await apiClient.post('/attendance/check-in', { latitude: pos.coords.latitude, longitude: pos.coords.longitude, stationId });
-          toast.success('Check-in thành công!');
-        } catch (err: any) { toast.error(err?.response?.data?.message || 'Check-in thất bại!'); }
-      }, () => { toast.error('Vui lòng cấp quyền truy cập GPS!'); },
+          toast.success(tSafe('dashboard:home.checkin.checkin_success', 'Check-in thành công!'));
+        } catch (err: any) {
+          const data = err?.response?.data;
+          const errMsg = data?.message;
+          const errStr = Array.isArray(errMsg) ? errMsg.join('; ') : (errMsg || '');
+          console.error('[Check-in error]', JSON.stringify(data));
+          if (/latitude|longitude|tọa độ|coordinates/i.test(errStr)) {
+            toast.error(tSafe('dashboard:home.checkin.out_of_range', 'Bạn cần đến trạm để thực hiện thao tác (GPS hiện tại ngoài phạm vi)'));
+          } else {
+            toast.error(translateMessage(errStr, 'dashboard:home.checkin.checkin_failed'));
+          }
+        }
+      }, () => { toast.error(tSafe('common:gps.permission_denied', 'Vui lòng cấp quyền truy cập GPS!')); },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
 
   const handleCheckOut = () => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) { toast.error('Trình duyệt không hỗ trợ định vị GPS!'); return; }
-    toast.info('Đang lấy tọa độ GPS...');
+    if (typeof navigator === 'undefined' || !navigator.geolocation) { toast.error(tSafe('common:gps.not_supported', 'Trình duyệt không hỗ trợ định vị GPS!')); return; }
+    toast.info(tSafe('common:gps.fetching', 'Đang lấy tọa độ GPS...'));
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         try {
           await apiClient.post('/attendance/check-out', { latitude: pos.coords.latitude, longitude: pos.coords.longitude });
-          toast.success('Check-out thành công!');
-        } catch (err: any) { toast.error(err?.response?.data?.message || 'Check-out thất bại!'); }
-      }, () => { toast.error('Vui lòng cấp quyền truy cập GPS!'); },
+          toast.success(tSafe('dashboard:home.checkin.checkout_success', 'Check-out thành công!'));
+        } catch (err: any) {
+          const data = err?.response?.data;
+          const errMsg = data?.message;
+          const errStr = Array.isArray(errMsg) ? errMsg.join('; ') : (errMsg || '');
+          console.error('[Check-out error]', JSON.stringify(data));
+          if (/latitude|longitude|tọa độ|coordinates/i.test(errStr)) {
+            toast.error(tSafe('dashboard:home.checkin.out_of_range', 'Bạn cần đến trạm để thực hiện thao tác (GPS hiện tại ngoài phạm vi)'));
+          } else {
+            toast.error(translateMessage(errStr, 'dashboard:home.checkin.checkout_failed'));
+          }
+        }
+      }, () => { toast.error(tSafe('common:gps.permission_denied', 'Vui lòng cấp quyền truy cập GPS!')); },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
@@ -945,7 +1029,7 @@ export default function StaffPage() {
           {myTodayAttendance && (
             <span className="text-[10px] text-text-muted flex items-center gap-1">
               <CheckCircle className="w-3 h-3 text-green" />
-              Đã check-in {new Date(myTodayAttendance.checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              Đã check-in {new Date(myTodayAttendance.checkInTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
             </span>
           )}
           {/* Tab switch */}
@@ -1048,8 +1132,8 @@ export default function StaffPage() {
                       <motion.tr key={s.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                         <td className="font-mono text-xs text-text-main">{s.chargerId ? s.chargerId.slice(0, 8) : '—'}…</td>
                         <td className="text-text-main font-medium">{s.userId?.slice(0, 8)}…</td>
-                        <td><div className="flex items-center gap-1.5 text-xs"><Clock className="w-3.5 h-3.5 text-success" />{new Date(s.startTime).toLocaleTimeString()}</div>
-                          <p className="text-[10px] text-text-muted mt-0.5">{new Date(s.startTime).toLocaleDateString()}</p></td>
+                        <td><div className="flex items-center gap-1.5 text-xs"><Clock className="w-3.5 h-3.5 text-success" />{new Date(s.startTime).toLocaleTimeString('vi-VN')}</div>
+                          <p className="text-[10px] text-text-muted mt-0.5">{new Date(s.startTime).toLocaleDateString('vi-VN')}</p></td>
                         <td className="text-text-main font-mono text-xs">{(s.energyKwh || 0).toFixed(1)} kWh</td>
                         <td><span className="badge badge-warning">Đang sạc</span></td>
                       </motion.tr>
@@ -1101,10 +1185,10 @@ export default function StaffPage() {
               return (
                 <div key={day}
                   className={`aspect-square rounded-xl border p-1.5 flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer hover:bg-white/5 ${bgColor}`}
-                  title={att ? `${status === 'late' ? 'Đi muộn' : status === 'absent' ? 'Vắng' : status === 'leave' ? 'Nghỉ phép' : 'Có mặt'}: ${new Date(att.checkInTime).toLocaleTimeString()}` : ''}>
+                  title={att ? `${status === 'late' ? 'Đi muộn' : status === 'absent' ? 'Vắng' : status === 'leave' ? 'Nghỉ phép' : 'Có mặt'}: ${new Date(att.checkInTime).toLocaleTimeString('vi-VN')}` : ''}>
                   <span className={`text-xs ${textColor}`}>{day}</span>
                   {status && <div className={`w-2 h-2 rounded-full ${STATUS_COLORS[status]}`} />}
-                  {att?.checkInTime && <span className="text-[8px] text-text-muted">{new Date(att.checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                  {att?.checkInTime && <span className="text-[8px] text-text-muted">{new Date(att.checkInTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>}
                 </div>
               );
             })}</div>

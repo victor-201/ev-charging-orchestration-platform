@@ -9,6 +9,7 @@ import * as fs           from 'fs';
 import * as crypto       from 'crypto';
 import { IS_PUBLIC_KEY } from './jwt-auth.guard';
 import type { AuthenticatedUser } from './jwt-auth.guard';
+import { KIOSK_GUEST_USER_ID } from '../constants';
 
 @Injectable()
 export class CompositeAuthGuard implements CanActivate {
@@ -63,7 +64,7 @@ export class CompositeAuthGuard implements CanActivate {
 
     if (kioskKey && configuredKioskKey && this.safeCompare(kioskKey, configuredKioskKey)) {
       request.user = {
-        id: '00000000-0000-4000-8000-000000000000',
+        id: KIOSK_GUEST_USER_ID,
         email: 'kiosk@ev-platform.local',
         role: 'kiosk',
         roles: ['kiosk'],
@@ -111,6 +112,8 @@ export class CompositeAuthGuard implements CanActivate {
         role:      payload.role    ?? (payload.roles as string[])?.[0] ?? 'user',
         roles:     payload.roles   ?? [payload.role ?? 'user'],
         sessionId: payload.sessionId ?? null,
+        stationId: payload.stationId ?? null,
+        stationIds: payload.stationIds ?? [],
       } satisfies AuthenticatedUser;
 
       // Forward correlation-id from Kong header

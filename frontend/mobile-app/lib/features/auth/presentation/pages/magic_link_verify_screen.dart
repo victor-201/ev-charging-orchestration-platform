@@ -5,6 +5,7 @@ import '../bloc/auth_bloc.dart';
 import '../../../../core/design_system/theme/app_colors.dart';
 import '../../../../core/design_system/theme/app_typography.dart';
 import '../../../../core/design_system/widgets/ev_button.dart';
+import '../widgets/auth_layout.dart';
 
 class MagicLinkVerifyScreen extends StatefulWidget {
   final String token;
@@ -27,72 +28,77 @@ class _MagicLinkVerifyScreenState extends State<MagicLinkVerifyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: BlocConsumer<AuthBloc, AuthState>(
+    return AuthLayout(
+      showBackButton: false,
+      child: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthAuthenticated) {
             context.go('/map');
           }
         },
         builder: (context, state) {
-          return SafeArea(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (state is AuthLoading || state is AuthInitial) ...[
-                      const CircularProgressIndicator(),
-                      const SizedBox(height: 24),
-                      Text(
-                        'Đang xác thực email của bạn...',
-                        style: AppTypography.bodyLg,
-                        textAlign: TextAlign.center,
-                      ),
-                    ] else if (state is AuthError) ...[
-                      const Icon(Icons.error_outline, size: 80, color: AppColors.error),
-                      const SizedBox(height: 24),
-                      Text(
-                        'Xác thực thất bại',
-                        style: AppTypography.displayMd,
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        state.message,
-                        style: AppTypography.bodyLg.copyWith(color: AppColors.grey600),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 32),
-                      EVButton(
-                        label: 'Quay lại đăng nhập',
-                        onPressed: () => context.go('/auth/login'),
-                      ),
-                    ] else if (state is AuthEmailVerified) ...[
-                      const Icon(Icons.check_circle_outline, size: 80, color: AppColors.success),
-                      const SizedBox(height: 24),
-                      Text(
-                        'Xác thực thành công!',
-                        style: AppTypography.displayMd,
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Tài khoản của bạn đã được xác thực.',
-                        style: AppTypography.bodyLg.copyWith(color: AppColors.grey600),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 32),
-                      EVButton(
-                        label: 'Tiếp tục',
-                        onPressed: () => context.go('/map'),
-                      ),
-                    ]
-                  ],
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              if (state is AuthLoading || state is AuthInitial) ...[
+                const CircularProgressIndicator(),
+                const SizedBox(height: AppSpacing.lg),
+                Text(
+                  'Đang xác thực email của bạn...',
+                  style: AppTypography.bodyLg.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-              ),
-            ),
+              ] else if (state is AuthError) ...[
+                const Icon(Icons.error_outline, size: 56, color: AppColors.error),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  'Xác thực thất bại',
+                  style: AppTypography.headingMd.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  state.message,
+                  style: AppTypography.caption.copyWith(color: AppColors.grey600),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                EVButton(
+                  label: 'Quay lại đăng nhập',
+                  onPressed: () => context.go('/auth/login'),
+                ),
+              ] else if (state is AuthEmailVerified) ...[
+                const Icon(Icons.check_circle_outline, size: 56, color: AppColors.success),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  'Xác thực thành công!',
+                  style: AppTypography.headingMd.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  'Tài khoản của bạn đã được xác thực.',
+                  style: AppTypography.caption.copyWith(color: AppColors.grey600),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                EVButton(
+                  label: 'Tiếp tục',
+                  onPressed: () => context.go('/map'),
+                ),
+              ]
+            ],
           );
         },
       ),

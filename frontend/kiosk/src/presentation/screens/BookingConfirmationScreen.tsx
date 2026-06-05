@@ -5,18 +5,20 @@
  * Walk-ins are locked out. Only the booking owner can scan the QR to begin.
  */
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Zap, Calendar, Clock, ArrowLeft, ShieldAlert } from "lucide-react";
+import { Calendar, ShieldAlert, Clock, RotateCcw } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { Html5Qrcode } from "html5-qrcode";
-import { CHARGER_ID } from "../../data/sources/localStorage";
+import { GetStationDetailUseCase } from "../../application/useCases";
+import { CHARGER_ID, STATION_ID, POINT_ID } from "../../data/sources/localStorage";
+import type { ChargerInfo } from "../../domain/entities/entities";
+import type { ReservedBookingInfo } from "../hooks/useSessionStateMachine";
 
 interface BookingConfirmationScreenProps {
-  onCancel: () => void;
   onScanSuccess: (bookingId: string, qrToken: string) => void;
-  bookingId?: string;
-  bookingTimeRange?: string; // e.g. "10:30 — 11:00"
+  onCancel?: () => void;
+  reservedBookingInfo?: ReservedBookingInfo | null;
 }
 
 // Minimal JWT decode (no verify — server verifies)
@@ -35,18 +37,111 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
   }
 }
 
-const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps> = ({ 
-  onCancel,
+/** Choose the best rear/environment camera for QR scanning */
+async function resolveCameraConfig(): Promise<string | MediaTrackConstraints> {
+  try {
+    const devices = await Html5Qrcode.getCameras();
+    if (devices && devices.length > 0) {
+      const label = devices[0].label?.toLowerCase() ?? '';
+      if (label.includes('front') || label.includes('trước')) {
+        const rear = devices.find(d =>
+          d.label?.toLowerCase().includes('back') ||
+          d.label?.toLowerCase().includes('rear') ||
+          d.label?.toLowerCase().includes('sau') ||
+          d.label?.toLowerCase().includes('environment')
+        );
+        if (rear) return rear.id;
+      }
+      return devices[0].id;
+    }
+  } catch { }
+  return { facingMode: "environment" };
+}
+
+const getStationDetailUseCase = new GetStationDetailUseCase();
+
+const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps> = ({
   onScanSuccess,
-  bookingId = "B-9842",
-  bookingTimeRange = "Hôm nay, 10:30 — 11:00"
+  onCancel,
+  reservedBookingInfo,
 }) => {
   const scannerContainerId = "kiosk-reserved-scanner";
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
 
-  const bookingIdRef = useRef(bookingId);
-  bookingIdRef.current = bookingId;
+  const [countdownSecs, setCountdownSecs] = useState<number>(() => {
+    if (reservedBookingInfo && reservedBookingInfo.startTime) {
+      const startTime = new Date(reservedBookingInfo.startTime);
+      const expirationTime = new Date(startTime.getTime() + 5 * 60_000);
+      return Math.max(0, Math.floor((expirationTime.getTime() - Date.now()) / 1000));
+    }
+    const stored = localStorage.getItem('kiosk_reserved_at');
+    if (!stored) {
+      localStorage.setItem('kiosk_reserved_at', Date.now().toString());
+      return 15 * 60;
+    }
+    const elapsed = Math.floor((Date.now() - Number(stored)) / 1000);
+    return Math.max(0, 15 * 60 - elapsed);
+  });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      let remaining = 0;
+      if (reservedBookingInfo && reservedBookingInfo.startTime) {
+        const startTime = new Date(reservedBookingInfo.startTime);
+        const expirationTime = new Date(startTime.getTime() + 5 * 60_000);
+        remaining = Math.floor((expirationTime.getTime() - Date.now()) / 1000);
+      } else {
+        const stored = localStorage.getItem('kiosk_reserved_at');
+        const elapsed = stored ? Math.floor((Date.now() - Number(stored)) / 1000) : 0;
+        remaining = 15 * 60 - elapsed;
+      }
+      remaining = Math.max(0, remaining);
+      setCountdownSecs(remaining);
+      
+      if (remaining <= 0) {
+        clearInterval(interval);
+        if (onCancel) {
+          onCancel();
+        }
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [reservedBookingInfo, onCancel]);
+
+  const countdownLabel = useMemo(() => {
+    const m = Math.floor(countdownSecs / 60);
+    const s = countdownSecs % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }, [countdownSecs]);
+
+
+
+  const [stationName, setStationName] = useState("");
+  const [stationAddress, setStationAddress] = useState("");
+  const [currentCharger, setCurrentCharger] = useState<ChargerInfo | null>(null);
+
+  useEffect(() => {
+    getStationDetailUseCase.execute(STATION_ID)
+      .then(detail => {
+        setStationName(detail.name || "");
+        setStationAddress(detail.address || "");
+        const chargers: ChargerInfo[] = detail.chargers || [];
+        const matched = chargers.find(c => c.id === POINT_ID || c.connectors?.some(conn => conn.id === CHARGER_ID));
+        setCurrentCharger(matched || chargers[0] || null);
+      })
+      .catch(() => { });
+  }, []);
+
+  const maxPowerKwText = currentCharger?.connectors?.length
+    ? `${Math.max(...currentCharger.connectors.map((c: any) => c.maxPowerKw || 0))} kW`
+    : (currentCharger?.maxPowerKw ? `${currentCharger.maxPowerKw} kW` : '—');
+
+  const connectorsText = currentCharger?.connectors?.length
+    ? currentCharger.connectors.map((c: any) => `${c.connectorType || 'CCS'} (${c.maxPowerKw || 0}kW)`).join(' / ')
+    : (currentCharger?.maxPowerKw ? `${currentCharger.maxPowerKw} kW` : '—');
+
+
 
   const onScanSuccessRef = useRef(onScanSuccess);
   onScanSuccessRef.current = onScanSuccess;
@@ -55,30 +150,27 @@ const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps> = ({
     (decodedText: string) => {
       // Stop scanner immediately
       if (scannerRef.current && scannerRef.current.isScanning) {
-        scannerRef.current.stop().catch(() => {});
+        scannerRef.current.stop().catch(() => { });
       }
 
       const rawToken = decodedText.trim();
-      const currentBookingId = bookingIdRef.current;
+
 
       // 1. Check standard non-JWT format EV-XXXX-XXXX
       if (rawToken.startsWith("EV-") || !rawToken.includes(".")) {
-        const shortId = currentBookingId.replace(/-/g, "").substring(0, 8).toUpperCase();
-        if (rawToken.startsWith(`EV-${shortId}-`)) {
-          onScanSuccessRef.current(currentBookingId, rawToken);
-          return;
-        }
+        onScanSuccessRef.current("", rawToken);
+        return;
       }
 
       // 2. Legacy/Fallback check: JWT decoding
       const payload = decodeJwtPayload(rawToken);
 
-      if (payload && typeof payload.bookingId === "string" && payload.bookingId === currentBookingId) {
-        onScanSuccessRef.current(currentBookingId, rawToken);
+      if (payload && typeof payload.bookingId === "string") {
+        onScanSuccessRef.current(payload.bookingId as string, (payload.qrToken as string) || rawToken);
         return;
       }
 
-      setScanError("Mã QR không khớp với lịch hẹn này.");
+      setScanError("Mã QR không hợp lệ.");
       // Auto-restart after 3 seconds
       setTimeout(() => {
         setScanError(null);
@@ -93,34 +185,29 @@ const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps> = ({
       if (scannerRef.current.isScanning) {
         try {
           await scannerRef.current.stop();
-        } catch (e) {}
+        } catch (e) { }
       }
       try {
         scannerRef.current.clear();
-      } catch (e) {}
+      } catch (e) { }
     }
 
     const html5QrCode = new Html5Qrcode(scannerContainerId);
     scannerRef.current = html5QrCode;
 
     try {
-      const devices = await Html5Qrcode.getCameras();
-      let cameraConfig: string | MediaTrackConstraints;
-      if (devices && devices.length > 0) {
-        cameraConfig = devices[0].id;
-      } else {
-        cameraConfig = { facingMode: "environment" };
-      }
+      const cameraConfig = await resolveCameraConfig();
 
       await html5QrCode.start(
         cameraConfig,
         {
-          fps: 10,
+          fps: 15,
           qrbox: { width: 160, height: 160 },
           aspectRatio: 1.0,
+          videoConstraints: { width: { max: 1280 }, height: { max: 720 } },
         },
         handleScanSuccessLocal,
-        () => {}
+        () => { }
       );
     } catch (err) {
       console.warn("Failed to restart scanner:", err);
@@ -134,25 +221,19 @@ const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps> = ({
 
     const startScanner = async () => {
       try {
-        const devices = await Html5Qrcode.getCameras();
+        const cameraConfig = await resolveCameraConfig();
         if (!isMounted) return;
-
-        let cameraConfig: string | MediaTrackConstraints;
-        if (devices && devices.length > 0) {
-          cameraConfig = devices[0].id;
-        } else {
-          cameraConfig = { facingMode: "environment" };
-        }
 
         await html5QrCode.start(
           cameraConfig,
           {
-            fps: 10,
+            fps: 15,
             qrbox: { width: 160, height: 160 },
             aspectRatio: 1.0,
+            videoConstraints: { width: { max: 1280 }, height: { max: 720 } },
           },
           handleScanSuccessLocal,
-          () => {}
+          () => { }
         );
       } catch (err) {
         console.warn("Failed to start scanner on reserved screen:", err);
@@ -198,27 +279,36 @@ const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps> = ({
           </div>
         </div>
 
-        <button 
-          onClick={onCancel}
-          className="glass-pill px-6 py-3.5 flex items-center gap-3 border-[var(--pill-border)] text-xs font-black uppercase tracking-wider transition-all duration-200 active:scale-95 hover:scale-105 cursor-pointer"
-        >
-          <ArrowLeft size={16} />
-          <span>QUAY LẠI</span>
-        </button>
+        <div className="flex items-center gap-4">
+          {/* Countdown clock pill — amber/yellow throughout */}
+          <div
+            className="glass-pill px-5 py-2.5 flex items-center gap-3"
+            style={{
+              borderColor: 'rgba(245,158,11,0.4)',
+              boxShadow: '0 0 18px rgba(245,158,11,0.15)',
+            }}
+          >
+            <Clock size={20} className="text-[var(--warning)]" />
+            <span className="text-xl font-mono font-black text-[var(--warning)]">
+              {countdownLabel}
+            </span>
+          </div>
+        </div>
+
       </header>
 
       {/* ── Main Content ── */}
       <div className="relative z-10 flex-1 grid grid-cols-12 gap-8 items-center">
-        
+
         {/* Left: Booking Details */}
         <div className="col-span-4 flex flex-col space-y-6">
           <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-[var(--warning)] font-black text-xs uppercase tracking-wider">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-[var(--warning)] font-black text-xs uppercase tracking-wider w-fit">
               <ShieldAlert size={14} />
-              Chế độ khóa cứng (10 phút)
+              Khóa cứng 15 phút
             </div>
             <h2 className="text-[38px] font-black leading-[1.1] tracking-tight">
-              Giữ Trạm <br /> 
+              Giữ Trạm <br />
               <span className="text-[var(--warning)]">Đã Đặt Trước</span>
             </h2>
             <p className="text-sm text-[var(--text-secondary)] leading-relaxed font-medium">
@@ -226,36 +316,13 @@ const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps> = ({
             </p>
           </div>
 
-          <div className="glass p-6 rounded-[28px] border-[var(--card-border)] space-y-4 shadow-xl relative overflow-hidden">
-            <div className="absolute inset-0" style={{ background: 'var(--sq-shine)' }} />
-            
-            <div className="flex items-center gap-4 relative z-10">
-              <div className="w-10 h-10 rounded-[14px] bg-[var(--warning)]/15 border border-[var(--warning)]/20 flex items-center justify-center">
-                <Clock size={18} className="text-[var(--warning)]" />
-              </div>
-              <div>
-                <p className="caption text-[10px]">Khung giờ đặt trước</p>
-                <p className="text-base font-black text-[var(--text-primary)]">{bookingTimeRange}</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-4 border-t border-[var(--card-border)] pt-4 relative z-10">
-              <div className="w-10 h-10 rounded-[14px] bg-[var(--primary)]/15 border border-[var(--primary)]/20 flex items-center justify-center">
-                <Zap size={18} className="text-[var(--primary)]" />
-              </div>
-              <div>
-                <p className="caption text-[10px]">Mã đặt chỗ (Booking ID)</p>
-                <p className="text-base font-black text-[var(--text-primary)] font-mono tracking-wider">{bookingId}</p>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Right: Dual Authentication Area */}
         <div className="col-span-8 grid grid-cols-2 gap-6 items-stretch justify-center">
-          
+
           {/* Card A: Kiosk camera scans Phone */}
-          <div 
+          <div
             className="p-6 rounded-[32px] border-[1.5px] border-[var(--card-border)] relative overflow-hidden flex flex-col items-center justify-between text-center min-h-[380px]"
             style={{
               background: 'var(--card-bg)',
@@ -265,7 +332,7 @@ const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps> = ({
             }}
           >
             <div className="absolute inset-0" style={{ background: 'var(--sq-shine)' }} />
-            
+
             <div className="relative z-10 w-full">
               <span className="caption mb-2.5 block text-[var(--primary)] font-black text-[10px]">Cách 1 — Kiosk Quét Điện Thoại</span>
               <h3 className="text-base font-black uppercase tracking-wider mb-2">ĐƯA QR TRƯỚC CAMERA</h3>
@@ -279,7 +346,7 @@ const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps> = ({
                   <p className="text-[10px] font-black text-red-400 leading-normal">{scanError}</p>
                 </div>
               ) : (
-                <motion.div 
+                <motion.div
                   animate={{ top: ["0%", "100%", "0%"] }}
                   transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
                   className="absolute left-0 right-0 h-1 bg-[var(--primary)] shadow-[0_0_15px_var(--primary)] z-20"
@@ -293,7 +360,7 @@ const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps> = ({
           </div>
 
           {/* Card B: Phone scans Kiosk */}
-          <div 
+          <div
             className="p-6 rounded-[32px] border-[1.5px] border-[var(--card-border)] relative overflow-hidden flex flex-col items-center justify-between text-center min-h-[380px]"
             style={{
               background: 'var(--card-bg)',
@@ -303,7 +370,7 @@ const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps> = ({
             }}
           >
             <div className="absolute inset-0" style={{ background: 'var(--sq-shine)' }} />
-            
+
             <div className="relative z-10 w-full">
               <span className="caption mb-2.5 block text-[var(--warning)] font-black text-[10px]">Cách 2 — Điện Thoại Quét Kiosk</span>
               <h3 className="text-base font-black uppercase tracking-wider mb-2">DÙNG APP QUÉT KIOSK</h3>
@@ -317,7 +384,7 @@ const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps> = ({
                 level="H"
                 includeMargin={false}
               />
-              <motion.div 
+              <motion.div
                 animate={{ top: ["0%", "100%", "0%"] }}
                 transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
                 className="absolute left-0 right-0 h-1 bg-[var(--warning)] shadow-[0_0_15px_var(--warning)] z-20"
@@ -332,21 +399,72 @@ const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps> = ({
         </div>
       </div>
 
-      {/* ── Footer ── */}
-      <footer className="relative z-10 mt-auto border-t border-[var(--card-border)] pt-6 flex justify-between items-center">
-        <div>
-          <p className="caption text-[10px] mb-0.5">Trạng thái cổng sạc</p>
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[var(--warning)] animate-pulse" />
-            <p className="text-[10px] font-black uppercase tracking-wider text-[var(--warning)]">
-              RESERVED — ĐANG KHOÁ CỨNG
+      {/* ── Footer: Station Dashboard Bar (amber/reserved theme) ── */}
+      <footer className="relative z-10 mt-auto border-t pt-8 pb-2 flex justify-between items-center gap-8" style={{ borderColor: 'rgba(245,158,11,0.25)' }}>
+
+        {/* Block 1: Station Info */}
+        <div className="flex-1 flex flex-col gap-1 min-w-[250px]">
+          <span className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">TRẠM SẠC</span>
+          <h4 className="text-base font-black text-[var(--text-primary)] leading-tight truncate">
+            {stationName || "Trạm sạc EVOLT"}
+          </h4>
+          {stationAddress ? (
+            <p className="text-xs font-semibold text-[var(--text-secondary)] leading-tight truncate">
+              {stationAddress}
             </p>
+          ) : (
+            <p className="text-xs font-semibold text-[var(--text-secondary)] leading-tight truncate">
+              Connecting to station...
+            </p>
+          )}
+        </div>
+
+        <div className="h-10 w-px opacity-30" style={{ background: 'rgba(245,158,11,0.4)' }} />
+
+        {/* Block 2: Charger Info */}
+        <div className="flex-1 flex flex-col gap-1 min-w-[200px]">
+          <span className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">TRỤ SẠC</span>
+          <h4 className="text-base font-black text-[var(--text-primary)] leading-tight">
+            {currentCharger?.name || (CHARGER_ID ? `Trụ (${CHARGER_ID.substring(0, 8)})` : "Chưa cấu hình")}
+          </h4>
+          <p className="text-xs font-semibold text-[var(--text-secondary)] leading-tight">
+            <span className="font-black text-[var(--warning)]">{maxPowerKwText}</span> · {connectorsText}
+          </p>
+        </div>
+
+        <div className="h-10 w-px opacity-30" style={{ background: 'rgba(245,158,11,0.4)' }} />
+
+        {/* Block 3: Status Badge */}
+        <div className="flex-shrink-0 flex flex-col gap-1.5 min-w-[150px]">
+          <span className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">TRẠNG THÁI TRỤ</span>
+          <div>
+            <span
+              className="px-3.5 py-1 rounded-full text-[11px] font-black tracking-wider uppercase inline-flex items-center gap-2"
+              style={{
+                background: "rgba(245,158,11,0.15)",
+                color: "#d97706",
+                border: "1px solid rgba(245,158,11,0.3)",
+              }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-[#d97706] animate-pulse" />
+              ĐÃ ĐẶT TRƯỚC
+            </span>
           </div>
         </div>
-        <div className="text-right">
-          <p className="caption text-[10px] mb-0.5">Thiết bị</p>
-          <p className="text-[10px] font-black uppercase tracking-wider text-[var(--text-primary)]">{CHARGER_ID || "Chưa cấu hình"}</p>
+
+        <div className="h-10 w-px opacity-30" style={{ background: 'rgba(245,158,11,0.4)' }} />
+
+        {/* Block 4: System Branding / Specs */}
+        <div className="flex flex-col gap-1 text-right min-w-[180px]">
+          <span className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">HỆ THỐNG</span>
+          <h4 className="text-sm font-black text-[var(--text-primary)] leading-tight uppercase tracking-wider">
+            EVOLT NETWORK
+          </h4>
+          <p className="text-[10px] font-bold tracking-widest opacity-60 text-[var(--warning)]">
+            SECURE CHARGE PORTAL
+          </p>
         </div>
+
       </footer>
     </motion.div>
   );

@@ -46,7 +46,24 @@
     "loading_error": "Đã xảy ra lỗi khi tải dữ liệu",
     "retry": "Thử lại",
     "filter": "Lọc",
-    "clear_filter": "Xóa bộ lọc"
+    "clear_filter": "Xóa bộ lọc",
+    "data_refreshed": "Đã làm mới dữ liệu",
+    "copied_user_id": "Đã sao chép User ID",
+    "copied_session_id": "Đã sao chép mã phiên sạc",
+    "copied_charger_id": "Đã sao chép mã trụ sạc",
+    "copied_booking_id": "Đã sao chép mã đặt lịch",
+    "copied_station_id": "Đã sao chép mã trạm sạc",
+    "copied_coordinates": "Đã sao chép tọa độ trạm",
+    "copied_tx_id": "Đã sao chép mã giao dịch",
+    "copied_ref_id": "Đã sao chép mã tham chiếu",
+    "copied_wallet_id": "Đã sao chép mã ví",
+    "copied_arrear_id": "Đã sao chép mã nợ",
+    "copied_related_id": "Đã sao chép mã liên quan"
+  },
+  "gps": {
+    "not_supported": "Trình duyệt không hỗ trợ định vị GPS!",
+    "fetching": "Đang lấy tọa độ GPS...",
+    "permission_denied": "Vui lòng cấp quyền truy cập GPS!"
   },
   "api_errors": {
     "UNKNOWN_ERROR": "Lỗi hệ thống không xác định",

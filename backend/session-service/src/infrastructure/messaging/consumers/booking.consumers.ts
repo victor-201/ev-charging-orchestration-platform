@@ -5,7 +5,8 @@ import { Repository } from 'typeorm';
 import { ProcessedEventOrmEntity } from '../outbox/outbox-orm-entity';
 import { AutoConfirmBookingUseCase, CancelBookingUseCase } from '../../../application/use-cases/booking-lifecycle.use-case';
 import { AutoCompleteBookingUseCase } from '../../../application/use-cases/booking-lifecycle.use-case';
-import { ProcessQueueUseCase } from '../../../application/use-cases/queue.use-case';
+import { ProcessQueueUseCase, NotifyQueueHeadUseCase } from '../../../application/use-cases/queue.use-case';
+import { ChargerStateOrmEntity } from '../../../infrastructure/persistence/typeorm/entities/session.orm-entities';
 
 @Injectable()
 export class BillingDeductedConsumer {
@@ -158,7 +159,9 @@ export class BookingChargerStatusConsumer {
   constructor(
     @InjectRepository(ProcessedEventOrmEntity)
     private readonly peRepo: Repository<ProcessedEventOrmEntity>,
-    private readonly processQueue: ProcessQueueUseCase,
+    @InjectRepository(ChargerStateOrmEntity)
+    private readonly chargerStateRepo: Repository<ChargerStateOrmEntity>,
+    private readonly notifyQueueHead: NotifyQueueHeadUseCase,
   ) {}
 
   @RabbitSubscribe({
@@ -167,14 +170,25 @@ export class BookingChargerStatusConsumer {
     queue:        'session-svc.charger.status',
     queueOptions: { durable: true, deadLetterExchange: 'ev.charging.dlx' },
   })
-  async handle(payload: { eventId?: string; chargerId: string; status: string }): Promise<void> {
+  async handle(payload: { eventId?: string; chargerId: string; status?: string; newStatus?: string }): Promise<void> {
     const eventId = payload.eventId ?? "charger.status:" + payload.chargerId;
     const exists  = await this.peRepo.existsBy({ eventId });
     if (exists) return;
     await this.peRepo.save({ eventId, eventType: 'charger.status_changed' });
 
-    if (payload.status === 'AVAILABLE') {
-      await this.processQueue.execute(payload.chargerId);
+    const status = (payload.newStatus ?? payload.status ?? '').toLowerCase();
+    if (status === 'available') {
+      // 1. Sync local charger_state table
+      await this.chargerStateRepo.upsert({
+        chargerId: payload.chargerId,
+        availability: 'available',
+        activeSessionId: null,
+        errorCode: null,
+        updatedAt: new Date(),
+      }, ['chargerId']);
+
+      // 2. Notify queue head
+      await this.notifyQueueHead.execute(payload.chargerId);
     }
   }
 }

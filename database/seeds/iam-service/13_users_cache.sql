@@ -1012,3 +1012,4 @@ INSERT INTO users_cache (user_id, email, full_name, phone, role_name, status, em
   ('22222222-0000-4000-8000-000000000498', 'thidung9@gmail.com', 'Võ Thị Dung', '0863944650', 'user', 'active', true, false, 0),
   ('22222222-0000-4000-8000-000000000499', 'thitrang9@gmail.com', 'Đặng Thị Trang', '0819313198', 'user', 'active', true, false, 0),
   ('22222222-0000-4000-8000-000000000500', 'thilinh9@gmail.com', 'Bùi Thị Linh', '0855501540', 'user', 'active', true, false, 0);
+COMMIT;

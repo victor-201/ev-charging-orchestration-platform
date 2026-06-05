@@ -69,6 +69,9 @@ class _BookingNewScreenState extends State<BookingNewScreen>
   TimeOfDay? _customStartTime;
   TimeOfDay? _customEndTime;
 
+  // Summary panel visibility (independent of selection state)
+  bool _showSummaryPanel = false;
+
   @override
   void initState() {
     super.initState();
@@ -191,15 +194,9 @@ class _BookingNewScreenState extends State<BookingNewScreen>
       _rangeEnd = null;
       _pricingEstimate = null;
       _pricingError = null;
-      if (isCustom) {
-        final now = TimeOfDay.now();
-        final startHour = (now.hour + 1) % 24;
-        _customStartTime = TimeOfDay(hour: startHour, minute: 0);
-        _customEndTime = TimeOfDay(hour: (startHour + 1) % 24, minute: 0);
-      } else {
-        _customStartTime = null;
-        _customEndTime = null;
-      }
+      _customStartTime = null;
+      _customEndTime = null;
+      _showSummaryPanel = false;
     });
     if (isCustom) _updateCustomTimes();
   }
@@ -261,14 +258,16 @@ class _BookingNewScreenState extends State<BookingNewScreen>
       );
       _rangeEnd = null;
       _pricingError = null;
+      _showSummaryPanel = true;
     });
     _fetchPricingEstimate();
   }
 
   Future<void> _pickTime(BuildContext context, {required bool isStart}) async {
+    final now = TimeOfDay.now();
     final initial = isStart
-        ? (_customStartTime ?? const TimeOfDay(hour: 8, minute: 0))
-        : (_customEndTime ?? const TimeOfDay(hour: 9, minute: 0));
+        ? (_customStartTime ?? now)
+        : (_customEndTime ?? (_customStartTime ?? now));
 
     final picked = await showTimePicker(
       context: context,
@@ -307,11 +306,12 @@ class _BookingNewScreenState extends State<BookingNewScreen>
         _rangeEnd = null;
         _pricingEstimate = null;
         _pricingError = null;
+        _showSummaryPanel = true;
       });
       _fetchPricingEstimate();
     } else {
       if (slot.startTime.isBefore(_rangeStart!.startTime)) {
-        setState(() { _rangeStart = slot; _rangeEnd = null; _pricingEstimate = null; });
+        setState(() { _rangeStart = slot; _rangeEnd = null; _pricingEstimate = null; _showSummaryPanel = true; });
         _fetchPricingEstimate();
       } else if (slot == _rangeStart) {
         // same slot, no-op
@@ -329,7 +329,7 @@ class _BookingNewScreenState extends State<BookingNewScreen>
         if (conflict) {
           EVToast.show(context, message: 'Khoảng giờ chứa ô đã bận hoặc quá giờ!', isError: true);
         } else {
-          setState(() { _rangeEnd = slot; });
+          setState(() { _rangeEnd = slot; _showSummaryPanel = true; });
           _fetchPricingEstimate();
         }
       }
@@ -455,7 +455,7 @@ class _BookingNewScreenState extends State<BookingNewScreen>
             }
           },
           builder: (context, state) {
-            final showSummary = _rangeStart != null || (_isCustomMode && _pricingError != null);
+            final showSummary = _showSummaryPanel && (_rangeStart != null || (_isCustomMode && _pricingError != null));
             final isDark = Theme.of(context).brightness == Brightness.dark;
 
             return Stack(
@@ -514,14 +514,9 @@ class _BookingNewScreenState extends State<BookingNewScreen>
                         onTap: () {
                           HapticFeedback.lightImpact();
                           setState(() {
-                            _rangeStart = null;
-                            _rangeEnd = null;
                             _pricingEstimate = null;
                             _pricingError = null;
-                            if (_isCustomMode) {
-                              _customStartTime = null;
-                              _customEndTime = null;
-                            }
+                            _showSummaryPanel = false;
                           });
                         },
                       ),
@@ -541,14 +536,9 @@ class _BookingNewScreenState extends State<BookingNewScreen>
                       if (details.primaryVelocity != null && details.primaryVelocity! > 100) {
                         HapticFeedback.lightImpact();
                         setState(() {
-                          _rangeStart = null;
-                          _rangeEnd = null;
                           _pricingEstimate = null;
                           _pricingError = null;
-                          if (_isCustomMode) {
-                            _customStartTime = null;
-                            _customEndTime = null;
-                          }
+                          _showSummaryPanel = false;
                         });
                       }
                     },

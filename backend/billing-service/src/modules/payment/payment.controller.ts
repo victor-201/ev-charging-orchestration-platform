@@ -76,12 +76,14 @@ export class PaymentController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() req: any,
   ) {
+    const isKiosk = user.role === 'kiosk' || user.roles?.includes('kiosk');
     return this.createPayment.execute({
       userId:    user.id,
       bookingId: dto.bookingId,
       amount:    dto.amount,
       ipAddr:    req.ip ?? dto.ipAddr,
       bankCode:  dto.bankCode,
+      relatedType: isKiosk ? 'charging_session' : 'booking',
     });
   }
 

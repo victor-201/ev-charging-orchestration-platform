@@ -126,15 +126,16 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 Text(
                   'Đăng nhập',
-                  style: AppTypography.displayMd.copyWith(
+                  style: AppTypography.headingLg.copyWith(
                     color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.w700,
+                    fontSize: 22,
                   ),
                 ),
-                const SizedBox(height: AppSpacing.sm),
+                const SizedBox(height: AppSpacing.xs),
                 Text(
                   'Chào mừng trở lại! Đăng nhập để tiếp tục hành trình.',
-                  style: AppTypography.bodyMd.copyWith(
+                  style: AppTypography.caption.copyWith(
                     color: AppColors.textMuted,
                   ),
                 ),

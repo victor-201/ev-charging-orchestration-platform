@@ -174,6 +174,7 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
         inQueue: true,
         position: pos.position,
         estimatedWaitMinutes: pos.estimatedWaitMinutes,
+        waitingList: pos.waitingList,
       )),
     );
   }

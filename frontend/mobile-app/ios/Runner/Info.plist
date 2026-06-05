@@ -70,5 +70,9 @@
 	<string>Chúng tôi cần quyền truy cập thư viện ảnh để bạn có thể chọn và tải ảnh đại diện lên.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Chúng tôi cần quyền truy cập máy ảnh để bạn có thể chụp và tải ảnh đại diện lên.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>otpauth</string>
+	</array>
 </dict>
 </plist>

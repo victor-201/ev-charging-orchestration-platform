@@ -13,7 +13,7 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import type { TelemetryData, TelemetryPayload } from '../../domain/entities/entities';
+import type { TelemetryData, TelemetryPayload, ChargingSession } from '../../domain/entities/entities';
 
 /** Delay (ms) before the simulated ticker fires if no real event arrives */
 const SIM_GRACE_MS = 4_000;
@@ -23,30 +23,56 @@ const SIM_TICK_MS = 3_000;
 const SIM_POWER_KW = 22;
 
 interface UseWebSocketOptions {
+  chargerId: string | null;
   sessionId: string | null;
   startMeterWh: number;
+  /** Starting SoC% from session record — seeds the dev simulator */
+  startSocPercent?: number | null;
   onTelemetry: (data: Partial<TelemetryData>) => void;
+  onSessionStarted?: (session: ChargingSession) => void;
+  onSessionCompleted?: (payload: any) => void;
+  onChargerStatusChanged?: (payload: { chargerId: string; status?: string; newStatus?: string }) => void;
+  onPaymentCompleted?: (payload: any) => void;
   enabled: boolean;
 }
 
 export const useWebSocket = ({
+  chargerId,
   sessionId,
   startMeterWh,
+  startSocPercent,
   onTelemetry,
+  onSessionStarted,
+  onSessionCompleted,
+  onChargerStatusChanged,
+  onPaymentCompleted,
   enabled,
 }: UseWebSocketOptions) => {
-  const socketRef        = useRef<Socket | null>(null);
-  /** True once a real charging_updated payload has been received */
+  const socketRef = useRef<Socket | null>(null);
   const hadRealTelemetry = useRef(false);
 
-  /**
-   * Map raw backend TelemetryPayload to UI TelemetryData.
-   * Computes delivered energy delta and applies rich fallback values
-   * for temperature, voltage, and current to guarantee rich premium aesthetics.
-   */
+  // Keep references to all callbacks to prevent reconnecting socket on callback changes
+  const onTelemetryRef = useRef(onTelemetry);
+  const onSessionStartedRef = useRef(onSessionStarted);
+  const onSessionCompletedRef = useRef(onSessionCompleted);
+  const onChargerStatusChangedRef = useRef(onChargerStatusChanged);
+  const onPaymentCompletedRef = useRef(onPaymentCompleted);
+  const startMeterWhRef = useRef(startMeterWh);
+  const startSocPercentRef = useRef(startSocPercent ?? 0);
+  const sessionIdRef = useRef(sessionId);
+
+  useEffect(() => { onTelemetryRef.current = onTelemetry; }, [onTelemetry]);
+  useEffect(() => { onSessionStartedRef.current = onSessionStarted; }, [onSessionStarted]);
+  useEffect(() => { onSessionCompletedRef.current = onSessionCompleted; }, [onSessionCompleted]);
+  useEffect(() => { onChargerStatusChangedRef.current = onChargerStatusChanged; }, [onChargerStatusChanged]);
+  useEffect(() => { onPaymentCompletedRef.current = onPaymentCompleted; }, [onPaymentCompleted]);
+  useEffect(() => { startMeterWhRef.current = startMeterWh; }, [startMeterWh]);
+  useEffect(() => { startSocPercentRef.current = startSocPercent ?? 0; }, [startSocPercent]);
+  useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
+
   const mapPayload = useCallback(
     (raw: TelemetryPayload): Partial<TelemetryData> => {
-      const deliveredKwh = Math.max(0, (raw.meterWh - startMeterWh) / 1000);
+      const deliveredKwh = Math.max(0, (raw.meterWh - startMeterWhRef.current) / 1000);
       const currentPower = raw.powerKw ?? 0;
 
       // Realistic values calculation for display
@@ -67,24 +93,22 @@ export const useWebSocket = ({
         energyDelivered: parseFloat(deliveredKwh.toFixed(2)),
       };
     },
-    [startMeterWh]
+    []
   );
 
+  // 1. Connection management effect: runs only on chargerId/enabled change
   useEffect(() => {
-    if (!enabled || !sessionId) {
+    if (!enabled || !chargerId) {
       if (socketRef.current) {
+        console.log('[Socket.IO] Disconnecting socket due to disabled/changed chargerId');
         socketRef.current.disconnect();
         socketRef.current = null;
       }
       return;
     }
 
-    // Reset per-session sim state
-    hadRealTelemetry.current = false;
-
     const wsUrlRaw = import.meta.env.VITE_WS_URL || 'http://localhost:8000/socket.io/charging';
 
-    // Robustly parse the URL to separate Server Origin + Namespace vs socket.io path
     let connectionUrl = wsUrlRaw;
     let socketPath = '/socket.io/charging';
 
@@ -104,7 +128,6 @@ export const useWebSocket = ({
 
     console.log('[Socket.IO] Connecting to:', connectionUrl, 'path:', socketPath);
 
-    // Create Socket.IO connection
     const socket = io(connectionUrl, {
       path: socketPath,
       transports: ['websocket', 'polling'],
@@ -114,13 +137,99 @@ export const useWebSocket = ({
 
     socketRef.current = socket;
 
-    // ── Dev-mode simulated telemetry ──────────────────────────────────────────
-    // When no real charging_updated event arrives within SIM_GRACE_MS, start a
-    // fake ticker so the dashboard looks live without a physical OCPP charger.
+    socket.on('connect', () => {
+      console.log('[Socket.IO] Connected');
+      console.log('[Socket.IO] Subscribing to charger:', chargerId);
+      socket.emit('subscribe_charger', { chargerId });
+      
+      if (sessionIdRef.current) {
+        console.log('[Socket.IO] Joining room with sessionId:', sessionIdRef.current);
+        socket.emit('join', { sessionId: sessionIdRef.current });
+      }
+    });
+
+    socket.on('joined', (data) => {
+      console.log('[Socket.IO] Successfully joined session room:', data);
+    });
+
+    socket.on('charging_started', (payload: any) => {
+      console.log('[Socket.IO] Received charging_started event:', payload);
+      if (onSessionStartedRef.current) {
+        const session: ChargingSession = {
+          id: payload.sessionId,
+          userId: payload.userId,
+          chargerId: payload.chargerId,
+          bookingId: payload.bookingId,
+          startTime: payload.startTime || new Date().toISOString(),
+          status: 'active',
+          startMeterWh: payload.startMeterWh ?? 0,
+          createdAt: payload.startTime || new Date().toISOString(),
+        };
+        onSessionStartedRef.current(session);
+      }
+    });
+
+    socket.on('charging_updated', (payload: TelemetryPayload) => {
+      console.log('[Socket.IO] Received real telemetry update:', payload);
+      hadRealTelemetry.current = true;
+      onTelemetryRef.current(mapPayload(payload));
+    });
+
+    socket.on('charging_completed', (payload: any) => {
+      console.log('[Socket.IO] Received charging_completed event:', payload);
+      if (onSessionCompletedRef.current) {
+        onSessionCompletedRef.current(payload);
+      }
+    });
+
+    socket.on('charger_status', (payload: any) => {
+      console.log('[Socket.IO] Received charger_status event:', payload);
+      if (onChargerStatusChangedRef.current) {
+        onChargerStatusChangedRef.current(payload);
+      }
+    });
+
+    socket.on('payment_completed', (payload: any) => {
+      console.log('[Socket.IO] Received payment_completed event:', payload);
+      if (onPaymentCompletedRef.current) {
+        onPaymentCompletedRef.current(payload);
+      }
+    });
+
+    socket.on('connect_error', (err) => {
+      console.warn('[Socket.IO] Connection error:', err.message);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('[Socket.IO] Disconnected:', reason);
+    });
+
+    return () => {
+      console.log('[Socket.IO] Cleaning up Socket.IO connection');
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [enabled, chargerId, mapPayload]);
+
+  // 2. Dynamic Room Joining Effect: runs when sessionId changes
+  useEffect(() => {
+    if (enabled && sessionId && socketRef.current) {
+      if (socketRef.current.connected) {
+        console.log('[Socket.IO] Dynamically joining room with sessionId:', sessionId);
+        socketRef.current.emit('join', { sessionId });
+      }
+    }
+  }, [enabled, sessionId]);
+
+  // 3. Telemetry Simulation Effect: scoped to active session ID
+  useEffect(() => {
+    if (!sessionId || !enabled) return;
+
+    hadRealTelemetry.current = false;
+
     let simIntervalRef: ReturnType<typeof setInterval> | null = null;
-    // Running simulation accumulators (mutated inside interval, no re-render)
-    const simSocRef     = { current: 0 };           // 0→100 %
-    const simMeterWhRef = { current: startMeterWh }; // Wh, offset from session start meter
+    const simSocRef = { current: startSocPercentRef.current };  // start from actual SoC
+    const simMeterWhRef = { current: startMeterWh };
 
     const startSimTicker = () => {
       if (hadRealTelemetry.current || simIntervalRef) return;
@@ -133,9 +242,8 @@ export const useWebSocket = ({
           return;
         }
 
-        // Advance simulation state each tick
         const powerKw  = SIM_POWER_KW + (Math.random() - 0.5) * 1.5;
-        const deltaWh  = powerKw * (SIM_TICK_MS / 3_600_000) * 1000; // Wh for this tick
+        const deltaWh  = powerKw * (SIM_TICK_MS / 3_600_000) * 1000;
         simMeterWhRef.current += deltaWh;
         simSocRef.current      = Math.min(100, simSocRef.current + 0.18);
 
@@ -146,7 +254,7 @@ export const useWebSocket = ({
           (32 + (simSocRef.current / 100) * 15 + (Math.random() - 0.5) * 1.5).toFixed(1)
         );
 
-        onTelemetry({
+        onTelemetryRef.current({
           power:           parseFloat(powerKw.toFixed(1)),
           soc:             Math.round(simSocRef.current),
           voltage,
@@ -157,43 +265,12 @@ export const useWebSocket = ({
       }, SIM_TICK_MS);
     };
 
-    socket.on('connect', () => {
-      console.log('[Socket.IO] Connected, joining room with sessionId:', sessionId);
-      socket.emit('join', { sessionId });
-    });
-
-    socket.on('joined', (data) => {
-      console.log('[Socket.IO] Successfully joined session room:', data);
-    });
-
-    socket.on('charging_updated', (payload: TelemetryPayload) => {
-      console.log('[Socket.IO] Received real telemetry update:', payload);
-      hadRealTelemetry.current = true;
-      if (simIntervalRef) {
-        clearInterval(simIntervalRef);
-        simIntervalRef = null;
-        console.log('[Socket.IO] Sim ticker stopped — real OCPP charger connected.');
-      }
-      onTelemetry(mapPayload(payload));
-    });
-
-    socket.on('connect_error', (err) => {
-      console.warn('[Socket.IO] Connection error:', err.message);
-    });
-
-    socket.on('disconnect', (reason) => {
-      console.log('[Socket.IO] Disconnected:', reason);
-    });
-
-    // Start the grace-period timer; if no real event arrives, sim kicks in
     const graceTimer = setTimeout(startSimTicker, SIM_GRACE_MS);
 
     return () => {
-      console.log('[Socket.IO] Cleaning up Socket.IO connection');
       clearTimeout(graceTimer);
       if (simIntervalRef) clearInterval(simIntervalRef);
-      socket.disconnect();
-      socketRef.current = null;
     };
-  }, [enabled, sessionId, startMeterWh, mapPayload, onTelemetry]);
+  }, [enabled, sessionId, startMeterWh]);
 };
+

@@ -6,7 +6,8 @@ import { AutoChargeUseCase } from '../../application/use-cases/autocharge.use-ca
 import { IdleFeeDetectionJob, StoppedSessionBillingJob, ChargerReservationJob } from '../../application/use-cases/idle-fee.use-case';
 import { QueueCleanupJob, ForceStopJob } from '../../application/use-cases/queue-cleanup.job';
 import { LateDeliveryReconciler } from '../../application/use-cases/late-delivery-reconciler';
-import { ReconciliationJob, FaultDetectionService, EVENT_BUS } from '../../application/use-cases/reconciliation.use-cases';
+import { ReconciliationJob, FaultDetectionService } from '../../application/use-cases/reconciliation.use-cases';
+import { EVENT_BUS } from '../../infrastructure/messaging/event-bus.interface';
 import { OutboxEventBus } from '../../infrastructure/messaging/outbox/outbox-event-bus';
 import { SessionRepository } from '../../infrastructure/persistence/typeorm/repositories/session.repository';
 import { SESSION_REPOSITORY } from '../../domain/repositories/session.repository.interface';
@@ -14,16 +15,18 @@ import { BookingConfirmedSyncConsumer, BookingCancelledSyncConsumer } from '../.
 import { TelemetryConsumer } from '../../infrastructure/messaging/consumers/telemetry.consumer';
 import { ChargingGateway } from '../../infrastructure/realtime/charging.gateway';
 import { SessionOrmEntity, TelemetryOrmEntity, ChargerStateOrmEntity, ProcessedEventOrmEntity, UserDebtReadModelOrmEntity, BookingReadModelOrmEntity } from '../../infrastructure/persistence/typeorm/entities/session.orm-entities';
-import { OutboxOrmEntity, ChargerReadModelOrmEntity } from '../../infrastructure/persistence/typeorm/entities/booking.orm-entities'; // Shared outbox
+import { OutboxOrmEntity, ChargerReadModelOrmEntity, ConnectorReadModelOrmEntity, QueueOrmEntity } from '../../infrastructure/persistence/typeorm/entities/booking.orm-entities'; // Shared outbox
 import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { BookingModule } from '../booking/booking.module';
 
 @Module({
   imports: [
+    BookingModule,
     TypeOrmModule.forFeature([
       SessionOrmEntity, TelemetryOrmEntity, ChargerStateOrmEntity,
       ProcessedEventOrmEntity, UserDebtReadModelOrmEntity, BookingReadModelOrmEntity,
-      OutboxOrmEntity, ChargerReadModelOrmEntity
+      OutboxOrmEntity, ChargerReadModelOrmEntity, ConnectorReadModelOrmEntity, QueueOrmEntity
     ]),
     RabbitMQModule.forRootAsync({
       imports: [ConfigModule],
@@ -31,6 +34,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         exchanges: [
           { name: 'ev.charging', type: 'topic', options: { durable: true } },
           { name: 'ev.charging.dlx', type: 'topic', options: { durable: true } },
+          // Telemetry exchange: published by telemetry-ingestion-service
+          { name: 'ev.telemetry', type: 'topic', options: { durable: true } },
         ],
         uri: cfg.get('RABBITMQ_URL', 'amqp://guest:guest@localhost:5672'),
         connectionInitOptions: { wait: false },

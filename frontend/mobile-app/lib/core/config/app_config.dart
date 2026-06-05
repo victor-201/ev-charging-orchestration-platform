@@ -15,45 +15,33 @@ class AppConfig {
 
   static AppConfig get current {
     final flavor = dotenv.env['FLAVOR'] ?? 'dev';
+    final apiOverride = dotenv.env['API_BASE_URL'] ?? '';
+    final wsOverride = dotenv.env['WEBSOCKET_URL'] ?? '';
 
-    final overrideUrl = dotenv.env['API_BASE_URL'] ?? '';
-
-    switch (flavor) {
-      case 'prod':
-        final url =
-            overrideUrl.isNotEmpty ? overrideUrl : 'https://api.ev-charging.vn';
-        return AppConfig._(
-          flavor: 'prod',
-          baseUrl: url,
-          wsBaseUrl: url
-              .replaceFirst('https://', 'wss://')
-              .replaceFirst('http://', 'ws://'),
-          enableLogging: false,
-        );
-      case 'staging':
-        final url = overrideUrl.isNotEmpty
-            ? overrideUrl
-            : 'https://api-staging.ev-charging.vn';
-        return AppConfig._(
-          flavor: 'staging',
-          baseUrl: url,
-          wsBaseUrl: url
-              .replaceFirst('https://', 'wss://')
-              .replaceFirst('http://', 'ws://'),
-          enableLogging: true,
-        );
-      default:
-        final url =
-            overrideUrl.isNotEmpty ? overrideUrl : 'http://localhost:8000';
-        return AppConfig._(
-          flavor: 'dev',
-          baseUrl: url,
-          wsBaseUrl: url
-              .replaceFirst('https://', 'wss://')
-              .replaceFirst('http://', 'ws://'),
-          enableLogging: true,
-        );
+    String resolveBase() {
+      if (apiOverride.isNotEmpty) return apiOverride;
+      switch (flavor) {
+        case 'prod': return 'https://api.ev-charging.vn';
+        case 'staging': return 'https://api-staging.ev-charging.vn';
+        default: return 'http://localhost:8000';
+      }
     }
+
+    String resolveWs(String base) {
+      if (wsOverride.isNotEmpty) return wsOverride;
+      // Fallback: derive from API_BASE_URL (replace scheme)
+      return base
+          .replaceFirst('https://', 'wss://')
+          .replaceFirst('http://', 'ws://');
+    }
+
+    final base = resolveBase();
+    return AppConfig._(
+      flavor: flavor,
+      baseUrl: base,
+      wsBaseUrl: resolveWs(base),
+      enableLogging: flavor != 'prod',
+    );
   }
 
   bool get isDev => flavor == 'dev';

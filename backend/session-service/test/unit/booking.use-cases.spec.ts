@@ -339,6 +339,24 @@ describe('CreateBookingUseCase', () => {
     await expect(useCase.execute(cmd)).rejects.toThrow(ConflictException);
   });
 
+  it('throws ConflictException when charger is faulted', async () => {
+    mockChargerStateRepo.findOneBy.mockResolvedValueOnce({
+      chargerId: CHARGER_ID,
+      availability: 'faulted',
+    });
+
+    await expect(useCase.execute(cmd)).rejects.toThrow(ConflictException);
+  });
+
+  it('throws ConflictException when charger is offline', async () => {
+    mockChargerStateRepo.findOneBy.mockResolvedValueOnce({
+      chargerId: CHARGER_ID,
+      availability: 'offline',
+    });
+
+    await expect(useCase.execute(cmd)).rejects.toThrow(ConflictException);
+  });
+
   it('allows booking when charger state is available', async () => {
     // charger_state is available
     mockChargerStateRepo.findOneBy.mockResolvedValueOnce({

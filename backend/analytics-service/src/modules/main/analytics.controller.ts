@@ -2,7 +2,7 @@ import {
   Controller, Get, Query, Param,
   ParseUUIDPipe, ParseIntPipe,
   DefaultValuePipe, ParseBoolPipe,
-  Logger, UseGuards,
+  Logger, UseGuards, ForbiddenException,
 } from '@nestjs/common';
 import {
   GetStationUsageUseCase,
@@ -15,23 +15,24 @@ import {
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard }   from '../../shared/guards/roles.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
+import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 
 /**
- * AnalyticsController — Admin Reporting API
+ * AnalyticsController — Admin Reporting API & Staff Station Analytics
  *
  * Routes (prefix: /api/v1/analytics):
  *
- *   GET /system                              — Platform KPI dashboard
- *   GET /revenue?range=monthly&stationId=   — Revenue analytics
- *   GET /usage?stationId=&days=             — Station usage metrics
- *   GET /peak-hours?stationId=&forecast=    — Peak hour analysis + demand forecast
- *   GET /users/:userId?days=                — User behavior analytics
- *
- * Authorization: Admin only — Analytics data is restricted to administrative roles.
+ *   GET /system                              — Platform KPI dashboard (Admin only)
+ *   GET /revenue?range=monthly&stationId=   — Revenue analytics (Admin & Staff)
+ *   GET /usage?stationId=&days=             — Station usage metrics (Admin & Staff)
+ *   GET /peak-hours?stationId=&forecast=    — Peak hour analysis + demand forecast (Admin & Staff)
+ *   GET /users/:userId?days=                — User behavior analytics (Admin only)
+ *   GET /stations/:stationId/metrics         - Per-station metrics summary (Admin & Staff)
+ *   GET /dashboard                           — Composite view for admin dashboard (Admin only)
  */
 @Controller('analytics')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+@Roles('admin', 'staff')
 export class AnalyticsController {
   private readonly logger = new Logger(AnalyticsController.name);
 
@@ -44,12 +45,36 @@ export class AnalyticsController {
     private readonly dashboard:     DashboardUseCase,
   ) {}
 
+  private validateStaffStation(user: any, stationId?: string): string | undefined {
+    const userRoles = user.roles ?? (user.role ? [user.role] : []);
+    const isStaff = userRoles.includes('staff') && !userRoles.includes('admin');
+    if (!isStaff) {
+      return stationId;
+    }
+
+    const assignedIds = user.stationIds || (user.stationId ? [user.stationId] : []);
+    if (assignedIds.length === 0) {
+      throw new ForbiddenException('No stations assigned to this staff member');
+    }
+
+    if (!stationId) {
+      return assignedIds[0];
+    }
+
+    if (!assignedIds.includes(stationId)) {
+      throw new ForbiddenException('You do not have permission to access analytics for this station');
+    }
+
+    return stationId;
+  }
+
   /**
    * Platform-wide KPI: active sessions, revenue 30d, booking funnel, top users.
    *
    * @example GET /api/v1/analytics/system
    */
   @Get('system')
+  @Roles('admin')
   async getSystemMetrics() {
     this.logger.log('GET /analytics/system');
     return this.systemMetrics.execute();
@@ -67,6 +92,7 @@ export class AnalyticsController {
    */
   @Get('revenue')
   async getRevenue(
+    @CurrentUser() user: any,
     @Query('range')     range:     string  = 'monthly',
     @Query('stationId') stationId: string | undefined,
     @Query('days',  new DefaultValuePipe(30), ParseIntPipe) days: number,
@@ -74,7 +100,8 @@ export class AnalyticsController {
     if (range !== 'monthly' && range !== 'daily') {
       return { error: "Range must be either 'monthly' or 'daily'" };
     }
-    return this.revenue.execute({ range, stationId, days });
+    const validatedStationId = this.validateStaffStation(user, stationId);
+    return this.revenue.execute({ range, stationId: validatedStationId || undefined, days });
   }
 
   /**
@@ -88,10 +115,12 @@ export class AnalyticsController {
    */
   @Get('usage')
   async getUsage(
+    @CurrentUser() user: any,
     @Query('stationId') stationId: string | undefined,
     @Query('days', new DefaultValuePipe(30), ParseIntPipe) days: number,
   ) {
-    return this.stationUsage.execute({ stationId, days });
+    const validatedStationId = this.validateStaffStation(user, stationId);
+    return this.stationUsage.execute({ stationId: validatedStationId || undefined, days });
   }
 
   /**
@@ -106,11 +135,13 @@ export class AnalyticsController {
    */
   @Get('peak-hours')
   async getPeakHours(
+    @CurrentUser() user: any,
     @Query('stationId')    stationId:    string | undefined,
     @Query('lookbackDays', new DefaultValuePipe(28), ParseIntPipe) lookbackDays: number,
     @Query('forecast',     new DefaultValuePipe(false), ParseBoolPipe) withForecast: boolean,
   ) {
-    return this.peakHours.execute({ stationId, lookbackDays, withForecast });
+    const validatedStationId = this.validateStaffStation(user, stationId);
+    return this.peakHours.execute({ stationId: validatedStationId || undefined, lookbackDays, withForecast });
   }
 
   /**
@@ -122,6 +153,7 @@ export class AnalyticsController {
    * @example GET /api/v1/analytics/users/abc-uuid?days=90
    */
   @Get('users/:userId')
+  @Roles('admin')
   async getUserBehavior(
     @Param('userId', ParseUUIDPipe) userId: string,
     @Query('days', new DefaultValuePipe(30), ParseIntPipe) days: number,
@@ -134,24 +166,24 @@ export class AnalyticsController {
    */
   @Get('stations/:stationId/metrics')
   async getStationMetrics(
+    @CurrentUser() user: any,
     @Param('stationId', ParseUUIDPipe) stationId: string,
     @Query('days', new DefaultValuePipe(30), ParseIntPipe) days: number,
   ) {
-    return this.stationUsage.execute({ stationId, days });
+    const validatedStationId = this.validateStaffStation(user, stationId);
+    if (!validatedStationId) {
+      throw new ForbiddenException('Station ID is required');
+    }
+    return this.stationUsage.execute({ stationId: validatedStationId, days });
   }
 
   /**
    * Dashboard shortcut API: composite view for admin dashboard.
    *
-   * Returns in one call:
-   *   - latestKpi:   most recent platform KPI snapshot
-   *   - revenue30d:  daily revenue (last 30 days)
-   *   - peakHours:   top-5 peak hours (last 28 days)
-   *   - topStations: top-5 stations by session count (last 30 days)
-   *
    * @example GET /api/v1/analytics/dashboard
    */
   @Get('dashboard')
+  @Roles('admin')
   async getDashboard() {
     this.logger.log('GET /analytics/dashboard');
     return this.dashboard.execute();

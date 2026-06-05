@@ -40,12 +40,20 @@
       "checkin_success": "Điểm danh Check-in thành công!",
       "checkout_success": "Điểm danh Check-out thành công!",
       "checkin_failed": "Check-in thất bại!",
-      "checkout_failed": "Check-out thất bại!"
+      "checkout_failed": "Check-out thất bại!",
+      "out_of_range": "Bạn cần đến trạm để thực hiện thao tác (GPS hiện tại ngoài phạm vi)"
     },
     "staff_kpi": {
       "station_status": "Trạng thái trạm",
       "available_chargers": "Trụ sạc khả dụng",
       "active_sessions": "Phiên đang sạc"
+    },
+    "staff_kpi_ext": {
+      "energy_charged": "Tổng điện sạc (30 ngày)",
+      "sessions_count": "Tổng số lượt sạc (30 ngày)",
+      "station_revenue": "Doanh thu trạm (30 ngày)",
+      "performance_title": "Thống kê hiệu suất trạm",
+      "performance_subtitle": "Thống kê hoạt động của trạm trong 30 ngày qua"
     },
     "staff_incidents": {
       "title": "Sự cố gần đây",
@@ -87,7 +95,25 @@
     "charger_detail": "Chi tiết trụ sạc",
     "charger_actions": "Thao tác",
     "charger_report": "Báo cáo sự cố",
-    "charger_edit_status": "Sửa trạng thái"
+    "charger_edit_status": "Sửa trạng thái",
+    "report_incident_success": "Báo cáo sự cố trạm sạc cho Admin thành công!",
+    "report_incident_error": "Gửi báo cáo sự cố thất bại!",
+    "update_station_success": "Cập nhật thông tin trạm sạc thành công!",
+    "update_station_error": "Không thể cập nhật trạm sạc",
+    "update_charger_success": "Đã cập nhật trạng thái trụ sạc thành công!",
+    "update_charger_error": "Không thể cập nhật trạng thái trụ sạc",
+    "add_station_success": "Thêm trạm sạc mới thành công!",
+    "add_station_error": "Có lỗi xảy ra khi thêm trạm sạc.",
+    "delete_station_success": "Xóa trạm sạc thành công!",
+    "delete_station_error": "Có lỗi xảy ra khi xóa trạm sạc.",
+    "add_charger_success": "Thêm trụ sạc mới thành công!",
+    "add_charger_error": "Có lỗi xảy ra khi thêm trụ sạc.",
+    "delete_charger_success": "Xóa trụ sạc {{name}} thành công!",
+    "delete_charger_error": "Có lỗi xảy ra khi xóa trụ sạc.",
+    "confirm_delete_station": "Bạn có chắc chắn muốn xóa trạm sạc \"{{name}}\" không? Thao tác này sẽ vô hiệu hóa trạm.",
+    "confirm_delete_charger": "Bạn có chắc chắn muốn xóa trụ sạc {{name}} không?",
+    "update_charger_title": "Cập nhật thông tin trụ sạc",
+    "update_charger_status_title": "Cập nhật trạng thái trụ sạc"
   },
   "staff_calendar": {
     "title": "Lịch Check-In",
@@ -123,7 +149,9 @@
       "action": "Hành động"
     },
     "force_stop": "Stop",
-    "force_stop_success": "Đã dừng phiên sạc"
+    "force_stop_success": "Đã dừng phiên sạc",
+    "invalid_end_meter": "Chỉ số điện năng cuối phải là số hợp lệ lớn hơn hoặc bằng 0",
+    "end_meter_less_than_start": "Chỉ số điện năng cuối không được nhỏ hơn chỉ số bắt đầu ({{start}} Wh)"
   },
   "billing": {
     "title": "Tài chính & Thanh toán",
@@ -148,7 +176,12 @@
     },
     "clear_manual": "Tất toán thủ công",
     "no_arrears": "Hệ thống không có công nợ",
-    "no_transactions": "Chưa có giao dịch nào"
+    "no_transactions": "Chưa có giao dịch nào",
+    "refund_reason_empty": "Lý do hoàn tiền không được để trống",
+    "refund_success": "Đã gửi yêu cầu hoàn tiền thành công",
+    "refund_error": "Hoàn tiền giao dịch thất bại",
+    "confirm_clear_arrears": "Bạn có chắc chắn muốn tất toán thủ công khoản nợ này không?",
+    "prompt_refund_reason": "Nhập lý do hoàn tiền giao dịch này:"
   },
   "staff": {
     "title": "Quản lý Nhân sự",
@@ -171,7 +204,15 @@
       "gps": "Tọa độ GPS"
     },
     "not_updated": "Chưa cập nhật",
-    "on_shift": "Đang trong ca"
+    "on_shift": "Đang trong ca",
+    "enter_user_id": "Vui lòng nhập User ID của nhân viên",
+    "add_success": "Thêm hồ sơ nhân viên mới thành công",
+    "add_error": "Có lỗi xảy ra khi tạo hồ sơ nhân viên",
+    "update_success": "Cập nhật hồ sơ nhân viên thành công",
+    "update_error": "Không thể cập nhật thông tin nhân viên",
+    "delete_success": "Đã xóa hồ sơ nhân viên thành công",
+    "delete_error": "Xóa hồ sơ nhân viên thất bại",
+    "confirm_delete": "Bạn có chắc chắn muốn xóa hồ sơ nhân sự này khỏi hệ thống không?"
   },
   "analytics": {
     "title": "Analytics & Báo cáo",
@@ -212,7 +253,8 @@
     },
     "resolve": "Xử lý",
     "complete": "Hoàn thành",
-    "complete_success": "Đã hoàn thành bảo trì!"
+    "complete_success": "Đã hoàn thành bảo trì!",
+    "resolve_success": "Đã giải quyết sự cố thành công!"
   },
   "data": {
     "status": {
@@ -226,6 +268,7 @@
       "STOPPED": "Đã dừng",
       "ERROR": "Lỗi",
       "SUCCESS": "Thành công",
+      "FAILED": "Thất bại",
       "PENDING": "Đang chờ",
       "IN_PROGRESS": "Đang xử lý",
       "RESOLVED": "Đã xử lý",
@@ -242,6 +285,7 @@
     "type": {
       "TOPUP": "Nạp tiền",
       "REFUND": "Hoàn tiền",
+      "PAYMENT": "Thanh toán",
       "ENERGY": "Điện năng",
       "IDLE_FEE": "Phí chờ"
     },
@@ -267,7 +311,10 @@
       "start": "Giờ bắt đầu",
       "end": "Giờ kết thúc",
       "status": "Trạng thái"
-    }
+    },
+    "cancel_success": "Đã hủy đặt lịch thành công",
+    "cancel_error": "Có lỗi xảy ra khi hủy đặt lịch",
+    "confirm_cancel": "Bạn có chắc chắn muốn hủy lịch đặt này không?"
   },
   "notifications": {
     "title": "Thông báo",
@@ -284,5 +331,10 @@
     "language": "Ngôn ngữ hiển thị",
     "platform_name": "Tên nền tảng",
     "coming_soon": "Mục này đang được phát triển."
+  },
+  "users": {
+    "role_assign_success": "Phân quyền người dùng thành công!",
+    "role_assign_error": "Không thể thay đổi vai trò của người dùng",
+    "confirm_change_role": "Bạn có chắc chắn muốn thay đổi vai trò của \"{{name}}\" từ \"{{oldRole}}\" sang \"{{newRole}}\"?"
   }
 }

@@ -28,9 +28,9 @@ export class JoinQueueCommand {
   constructor(
     public readonly userId:        string,
     public readonly chargerId:     string,
-    public readonly connectorType: string,
     public readonly userPriority:  number,
     public readonly urgencyScore:  number,
+    public readonly connectorType?: string,
   ) {}
 }
 

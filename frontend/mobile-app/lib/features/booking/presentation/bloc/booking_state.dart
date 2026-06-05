@@ -66,15 +66,17 @@ final class QueuePositionState extends BookingState {
   final int? estimatedWaitMinutes;
   final bool inQueue;
   final bool isLoading;
+  final List<QueueEntryEntity>? waitingList;
   const QueuePositionState({
     this.position,
     this.estimatedWaitMinutes,
     this.inQueue = false,
     this.isLoading = false,
+    this.waitingList,
   });
   @override
   List<Object?> get props =>
-      [position, estimatedWaitMinutes, inQueue, isLoading];
+      [position, estimatedWaitMinutes, inQueue, isLoading, waitingList];
 }
 
 final class BookingError extends BookingState {

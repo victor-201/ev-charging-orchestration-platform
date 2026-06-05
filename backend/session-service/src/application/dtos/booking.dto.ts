@@ -43,9 +43,10 @@ export class JoinQueueDto {
   @IsUUID('all')
   chargerId: string;
 
+  @IsOptional()
   @IsString()
   @IsIn(CONNECTOR_TYPES)
-  connectorType: string;
+  connectorType?: string;
 
   @IsOptional()
   @IsNumber()

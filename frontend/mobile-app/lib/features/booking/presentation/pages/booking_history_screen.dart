@@ -97,29 +97,47 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
 
   void _loadStationsForBookings(List<BookingEntity> bookings) {
     final repo = getIt<IStationRepository>();
-    final uniqueChargerIds = bookings.map((b) => b.chargerId).toSet();
-    for (final chargerId in uniqueChargerIds) {
-      if (!_stationCache.containsKey(chargerId) &&
-          !_loadingChargerIds.contains(chargerId) &&
-          !_failedChargerIds.contains(chargerId)) {
-        _loadingChargerIds.add(chargerId);
-        repo.getStationByChargerId(chargerId).then((result) {
-          if (mounted) {
-            setState(() {
-              _loadingChargerIds.remove(chargerId);
-              result.fold(
-                (failure) {
-                  _failedChargerIds.add(chargerId);
-                },
-                (station) {
-                  _stationCache[chargerId] = station;
-                },
-              );
-            });
+    final uniqueChargerIds = bookings
+        .map((b) => b.chargerId)
+        .where((id) =>
+            !_stationCache.containsKey(id) &&
+            !_loadingChargerIds.contains(id) &&
+            !_failedChargerIds.contains(id))
+        .toList();
+
+    if (uniqueChargerIds.isEmpty) return;
+
+    _loadingChargerIds.addAll(uniqueChargerIds);
+
+    repo.getStationsByChargerIds(uniqueChargerIds).then((result) {
+      if (mounted) {
+        setState(() {
+          for (final id in uniqueChargerIds) {
+            _loadingChargerIds.remove(id);
           }
+          result.fold(
+            (failure) {
+              for (final id in uniqueChargerIds) {
+                _failedChargerIds.add(id);
+              }
+            },
+            (stations) {
+              for (final station in stations) {
+                for (final charger in station.chargers) {
+                  _stationCache[charger.id] = station;
+                }
+              }
+              // Fallback to avoid infinite retries
+              for (final id in uniqueChargerIds) {
+                if (!_stationCache.containsKey(id)) {
+                  _failedChargerIds.add(id);
+                }
+              }
+            },
+          );
         });
       }
-    }
+    });
   }
 
   @override

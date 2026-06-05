@@ -181,11 +181,11 @@ describe('QueueNotificationConsumer', () => {
     expect(qu.chargerId).toBe('ch-001');
   });
 
-  it('queue.called -> body says "Đến lượt bạn"', async () => {
+  it('queue.called -> body says "It\'s your turn!"', async () => {
     const { consumer, engine } = makeQueueConsumer();
     await consumer.onQueueUpdated({ ...queuePayload, status: 'called', eventId: 'evt-q-002' });
     const call = engine.dispatch.mock.calls[0][0];
-    expect(call.body).toContain('Đến lượt bạn');
+    expect(call.body).toContain("It's your turn!");
   });
 
   it('queue.waiting -> body contains position and estimatedWait', async () => {
