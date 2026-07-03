@@ -1,0 +1,154 @@
+services:
+  - type: web
+    name: ev-iam-service
+    runtime: docker
+    dockerfilePath: ./backend/iam-service/Dockerfile
+    dockerContext: ./backend/iam-service
+    plan: free
+    envVars:
+      - key: PORT
+        value: "3001"
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        value: ev_platform_db
+      - key: JWT_SECRET
+        sync: false
+
+  - type: web
+    name: ev-infrastructure-service
+    runtime: docker
+    dockerfilePath: ./backend/ev-infrastructure-service/Dockerfile
+    dockerContext: ./backend/ev-infrastructure-service
+    plan: free
+    envVars:
+      - key: PORT
+        value: "3002"
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        value: ev_platform_db
+
+  - type: web
+    name: ev-session-service
+    runtime: docker
+    dockerfilePath: ./backend/session-service/Dockerfile
+    dockerContext: ./backend/session-service
+    plan: free
+    envVars:
+      - key: PORT
+        value: "3003"
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        value: ev_platform_db
+
+  - type: web
+    name: ev-billing-service
+    runtime: docker
+    dockerfilePath: ./backend/billing-service/Dockerfile
+    dockerContext: ./backend/billing-service
+    plan: free
+    envVars:
+      - key: PORT
+        value: "3004"
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        value: ev_platform_db
+
+  - type: web
+    name: ev-analytics-service
+    runtime: docker
+    dockerfilePath: ./backend/analytics-service/Dockerfile
+    dockerContext: ./backend/analytics-service
+    plan: free
+    envVars:
+      - key: PORT
+        value: "3005"
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        value: ev_platform_db
+
+  - type: web
+    name: ev-notification-service
+    runtime: docker
+    dockerfilePath: ./backend/notification-service/Dockerfile
+    dockerContext: ./backend/notification-service
+    plan: free
+    envVars:
+      - key: PORT
+        value: "3006"
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        value: ev_platform_db
+
+  - type: web
+    name: ev-ocpp-gateway
+    runtime: docker
+    dockerfilePath: ./backend/ocpp-gateway-service/Dockerfile
+    dockerContext: ./backend/ocpp-gateway-service
+    plan: free
+    envVars:
+      - key: PORT
+        value: "3007"
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        sync: false
+      - key: REDIS_PASSWORD
+        sync: false
+
+  - type: web
+    name: ev-telemetry-ingestion
+    runtime: docker
+    dockerfilePath: ./backend/telemetry-ingestion-service/Dockerfile
+    dockerContext: ./backend/telemetry-ingestion-service
+    plan: free
+    envVars:
+      - key: PORT
+        value: "3008"
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        sync: false
+      - key: REDIS_PASSWORD
+        sync: false
