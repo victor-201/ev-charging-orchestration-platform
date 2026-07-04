@@ -9,8 +9,36 @@
  */
 
 import { createClient, ClickHouseClient } from '@clickhouse/client';
+import * as fs from 'fs';
+import * as path from 'path';
 
-const CLICKHOUSE_URL = process.env.CLICKHOUSE_TEST_URL ?? 'http://localhost:8123';
+// Load .env file if available
+try {
+  const envPath = path.join(__dirname, '../../../../deployment/docker/.env');
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, 'utf8');
+    for (const line of envContent.split('\n')) {
+      const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+      if (match) {
+        const key = match[1];
+        let val = (match[2] || '').trim();
+        // Remove surrounding quotes if any
+        if (val.startsWith('"') && val.endsWith('"')) {
+          val = val.slice(1, -1);
+        } else if (val.startsWith("'") && val.endsWith("'")) {
+          val = val.slice(1, -1);
+        }
+        if (!process.env[key]) {
+          process.env[key] = val;
+        }
+      }
+    }
+  }
+} catch (e) {
+  // ignore
+}
+
+const CLICKHOUSE_URL = process.env.CLICKHOUSE_TEST_URL ?? process.env.CLICKHOUSE_URL ?? 'http://localhost:8123';
 const TEST_DB        = 'ev_telemetry_test';
 const TEST_TABLE     = `${TEST_DB}.telemetry_logs_test`;
 
@@ -28,7 +56,14 @@ describe('ClickHouse Integration - ev_telemetry_test', () => {
   // Lifecycle
 
   beforeAll(async () => {
-    client = createClient({ url: CLICKHOUSE_URL, database: 'default' });
+    const username = process.env.CLICKHOUSE_USER ?? 'default';
+    const password = process.env.CLICKHOUSE_PASSWORD ?? '';
+    client = createClient({
+      url: CLICKHOUSE_URL,
+      database: 'default',
+      username,
+      password,
+    });
     try {
       const pingResult = await client.ping();
       chAvailable = pingResult.success;

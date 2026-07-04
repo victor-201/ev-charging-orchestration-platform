@@ -18,7 +18,7 @@ import type { TelemetryData, TelemetryPayload, ChargingSession } from '../../dom
 /** Delay (ms) before the simulated ticker fires if no real event arrives */
 const SIM_GRACE_MS = 4_000;
 /** Simulated tick interval (ms) */
-const SIM_TICK_MS = 3_000;
+const SIM_TICK_MS = 1_000;
 /** Simulated charger power (kW) */
 const SIM_POWER_KW = 22;
 
@@ -26,6 +26,7 @@ interface UseWebSocketOptions {
   chargerId: string | null;
   sessionId: string | null;
   startMeterWh: number;
+  currentMeterWh?: number;
   /** Starting SoC% from session record — seeds the dev simulator */
   startSocPercent?: number | null;
   onTelemetry: (data: Partial<TelemetryData>) => void;
@@ -40,6 +41,7 @@ export const useWebSocket = ({
   chargerId,
   sessionId,
   startMeterWh,
+  currentMeterWh,
   startSocPercent,
   onTelemetry,
   onSessionStarted,
@@ -51,6 +53,11 @@ export const useWebSocket = ({
   const socketRef = useRef<Socket | null>(null);
   const hadRealTelemetry = useRef(false);
 
+  // Persistent sim state across effect re-runs (survives React strict-mode double-mount)
+  const simSocRef = useRef(0);
+  const simMeterWhRef = useRef(0);
+  const simInitializedForSessionRef = useRef<string | null>(null);
+
   // Keep references to all callbacks to prevent reconnecting socket on callback changes
   const onTelemetryRef = useRef(onTelemetry);
   const onSessionStartedRef = useRef(onSessionStarted);
@@ -58,17 +65,21 @@ export const useWebSocket = ({
   const onChargerStatusChangedRef = useRef(onChargerStatusChanged);
   const onPaymentCompletedRef = useRef(onPaymentCompleted);
   const startMeterWhRef = useRef(startMeterWh);
+  const currentMeterWhRef = useRef(currentMeterWh ?? startMeterWh);
   const startSocPercentRef = useRef(startSocPercent ?? 0);
   const sessionIdRef = useRef(sessionId);
 
-  useEffect(() => { onTelemetryRef.current = onTelemetry; }, [onTelemetry]);
-  useEffect(() => { onSessionStartedRef.current = onSessionStarted; }, [onSessionStarted]);
-  useEffect(() => { onSessionCompletedRef.current = onSessionCompleted; }, [onSessionCompleted]);
-  useEffect(() => { onChargerStatusChangedRef.current = onChargerStatusChanged; }, [onChargerStatusChanged]);
-  useEffect(() => { onPaymentCompletedRef.current = onPaymentCompleted; }, [onPaymentCompleted]);
-  useEffect(() => { startMeterWhRef.current = startMeterWh; }, [startMeterWh]);
-  useEffect(() => { startSocPercentRef.current = startSocPercent ?? 0; }, [startSocPercent]);
-  useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
+  // Synchronously sync the refs in the render body so that they are always
+  // up-to-date during the render phase and before any effects run.
+  onTelemetryRef.current = onTelemetry;
+  onSessionStartedRef.current = onSessionStarted;
+  onSessionCompletedRef.current = onSessionCompleted;
+  onChargerStatusChangedRef.current = onChargerStatusChanged;
+  onPaymentCompletedRef.current = onPaymentCompleted;
+  startMeterWhRef.current = startMeterWh;
+  currentMeterWhRef.current = currentMeterWh ?? startMeterWh;
+  startSocPercentRef.current = startSocPercent ?? 0;
+  sessionIdRef.current = sessionId;
 
   const mapPayload = useCallback(
     (raw: TelemetryPayload): Partial<TelemetryData> => {
@@ -153,6 +164,10 @@ export const useWebSocket = ({
     });
 
     socket.on('charging_started', (payload: any) => {
+      if (sessionIdRef.current && payload.sessionId !== sessionIdRef.current) {
+        console.log('[Socket.IO] Ignoring charging_started because another session is already active:', sessionIdRef.current);
+        return;
+      }
       console.log('[Socket.IO] Received charging_started event:', payload);
       if (onSessionStartedRef.current) {
         const session: ChargingSession = {
@@ -170,12 +185,18 @@ export const useWebSocket = ({
     });
 
     socket.on('charging_updated', (payload: TelemetryPayload) => {
+      if (!sessionIdRef.current || payload.sessionId !== sessionIdRef.current) {
+        return;
+      }
       console.log('[Socket.IO] Received real telemetry update:', payload);
       hadRealTelemetry.current = true;
       onTelemetryRef.current(mapPayload(payload));
     });
 
     socket.on('charging_completed', (payload: any) => {
+      if (!sessionIdRef.current || payload.sessionId !== sessionIdRef.current) {
+        return;
+      }
       console.log('[Socket.IO] Received charging_completed event:', payload);
       if (onSessionCompletedRef.current) {
         onSessionCompletedRef.current(payload);
@@ -225,11 +246,16 @@ export const useWebSocket = ({
   useEffect(() => {
     if (!sessionId || !enabled) return;
 
+    // (Re)initialize sim counters only when the session changes
+    if (simInitializedForSessionRef.current !== sessionId) {
+      simSocRef.current = startSocPercentRef.current;
+      simMeterWhRef.current = currentMeterWhRef.current;
+      simInitializedForSessionRef.current = sessionId;
+    }
+
     hadRealTelemetry.current = false;
 
     let simIntervalRef: ReturnType<typeof setInterval> | null = null;
-    const simSocRef = { current: startSocPercentRef.current };  // start from actual SoC
-    const simMeterWhRef = { current: startMeterWh };
 
     const startSimTicker = () => {
       if (hadRealTelemetry.current || simIntervalRef) return;
@@ -245,9 +271,9 @@ export const useWebSocket = ({
         const powerKw  = SIM_POWER_KW + (Math.random() - 0.5) * 1.5;
         const deltaWh  = powerKw * (SIM_TICK_MS / 3_600_000) * 1000;
         simMeterWhRef.current += deltaWh;
-        simSocRef.current      = Math.min(100, simSocRef.current + 0.18);
+        simSocRef.current      = Math.min(100, simSocRef.current + 0.06);
 
-        const deliveredKwh = (simMeterWhRef.current - startMeterWh) / 1000;
+        const deliveredKwh = (simMeterWhRef.current - startMeterWhRef.current) / 1000;
         const voltage      = 380 + (Math.random() - 0.5) * 3;
         const current      = parseFloat((powerKw / 0.380 + (Math.random() - 0.5) * 1).toFixed(1));
         const temperature  = parseFloat(
@@ -271,6 +297,6 @@ export const useWebSocket = ({
       clearTimeout(graceTimer);
       if (simIntervalRef) clearInterval(simIntervalRef);
     };
-  }, [enabled, sessionId, startMeterWh]);
+  }, [enabled, sessionId]);
 };
 

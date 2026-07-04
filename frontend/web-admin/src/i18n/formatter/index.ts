@@ -9,7 +9,7 @@ import i18next from '../index';
 
 export const formatCurrency = (amount: number): string => {
   const lng = i18next.language || 'vi';
-  
+
   if (lng === 'en') {
     // Enforces English currency formatting for VND to maintain consistent numeric symbols for international users.
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'VND' }).format(amount);
@@ -26,6 +26,29 @@ export const formatNumberLocale = (n: number): string => {
 export const formatDate = (dateStr: string, options?: Intl.DateTimeFormatOptions): string => {
   const lng = i18next.language || 'vi';
   return new Date(dateStr).toLocaleString(lng === 'en' ? 'en-US' : 'vi-VN', options);
+};
+
+export const formatDateTimeStandard = (dateStr: string | null | undefined): string => {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '—';
+
+  const pad = (n: number) => n.toString().padStart(2, '0');
+
+  const hours = pad(d.getHours());
+  const minutes = pad(d.getMinutes());
+  const seconds = pad(d.getSeconds());
+
+  const day = pad(d.getDate());
+  const month = pad(d.getMonth() + 1);
+  const year = d.getFullYear();
+
+  const currentYear = new Date().getFullYear();
+  if (year === currentYear) {
+    return `${minutes}:${hours}: ${day}/${month}`;
+  }
+
+  return `${minutes}:${hours} ${day}/${month}/${year}`;
 };
 
 export const relativeTimeLocale = (dateStr: string): string => {

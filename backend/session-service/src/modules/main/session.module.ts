@@ -14,6 +14,7 @@ import { SESSION_REPOSITORY } from '../../domain/repositories/session.repository
 import { BookingConfirmedSyncConsumer, BookingCancelledSyncConsumer } from '../../infrastructure/messaging/consumers/booking-sync.consumer';
 import { TelemetryConsumer } from '../../infrastructure/messaging/consumers/telemetry.consumer';
 import { ChargingGateway } from '../../infrastructure/realtime/charging.gateway';
+import { SimulatedTelemetryService } from '../../infrastructure/realtime/simulated-telemetry.service';
 import { SessionOrmEntity, TelemetryOrmEntity, ChargerStateOrmEntity, ProcessedEventOrmEntity, UserDebtReadModelOrmEntity, BookingReadModelOrmEntity } from '../../infrastructure/persistence/typeorm/entities/session.orm-entities';
 import { OutboxOrmEntity, ChargerReadModelOrmEntity, ConnectorReadModelOrmEntity, QueueOrmEntity } from '../../infrastructure/persistence/typeorm/entities/booking.orm-entities'; // Shared outbox
 import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
@@ -55,7 +56,7 @@ import { BookingModule } from '../booking/booking.module';
     ForceStopJob,              // force-stop walk-in sessions when booking time arrives
     { provide: SESSION_REPOSITORY, useClass: SessionRepository },
     { provide: 'ISessionRepository', useExisting: SESSION_REPOSITORY },
-    BookingConfirmedSyncConsumer, BookingCancelledSyncConsumer, TelemetryConsumer, ChargingGateway,
+    BookingConfirmedSyncConsumer, BookingCancelledSyncConsumer, TelemetryConsumer, ChargingGateway, SimulatedTelemetryService,
     { provide: EVENT_BUS, useClass: OutboxEventBus },
   ],
   exports: [StartSessionUseCase, StopSessionUseCase, GetSessionUseCase],

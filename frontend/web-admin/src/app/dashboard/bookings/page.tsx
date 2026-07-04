@@ -48,7 +48,7 @@ const getStatusBadgeAndLabel = (status: string, t: any) => {
   }
 };
 
-const LIMIT = 10;
+const LIMIT = 20;
 
 export default function BookingsPage() {
   const { t } = useTranslation(['dashboard', 'common']);
@@ -627,8 +627,8 @@ export default function BookingsPage() {
             <div className="space-y-3 text-xs">
               <div className="p-3 bg-white/[0.03] border border-white/5 rounded-xl">
                 <p className="text-text-faded mb-0.5">Mã đặt lịch</p>
-                <p className="font-mono text-text-main">{actionTarget.id}</p>
-                <p className="text-text-muted mt-1">Trạng thái: <span className="font-semibold">{actionTarget.status}</span></p>
+                <p className="font-mono text-text-main" title={actionTarget.id}>{actionTarget.id.slice(0, 12)}…</p>
+                <p className="text-text-muted mt-1">Trạng thái: <span className={`badge ${getStatusBadgeAndLabel(actionTarget.status, t).className}`}>{getStatusBadgeAndLabel(actionTarget.status, t).label}</span></p>
               </div>
               <p className="text-text-muted leading-relaxed">
                 {confirmAction === 'delete_record'

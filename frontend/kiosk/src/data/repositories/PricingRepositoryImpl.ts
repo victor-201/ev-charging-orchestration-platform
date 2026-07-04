@@ -55,6 +55,7 @@ export class PricingRepositoryImpl implements IPricingRepository {
     return {
       pricePerKwh: data.pricePerKwhVnd ?? data.pricePerKwh ?? 0,
       idleFeePerMinute: data.idleFeePerMinuteVnd ?? data.idleFeePerMinute ?? 0,
+      idleGraceMinutes: data.idleGraceMinutes ?? 20,
       totalEstimateVnd: data.estimatedTotalVnd ?? data.totalEstimateVnd ?? 0,
     };
   }

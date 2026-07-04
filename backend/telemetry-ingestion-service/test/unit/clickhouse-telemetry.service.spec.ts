@@ -9,19 +9,21 @@ import {
 
 // ─── Mock @clickhouse/client ─────────────────────────────────────────────────
 
-const mockExec   = jest.fn().mockResolvedValue(undefined);
-const mockInsert = jest.fn().mockResolvedValue(undefined);
-const mockQuery  = jest.fn();
-const mockPing   = jest.fn().mockResolvedValue(true);
-const mockClose  = jest.fn().mockResolvedValue(undefined);
+const mockCommand = jest.fn().mockResolvedValue(undefined);
+const mockExec    = jest.fn().mockResolvedValue(undefined);
+const mockInsert  = jest.fn().mockResolvedValue(undefined);
+const mockQuery   = jest.fn();
+const mockPing    = jest.fn().mockResolvedValue(true);
+const mockClose   = jest.fn().mockResolvedValue(undefined);
 
 jest.mock('@clickhouse/client', () => ({
   createClient: jest.fn(() => ({
-    ping:   mockPing,
-    exec:   mockExec,
-    insert: mockInsert,
-    query:  mockQuery,
-    close:  mockClose,
+    ping:    mockPing,
+    command: mockCommand,
+    exec:    mockExec,
+    insert:  mockInsert,
+    query:   mockQuery,
+    close:   mockClose,
   })),
 }));
 
@@ -104,9 +106,12 @@ describe('ClickHouseTelemetryService – Unit Tests', () => {
       const svc = await buildService();
       await svc.onModuleInit();
 
-      expect(mockPing).toHaveBeenCalledTimes(1);
-      // exec called twice: CREATE DATABASE + CREATE TABLE
-      expect(mockExec).toHaveBeenCalledTimes(2);
+      // 2 pings: initial (no db) + after reconnect (with db context)
+      expect(mockPing).toHaveBeenCalledTimes(2);
+      // command called twice: CREATE DATABASE + CREATE TABLE
+      expect(mockCommand).toHaveBeenCalledTimes(2);
+      // close once before reconnecting
+      expect(mockClose).toHaveBeenCalledTimes(1);
       expect(svc.getConnectionStatus().connected).toBe(true);
     });
 
@@ -233,7 +238,7 @@ describe('ClickHouseTelemetryService – Unit Tests', () => {
       expect(inserted.soc_percent).toBe(80);
       expect(inserted.temperature_c).toBe(35);
       expect(inserted.error_code).toBeNull();
-      expect(inserted.hardware_timestamp).toBe('2025-01-01T00:00:00Z');
+      expect(inserted.hardware_timestamp).toBe('2025-01-01 07:00:00.000');
     });
 
     it('uses recordedAt as hardware_timestamp fallback when hardwareTimestamp is null', async () => {
@@ -245,7 +250,7 @@ describe('ClickHouseTelemetryService – Unit Tests', () => {
       await svc.flushBatch();
 
       const inserted = mockInsert.mock.calls[0][0].values[0];
-      expect(inserted.hardware_timestamp).toBe('2025-06-01T12:00:00Z');
+      expect(inserted.hardware_timestamp).toBe('2025-06-01 19:00:00.000');
     });
 
     it('does nothing if buffer is empty', async () => {
@@ -397,7 +402,7 @@ describe('ClickHouseTelemetryService – Unit Tests', () => {
       await svc.onModuleDestroy();
 
       expect(mockInsert).toHaveBeenCalledTimes(1); // flushed remaining
-      expect(mockClose).toHaveBeenCalledTimes(1);
+      expect(mockClose).toHaveBeenCalledTimes(2); // reconnect close + destroy close
       expect(svc.getConnectionStatus().connected).toBe(false);
     });
 

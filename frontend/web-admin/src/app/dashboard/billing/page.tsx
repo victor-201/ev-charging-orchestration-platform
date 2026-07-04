@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/services/api-client';
-import { formatCurrency, formatDate, relativeTimeLocale, tSafe, translateMessage } from '@/i18n/formatter';
+import { formatCurrency, formatDate, relativeTimeLocale, formatDateTimeStandard, tSafe, translateMessage } from '@/i18n/formatter';
 import { motion } from 'framer-motion';
 import { CreditCard, AlertTriangle, ShieldCheck, Filter, Eye, Copy, X, RotateCcw, ShieldCheck as ClearIcon, ShieldAlert } from 'lucide-react';
 import Pagination from '@/core/components/ui/Pagination';
@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { mapApiError } from '@/i18n/error-mapping';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import Portal from '@/core/components/ui/Portal';
-import { KIOSK_GUEST_USER_ID, filterGuestFromUserIds, injectKioskGuest } from '@/lib/kiosk-guest';
+import { KIOSK_GUEST_USER_ID, injectKioskGuest } from '@/lib/kiosk-guest';
 
 type Transaction = {
   id: string;
@@ -37,8 +37,8 @@ type Arrears = {
 type PagedTransactions = { items: Transaction[]; total: number };
 type PagedArrears = { items: Arrears[]; total: number } | Arrears[];
 
-const TX_LIMIT = 15;
-const ARR_LIMIT = 15;
+const TX_LIMIT = 20;
+const ARR_LIMIT = 20;
 
 function normalizeArrears(data: PagedArrears | undefined): { items: Arrears[]; total: number } {
   if (!data) return { items: [], total: 0 };
@@ -124,35 +124,26 @@ export default function BillingPage() {
     ].filter(Boolean))
   ) as string[];
 
-  // Exclude kiosk guest — it has no record in the users table
-  const lookupUserIds = filterGuestFromUserIds(uniqueUserIds);
-
-  // Fetch user list details in a batch
-  const { data: usersData } = useQuery({
-    queryKey: ['users-list-lookup-batch', lookupUserIds.join(',')],
-    queryFn: async () => {
-      if (lookupUserIds.length === 0) return [];
-      const res = await apiClient.get('/users', {
-        params: {
-          ids: lookupUserIds.join(','),
-          role: 'all',
-          limit: lookupUserIds.length,
-        }
-      });
-      return res.data?.items ?? [];
-    },
-    enabled: lookupUserIds.length > 0,
-  });
-
-  const users = usersData || [];
   const userMap = new Map<string, { fullName: string; email: string; phone: string | null }>();
-  users.forEach((u: any) => {
-    userMap.set(u.userId, {
-      fullName: u.fullName,
-      email: u.email,
-      phone: u.phone,
-    });
+  txItems.forEach((tx: any) => {
+    if (tx.user) {
+      userMap.set(tx.userId, {
+        fullName: tx.user.fullName,
+        email: tx.user.email,
+        phone: null,
+      });
+    }
   });
+  arrItems.forEach((a: any) => {
+    if (a.user) {
+      userMap.set(a.userId, {
+        fullName: a.user.fullName,
+        email: a.user.email,
+        phone: null,
+      });
+    }
+  });
+
   // Inject kiosk guest profile nếu trang này có giao dịch / công nợ của khách vãng lai
   injectKioskGuest(uniqueUserIds, userMap);
 
@@ -325,7 +316,7 @@ export default function BillingPage() {
                             {t(`dashboard:data.status.${tx.status?.toUpperCase()}`)}
                           </span>
                         </td>
-                        <td className="text-xs text-text-muted">{new Date(tx.createdAt).toLocaleString('vi-VN')}</td>
+                        <td className="text-xs text-text-muted">{formatDateTimeStandard(tx.createdAt)}</td>
                         <td className="text-right pr-6" onClick={(e) => e.stopPropagation()}>
                           <div className="flex justify-end items-center gap-2">
                             <button 
@@ -425,7 +416,7 @@ export default function BillingPage() {
                              {t(`dashboard:data.status.${a.status?.toUpperCase()}`)}
                            </span>
                          </td>
-                         <td className="text-xs text-text-muted">{relativeTimeLocale(a.createdAt)}</td>
+                         <td className="text-xs text-text-muted">{formatDateTimeStandard(a.createdAt)}</td>
                         <td className="text-right pr-6" onClick={(e) => e.stopPropagation()}>
                           <div className="flex justify-end items-center gap-2">
                             <button 
@@ -609,7 +600,7 @@ export default function BillingPage() {
                 <div className="flex flex-col gap-1">
                   <label className="text-slate-500 dark:text-slate-400 font-semibold">Thời gian tạo</label>
                   <div className="font-semibold text-slate-900 dark:text-white text-xs">
-                    {formatDate(selectedTransaction.createdAt)}
+                    {formatDateTimeStandard(selectedTransaction.createdAt)}
                   </div>
                 </div>
               </div>
@@ -750,7 +741,7 @@ export default function BillingPage() {
                 <div className="flex flex-col gap-1">
                   <label className="text-slate-500 dark:text-slate-400 font-semibold">Thời gian tạo</label>
                   <div className="font-semibold text-slate-900 dark:text-white text-xs">
-                    {formatDate(selectedArrear.createdAt)}
+                    {formatDateTimeStandard(selectedArrear.createdAt)}
                   </div>
                 </div>
               </div>

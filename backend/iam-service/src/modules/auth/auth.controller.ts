@@ -6,7 +6,7 @@ import {
 import { Request } from 'express';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { UsersCacheOrmEntity } from '../../infrastructure/persistence/typeorm/entities/user.orm-entities';
+import { UsersCacheOrmEntity, UserProfileOrmEntity } from '../../infrastructure/persistence/typeorm/entities/user.orm-entities';
 import {
   RegisterUseCase, LoginUseCase, RefreshTokenUseCase, LogoutUseCase,
   ChangePasswordUseCase, AssignRoleUseCase, RevokeRoleUseCase,
@@ -26,6 +26,7 @@ import {
   InvalidMfaTokenException, MfaNotEnabledException, RateLimitExceededException,
   EmailNotVerifiedException,
   InvalidVerificationCodeException,
+  DomainException as AuthDomainException, // alias to avoid naming conflict if any
 } from '../../domain/exceptions/auth.exceptions';
 import { JwtAuthGuard, AuthenticatedUser } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
@@ -39,6 +40,8 @@ export class AuthController {
   constructor(
     @InjectRepository(UsersCacheOrmEntity)
     private readonly usersCacheRepo: Repository<UsersCacheOrmEntity>,
+    @InjectRepository(UserProfileOrmEntity)
+    private readonly profileRepo: Repository<UserProfileOrmEntity>,
     private readonly registerUC: RegisterUseCase,
     private readonly loginUC: LoginUseCase,
     private readonly refreshUC: RefreshTokenUseCase,
@@ -89,7 +92,10 @@ export class AuthController {
     try {
       const result = await this.loginUC.execute(cmd);
       if (result.userId) {
-        const cache = await this.usersCacheRepo.findOne({ where: { userId: result.userId } });
+        const [cache, profile] = await Promise.all([
+          this.usersCacheRepo.findOne({ where: { userId: result.userId } }),
+          this.profileRepo.findOne({ where: { userId: result.userId } }),
+        ]);
         return {
           accessToken: result.accessToken,
           refreshToken: result.refreshToken,
@@ -104,6 +110,7 @@ export class AuthController {
             mfaEnabled: cache?.emailVerified ?? false,
             hasArrears: cache?.hasOutstandingDebt ?? false,
             arrearsAmount: Number(cache?.arrearsAmount ?? 0),
+            avatarUrl: profile?.avatarUrl ?? null,
           }
         };
       }
@@ -148,7 +155,10 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async me(@CurrentUser() user: AuthenticatedUser) {
-    const cache = await this.usersCacheRepo.findOne({ where: { userId: user.id } });
+    const [cache, profile] = await Promise.all([
+      this.usersCacheRepo.findOne({ where: { userId: user.id } }),
+      this.profileRepo.findOne({ where: { userId: user.id } }),
+    ]);
     return {
       id: user.id,
       email: user.email,
@@ -159,6 +169,7 @@ export class AuthController {
       mfaEnabled: user.roles.includes('admin') ? false : cache?.emailVerified ?? false,
       hasArrears: cache?.hasOutstandingDebt ?? false,
       arrearsAmount: Number(cache?.arrearsAmount ?? 0),
+      avatarUrl: profile?.avatarUrl ?? null,
     };
   }
 

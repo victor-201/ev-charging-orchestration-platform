@@ -10,6 +10,7 @@ import {
   StaffProfileOrmEntity,
   AttendanceOrmEntity,
   UsersCacheOrmEntity,
+  UserProfileOrmEntity,
 } from '../../infrastructure/persistence/typeorm/entities/user.orm-entities';
 import { UserOrmEntity } from '../../infrastructure/persistence/typeorm/entities/auth.orm-entities';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
@@ -19,6 +20,7 @@ import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../shared/guards/jwt-auth.guard';
 import { ListStaffQueryDto, ListAttendanceQueryDto } from './dto/user-query.dto';
 import { CreateStaffDto, UpdateStaffDto, CheckInDto, CheckOutDto } from './dto/staff.dto';
+import { In } from 'typeorm';
 
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -32,6 +34,8 @@ export class StaffController {
     private readonly usersCacheRepo: Repository<UsersCacheOrmEntity>,
     @InjectRepository(UserOrmEntity)
     private readonly userRepo: Repository<UserOrmEntity>,
+    @InjectRepository(UserProfileOrmEntity)
+    private readonly profileRepo: Repository<UserProfileOrmEntity>,
   ) {}
 
   /**
@@ -164,7 +168,22 @@ export class StaffController {
       .skip(offsetNum);
 
     const [items, total] = await query.getManyAndCount();
-    return { items, total };
+    const userIds = items.map(u => u.userId);
+    let avatarMap = new Map<string, string | null>();
+    if (userIds.length > 0) {
+      const profiles = await this.profileRepo.createQueryBuilder('p')
+        .where('p.userId IN (:...userIds)', { userIds })
+        .select(['p.userId', 'p.avatarUrl'])
+        .getMany();
+      avatarMap = new Map(profiles.map(p => [p.userId, p.avatarUrl]));
+    }
+
+    const enrichedItems = items.map(u => ({
+      ...u,
+      avatarUrl: avatarMap.get(u.userId) ?? null,
+    }));
+
+    return { items: enrichedItems, total };
   }
 
   /**
@@ -199,10 +218,25 @@ export class StaffController {
       .orderBy('staff.createdAt', 'DESC');
 
     const [items, total] = await qb.getManyAndCount();
+    const userIds = items.map(s => s.userId);
+    let avatarMap = new Map<string, string | null>();
+    if (userIds.length > 0) {
+      const profiles = await this.profileRepo.createQueryBuilder('p')
+        .where('p.userId IN (:...userIds)', { userIds })
+        .select(['p.userId', 'p.avatarUrl'])
+        .getMany();
+      avatarMap = new Map(profiles.map(p => [p.userId, p.avatarUrl]));
+    }
+
     return {
       items: items.map(s => ({
         ...s,
         status: s.isActive ? 'ACTIVE' : 'INACTIVE',
+        avatarUrl: avatarMap.get(s.userId) ?? null,
+        User: (s as any).User ? {
+          ...(s as any).User,
+          avatarUrl: avatarMap.get(s.userId) ?? null,
+        } : null,
       })),
       total,
     };
@@ -396,6 +430,16 @@ export class StaffController {
       .orderBy('att.workDate', 'DESC');
 
     const [items, total] = await qb.getManyAndCount();
+    const userIds = items.map((att: any) => att.staff?.userId).filter(Boolean);
+    let avatarMap = new Map<string, string | null>();
+    if (userIds.length > 0) {
+      const profiles = await this.profileRepo.createQueryBuilder('p')
+        .where('p.userId IN (:...userIds)', { userIds })
+        .select(['p.userId', 'p.avatarUrl'])
+        .getMany();
+      avatarMap = new Map(profiles.map(p => [p.userId, p.avatarUrl]));
+    }
+
     return {
       items: items.map((att: any) => {
         const match = /Lat:\s*([-\d.]+),\s*Lng:\s*([-\d.]+)/.exec(att.notes || '');
@@ -413,7 +457,10 @@ export class StaffController {
           status: att.status,
           notes: att.notes,
           createdAt: att.createdAt,
-          User: att.User,
+          User: att.User ? {
+            ...att.User,
+            avatarUrl: avatarMap.get(att.staff?.userId) ?? null,
+          } : null,
         };
       }),
       total,

@@ -250,7 +250,16 @@ export class LoginUseCase {
         });
       }
 
-      if (!verified) throw new InvalidMfaTokenException();
+      if (!verified) {
+        user.incrementFailedLogin(5, 30);
+        await this.userRepo.save(user);
+
+        if (cmd.ipAddress) {
+          await this.redis.incr(`auth:fail:ip:${cmd.ipAddress}`);
+          await this.redis.expire(`auth:fail:ip:${cmd.ipAddress}`, 900);
+        }
+        throw new InvalidMfaTokenException();
+      }
     }
 
     user.resetFailedLogin();

@@ -22,7 +22,7 @@ import { CompositeAuthGuard }       from '../../shared/guards/composite-auth.gua
 import { RolesGuard }               from '../../shared/guards/roles.guard';
 import { ChargingArrearsGuard, SkipChargingArrearsCheck } from '../../shared/guards/charging-arrears.guard';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
-import { Roles } from '../../shared/decorators/roles.decorator';
+import { Roles, Public } from '../../shared/decorators/roles.decorator';
 import type { AuthenticatedUser }   from '../../shared/guards/jwt-auth.guard';
 import * as jwt from 'jsonwebtoken';
 import { KIOSK_GUEST_USER_ID } from '../../shared/constants';
@@ -70,7 +70,22 @@ export class SessionController {
   private toSessionDto(
     session: import('../../domain/entities/charging-session.aggregate').ChargingSession,
     charger?: ChargerReadModelOrmEntity | null,
+    latestTelemetry?: TelemetryOrmEntity | null,
   ) {
+    let energyKwh = session.kwhConsumed ?? 0;
+    let amountDue = session.totalFeeVnd;
+
+    if (session.status === 'active' && latestTelemetry) {
+      if (latestTelemetry.meterWh != null) {
+        const startMeter = Number(session.startMeterWh ?? 0);
+        energyKwh = Math.max(0, (latestTelemetry.meterWh - startMeter) / 1000);
+        
+        // Calculate estimated cost
+        const pricePerKwh = 3500;
+        amountDue = Math.ceil(energyKwh * pricePerKwh);
+      }
+    }
+
     return {
       id:              session.id,
       userId:          session.userId,
@@ -83,8 +98,8 @@ export class SessionController {
       startSocPercent: session.startSocPercent,
       endMeterWh:      session.endMeterWh,
       createdAt:       session.createdAt,
-      energyKwh:       session.kwhConsumed ?? 0,
-      amountDue:       session.totalFeeVnd,
+      energyKwh,
+      amountDue,
       stationName:     charger?.stationName ?? null,
       cityName:        charger?.cityName ?? null,
       connectorType:   charger?.connectorType ?? null,
@@ -108,6 +123,8 @@ export class SessionController {
       totalKwh:     session.kwhConsumed ?? 0,
       totalCostVnd: session.totalFeeVnd ?? 0,
       stopReason:   session.errorReason ?? null,
+      energyFeeVnd: session.energyFeeVnd ?? 0,
+      idleFeeVnd:   session.idleFeeVnd ?? 0,
     };
   }
 
@@ -251,7 +268,11 @@ export class SessionController {
     const session = await this.getSession.execute(id);
     if (!session) throw new NotFoundException('Session not found');
     const charger = await this.chargerReadRepo.findOneBy({ chargerId: session.chargerId });
-    return this.toSessionDto(session, charger);
+    const latestTelemetry = await this.telemetryRepo.findOne({
+      where: { sessionId: session.id },
+      order: { recordedAt: 'DESC' },
+    });
+    return this.toSessionDto(session, charger, latestTelemetry);
   }
 
   /**
@@ -280,7 +301,11 @@ export class SessionController {
     const session = await this.getSession.getActiveByCharger(chargerId);
     if (!session) throw new NotFoundException('No active session for this charger');
     const charger = await this.chargerReadRepo.findOneBy({ chargerId: session.chargerId });
-    return this.toSessionDto(session, charger);
+    const latestTelemetry = await this.telemetryRepo.findOne({
+      where: { sessionId: session.id },
+      order: { recordedAt: 'DESC' },
+    });
+    return this.toSessionDto(session, charger, latestTelemetry);
   }
 
   /**
@@ -346,8 +371,37 @@ export class SessionController {
       ? await this.chargerReadRepo.findBy({ chargerId: In(uniqueChargerIds) })
       : [];
     const chargerMap = new Map(chargers.map((c) => [c.chargerId, c]));
+
+    // Query latest telemetry for all active sessions in parallel
+    const activeSessionIds = result.items
+      .filter((s) => s.status === 'active')
+      .map((s) => s.id);
+    const telemetryMap = new Map<string, TelemetryOrmEntity>();
+    if (activeSessionIds.length > 0) {
+      const readings = await Promise.all(
+        activeSessionIds.map(async (sid) => {
+          const reading = await this.telemetryRepo.findOne({
+            where: { sessionId: sid },
+            order: { recordedAt: 'DESC' },
+          });
+          return { sessionId: sid, reading };
+        }),
+      );
+      for (const r of readings) {
+        if (r.reading) {
+          telemetryMap.set(r.sessionId, r.reading);
+        }
+      }
+    }
+
     return {
-      items: result.items.map((s) => this.toSessionDto(s, chargerMap.get(s.chargerId))),
+      items: result.items.map((s) =>
+        this.toSessionDto(
+          s,
+          chargerMap.get(s.chargerId),
+          s.status === 'active' ? telemetryMap.get(s.id) : null,
+        ),
+      ),
       total: result.total,
     };
   }
@@ -357,7 +411,7 @@ export class SessionController {
    * Staff views latest telemetry readings for a session.
    */
   @Get('telemetry/:sessionId')
-  @Roles('staff', 'admin')
+  @Roles('staff', 'admin', 'kiosk')
   @SkipChargingArrearsCheck()
   @Header('Cache-Control', 'no-store, no-cache, must-revalidate')
   async getTelemetry(
@@ -453,10 +507,13 @@ export class SessionController {
     }
 
     // 2. Fallback to JWT-based verification
-    const secret = process.env.QR_TOKEN_SECRET ?? process.env.JWT_SECRET ?? 'qr-secret';
+    const secret = process.env.QR_TOKEN_SECRET ?? process.env.JWT_SECRET;
+    if (!secret) {
+      throw new BadRequestException('Server QR verification key is not configured.');
+    }
     let payload: any;
     try {
-      payload = jwt.verify(qrToken, secret);
+      payload = jwt.verify(qrToken, secret, { algorithms: ['HS256'] });
     } catch {
       throw new BadRequestException('Invalid or expired QR code.');
     }
@@ -468,5 +525,41 @@ export class SessionController {
       throw new UnauthorizedException('QR code does not belong to the current account.');
     }
     return { userId: payload.userId, bookingId: payload.bookingId };
+  }
+
+  /**
+   * GET /api/v1/charging/rfid/validate/:idTag
+   * Internal endpoint used by OCPP Gateway to validate RFID tags or vehicle MACs.
+   */
+  @Get('rfid/validate/:idTag')
+  @Public()
+  @SkipChargingArrearsCheck()
+  async validateRfid(@Param('idTag') idTag: string): Promise<{ status: string }> {
+    const vehicleResult = await this.sessionOrmRepo.manager.query<Array<{
+      owner_id:           string;
+      autocharge_enabled: boolean;
+    }>>(
+      `SELECT owner_id, autocharge_enabled
+       FROM vehicles
+       WHERE mac_address = $1 AND status = 'active'
+       LIMIT 1`,
+      [idTag],
+    );
+
+    if (vehicleResult.length === 0 || !vehicleResult[0].autocharge_enabled) {
+      return { status: 'Invalid' };
+    }
+
+    const userId = vehicleResult[0].owner_id;
+
+    const arrearsResult = await this.sessionOrmRepo.manager.query<Array<{ has_outstanding_debt: boolean }>>(
+      `SELECT has_outstanding_debt FROM users_cache WHERE user_id = $1`,
+      [userId],
+    );
+    if (arrearsResult.length > 0 && arrearsResult[0].has_outstanding_debt) {
+      return { status: 'Blocked' };
+    }
+
+    return { status: 'Accepted' };
   }
 }

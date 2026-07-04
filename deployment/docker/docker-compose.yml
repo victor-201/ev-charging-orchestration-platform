@@ -245,6 +245,7 @@ services:
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
     volumes:
       - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse/init:/docker-entrypoint-initdb.d
     ports:
       - "8123:8123"   # HTTP interface (local testing)
     ulimits:

@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/services/api-client';
-import { relativeTimeLocale, formatCurrency, formatDate, tSafe, translateMessage } from '@/i18n/formatter';
+import { relativeTimeLocale, formatCurrency, formatDate, formatDateTimeStandard, tSafe, translateMessage } from '@/i18n/formatter';
 import { motion } from 'framer-motion';
 import { StopCircle, Filter, Search, ShieldAlert, Eye, Copy, Zap, Clock, Power, PowerOff, Activity, Gauge, Battery, Thermometer, Trash2, Loader2 } from 'lucide-react';
 import Pagination from '@/core/components/ui/Pagination';
@@ -56,7 +56,7 @@ const STATUS_OPTIONS = [
   { value: 'completed', label: 'Hoàn thành' },
 ];
 
-const LIMIT = 15;
+const LIMIT = 20;
 
 function calcKwh(session: ChargingSession): number | null {
   if (session.endMeterWh == null || session.startMeterWh == null) return null;
@@ -385,8 +385,13 @@ export default function SessionsPage() {
                               <span className="font-mono text-xs text-text-muted">{s.userId.slice(0, 8)}…</span>
                             )}
                           </td>
-                          <td className="text-xs">{relativeTimeLocale(s.startTime)}</td>
-                          <td className="text-xs text-text-muted">{s.endTime ? relativeTimeLocale(s.endTime) : '—'}</td>
+                          <td className="text-xs">
+                            <div className="flex items-center gap-1.5 text-text-main font-medium">
+                              <Clock className="w-3.5 h-3.5 text-success" />
+                              {formatDateTimeStandard(s.startTime)}
+                            </div>
+                          </td>
+                          <td className="text-xs text-text-muted">{formatDateTimeStandard(s.endTime)}</td>
                           <td className="text-cyan font-semibold">{kwh != null ? `${kwh.toFixed(2)}` : '—'}</td>
                           <td>
                             <span className={`badge ${STATUS_BADGE[s.status] || 'badge-muted'}`}>
@@ -554,10 +559,10 @@ export default function SessionsPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <ModalField label="Giờ bắt đầu">
-                  <ModalValue>{formatDate(selectedSession.startTime, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', second: '2-digit' })}</ModalValue>
+                  <ModalValue>{formatDateTimeStandard(selectedSession.startTime)}</ModalValue>
                 </ModalField>
                 <ModalField label="Giờ kết thúc">
-                  <ModalValue>{selectedSession.endTime ? formatDate(selectedSession.endTime, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', second: '2-digit' }) : '—'}</ModalValue>
+                  <ModalValue>{selectedSession.endTime ? formatDateTimeStandard(selectedSession.endTime) : '—'}</ModalValue>
                 </ModalField>
               </div>
 
@@ -774,7 +779,7 @@ export default function SessionsPage() {
 
             <div className="space-y-3.5 text-xs">
               <ModalField label="Mã phiên sạc (Session ID)">
-                <div className="font-mono text-xs rounded-xl px-3 py-2 truncate" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--card-border)', color: 'var(--text-main)' }}>
+                <div className="font-mono text-xs rounded-xl px-3 py-2 truncate" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--card-border)', color: 'var(--text-main)' }} title={stoppingSession.id}>
                   {stoppingSession.id}
                 </div>
               </ModalField>
@@ -862,9 +867,11 @@ export default function SessionsPage() {
             <div className="space-y-3 text-xs">
               <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--card-border)' }}>
                 <p style={{ color: 'var(--text-faded)' }} className="mb-0.5">Mã phiên sạc</p>
-                <p className="font-mono" style={{ color: 'var(--text-main)' }}>{deletingSession.id}</p>
+                <p className="font-mono" style={{ color: 'var(--text-main)' }} title={deletingSession.id}>{deletingSession.id.slice(0, 12)}…</p>
                 <p style={{ color: 'var(--text-muted)' }} className="mt-1">
-                  Trạng thái: <span className={`badge ${STATUS_BADGE[deletingSession.status] || 'badge-muted'} ml-1`}>{deletingSession.status}</span>
+                  Trạng thái: <span className={`badge ${STATUS_BADGE[deletingSession.status] || 'badge-muted'} ml-1`}>
+                    {t(`dashboard:data.status.${STATUS_TRANSLATE_KEY[deletingSession.status] || deletingSession.status.toUpperCase()}`, { defaultValue: deletingSession.status })}
+                  </span>
                 </p>
               </div>
               <p style={{ color: 'var(--text-faded)' }} className="leading-relaxed">

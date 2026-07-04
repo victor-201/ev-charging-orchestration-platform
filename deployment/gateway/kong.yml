@@ -53,36 +53,33 @@ plugins:
     config:
       add:
         headers:
-          - "X-Frame-Options: DENY"
-          - "X-Content-Type-Options: nosniff"
-          - "X-XSS-Protection: 1; mode=block"
-          - "Strict-Transport-Security: max-age=31536000; includeSubDomains"
-          - "Referrer-Policy: no-referrer"
-          - "Permissions-Policy: geolocation=(), microphone=(), camera=()"
-      remove:
-        headers:
-          - X-Powered-By
-          - Server
+          - "Strict-Transport-Security:max-age=63072000; includeSubDomains; preload"
+          - "X-Content-Type-Options:nosniff"
+          - "X-Frame-Options:DENY"
 
-  # ── Global: Default Rate Limit (per IP, fallback) ────────────────────────
-  - name: rate-limiting
+  # ── Global: Logging (JSON for ELK/Loki) ──────────────────────────────────
+  - name: file-log
     enabled: true
     config:
-      minute: 100
-      policy: local
-      fault_tolerant: true
-      hide_client_headers: false
-      error_code: 429
-      error_message: "Rate limit exceeded. Slow down."
+      path: /dev/stdout
+      reopen: true
 
+  # ── Global: Connection Termination Policy ─────────────────────────────────
+  - name: request-termination
+    enabled: false
+    config:
+      status_code: 503
+      message: "Service temporarily unavailable"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SERVICES (upstreams pointing to actual Render URLs)
+# ─────────────────────────────────────────────────────────────────────────────
 services:
   # ─────────────────────────────────────────────────────────────────────────
   # IAM SERVICE (auth + user profile)
   # ─────────────────────────────────────────────────────────────────────────
   - name: iam-service
-    host: ev-iam
-    port: 3001
-    protocol: http
+    url: http://ev-iam-service.onrender.com
     connect_timeout: 10000
     read_timeout: 30000
     write_timeout: 30000
@@ -92,9 +89,7 @@ services:
         paths: ["/api/v1/auth"]
         methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
         strip_path: false
-        preserve_host: false
         plugins:
-          # No JWT on auth endpoints (login/register are public)
           - name: rate-limiting
             config:
               minute: 10
@@ -107,7 +102,6 @@ services:
         paths: ["/api/v1/users"]
         methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
         strip_path: false
-        preserve_host: false
         plugins:
           - name: rate-limiting
             config:
@@ -119,7 +113,6 @@ services:
         paths: ["/api/v1/staff"]
         methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
         strip_path: false
-        preserve_host: false
         plugins:
           - name: rate-limiting
             config:
@@ -131,7 +124,6 @@ services:
         paths: ["/api/v1/attendance"]
         methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
         strip_path: false
-        preserve_host: false
         plugins:
           - name: rate-limiting
             config:
@@ -143,9 +135,7 @@ services:
   # SESSION SERVICE (booking + charging)
   # ─────────────────────────────────────────────────────────────────────────
   - name: session-service
-    host: ev-session
-    port: 3004
-    protocol: http
+    url: http://ev-session-service.onrender.com
     connect_timeout: 10000
     read_timeout: 60000
     write_timeout: 60000
@@ -155,7 +145,6 @@ services:
         paths: ["/api/v1/bookings"]
         methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
         strip_path: false
-        preserve_host: false
         plugins:
           - name: rate-limiting
             config:
@@ -167,7 +156,6 @@ services:
         paths: ["/api/v1/queue"]
         methods: [GET, POST, DELETE, OPTIONS]
         strip_path: false
-        preserve_host: false
         plugins:
           - name: rate-limiting
             config:
@@ -179,16 +167,11 @@ services:
         paths: ["/api/v1/charging"]
         methods: [GET, POST, PUT, PATCH, OPTIONS]
         strip_path: false
-        preserve_host: false
         plugins: []
 
-  # ─────────────────────────────────────────────────────────────────────────
-  # SESSION SOCKET.IO ROUTE FOR KIOSK TELEMETRY
-  # ─────────────────────────────────────────────────────────────────────────
+  # ── Session WebSocket Route ──────────────────────────────────────────────
   - name: session-ws-service
-    host: ev-session
-    port: 3004
-    protocol: http
+    url: http://ev-session-service.onrender.com
     connect_timeout: 10000
     read_timeout: 60000
     write_timeout: 60000
@@ -202,14 +185,11 @@ services:
         request_buffering: false
         response_buffering: false
 
-
   # ─────────────────────────────────────────────────────────────────────────
-  # EV INFRASTRUCTURE SERVICE (stations, chargers, geo — mostly public reads)
+  # EV INFRASTRUCTURE SERVICE (stations, chargers, geo)
   # ─────────────────────────────────────────────────────────────────────────
   - name: ev-infrastructure-service
-    host: ev-infrastructure
-    port: 3003
-    protocol: http
+    url: http://ev-infrastructure-service.onrender.com
     connect_timeout: 10000
     read_timeout: 30000
     write_timeout: 30000
@@ -219,9 +199,7 @@ services:
         paths: ["/api/v1/stations"]
         methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
         strip_path: false
-        preserve_host: false
         plugins:
-          # Public GET is allowed; admin mutations validated in-service by Roles guard
           - name: rate-limiting
             config:
               minute: 200
@@ -232,9 +210,7 @@ services:
   # BILLING SERVICE (payments, wallet, transactions)
   # ─────────────────────────────────────────────────────────────────────────
   - name: billing-service
-    host: ev-billing
-    port: 3007
-    protocol: http
+    url: http://ev-billing-service.onrender.com
     connect_timeout: 10000
     read_timeout: 60000
     write_timeout: 60000
@@ -244,7 +220,6 @@ services:
         paths: ["/api/v1/billing"]
         methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
         strip_path: false
-        preserve_host: false
         plugins:
           - name: rate-limiting
             config:
@@ -256,7 +231,6 @@ services:
         paths: ["/api/v1/payments"]
         methods: [GET, POST, PUT, PATCH, OPTIONS]
         strip_path: false
-        preserve_host: false
         plugins:
           - name: rate-limiting
             config:
@@ -268,7 +242,6 @@ services:
         paths: ["/api/v1/wallet"]
         methods: [GET, POST, OPTIONS]
         strip_path: false
-        preserve_host: false
         plugins:
           - name: rate-limiting
             config:
@@ -280,7 +253,6 @@ services:
         paths: ["/api/v1/transactions"]
         methods: [GET, OPTIONS]
         strip_path: false
-        preserve_host: false
         plugins:
           - name: rate-limiting
             config:
@@ -292,9 +264,7 @@ services:
   # NOTIFICATION SERVICE
   # ─────────────────────────────────────────────────────────────────────────
   - name: notification-service
-    host: ev-notify
-    port: 3008
-    protocol: http
+    url: http://ev-notification-service.onrender.com
     connect_timeout: 10000
     read_timeout: 30000
     write_timeout: 30000
@@ -303,19 +273,16 @@ services:
       - name: notifications-route
         paths: ["/api/v1/notifications"]
         strip_path: false
-        preserve_host: false
         plugins: []
 
       - name: devices-route
         paths: ["/api/v1/devices"]
         strip_path: false
-        preserve_host: false
         plugins: []
 
       - name: preferences-route
         paths: ["/api/v1/preferences"]
         strip_path: false
-        preserve_host: false
         plugins: []
 
       - name: notification-ws-route
@@ -330,9 +297,7 @@ services:
   # ANALYTICS SERVICE
   # ─────────────────────────────────────────────────────────────────────────
   - name: analytics-service
-    host: ev-analytics
-    port: 3002
-    protocol: http
+    url: http://ev-analytics-service.onrender.com
     connect_timeout: 10000
     read_timeout: 120000
     write_timeout: 60000
@@ -341,7 +306,6 @@ services:
       - name: analytics-route
         paths: ["/api/v1/analytics"]
         strip_path: false
-        preserve_host: false
         plugins:
           - name: rate-limiting
             config:
@@ -353,9 +317,7 @@ services:
   # TELEMETRY INGESTION SERVICE (high-throughput IoT data)
   # ─────────────────────────────────────────────────────────────────────────
   - name: telemetry-ingestion-service
-    host: ev-telemetry
-    port: 3009
-    protocol: http
+    url: http://ev-telemetry-ingestion.onrender.com
     connect_timeout: 5000
     read_timeout: 10000
     write_timeout: 10000
@@ -364,15 +326,12 @@ services:
       - name: telemetry-route
         paths: ["/api/v1/telemetry"]
         strip_path: false
-        preserve_host: false
 
   # ─────────────────────────────────────────────────────────────────────────
   # OCPP GATEWAY SERVICE (OCPP 1.6J WebSocket Bridge)
   # ─────────────────────────────────────────────────────────────────────────
   - name: ocpp-gateway-service
-    host: ev-ocpp-gw
-    port: 3010
-    protocol: http
+    url: http://ev-ocpp-gateway.onrender.com
     connect_timeout: 10000
     read_timeout: 10000
     write_timeout: 10000
@@ -381,7 +340,6 @@ services:
       - name: ocpp-health-route
         paths: ["/api/v1/ocpp"]
         strip_path: false
-        preserve_host: false
 
       - name: ocpp-ws-route
         paths: ["/ocpp"]

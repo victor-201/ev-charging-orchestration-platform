@@ -29,10 +29,10 @@ const TERMINAL_SESSION_STATUSES: SessionStatus[] = [
   'interrupted',
 ];
 
-/** Grace period after charging ends before calculating idle fee: 15 minutes */
-export const IDLE_GRACE_MINUTES = 15;
-/** Idle fee: 2,000 VND/minute after 15 mins grace period */
-export const IDLE_FEE_PER_MINUTE_VND = 2_000;
+/** Grace period after charging ends before calculating idle fee: 20 minutes */
+export const IDLE_GRACE_MINUTES = 20;
+/** Idle fee: 1,000 VND/minute after 20 mins grace period */
+export const IDLE_FEE_PER_MINUTE_VND = 1_000;
 
 export class ChargingSessionException extends Error {
   constructor(message: string) {

@@ -261,7 +261,7 @@ export class BookingRepository implements IBookingRepository {
       id:                   e.id,
       userId:               e.userId,
       chargerId:            e.chargerId,
-      timeRange:            new BookingTimeRange(e.startTime, e.endTime),
+      timeRange:            new BookingTimeRange(e.startTime, e.endTime, true),
       status:               e.status as BookingStatus,
       idempotencyKey:       e.idempotencyKey,
       expiredAt:            e.expiresAt ?? null,

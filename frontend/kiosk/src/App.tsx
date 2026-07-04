@@ -251,6 +251,7 @@ const App: React.FC = () => {
             vnpayUrl={vnpayUrl}
             isPaid={isPaid}
             isAppUserSession={isAppUserSession}
+            pricing={pricing}
             onReset={resetSession}
           />
         )}

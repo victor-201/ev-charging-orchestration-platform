@@ -2,7 +2,22 @@
 
 import { useEffect, useRef, useState } from 'react';
 import i18next from '@/i18n/index';
-import 'leaflet/dist/leaflet.css';
+
+// NOTE: Leaflet CSS is injected at runtime (not statically imported) to avoid
+// Turbopack/Next.js CSS parser errors caused by the legacy IE `filter: progid:...`
+// syntax in leaflet/dist/leaflet.css line 538.
+function injectLeafletCss() {
+  if (typeof document === 'undefined') return;
+  const id = 'leaflet-css';
+  if (document.getElementById(id)) return;
+  const link = document.createElement('link');
+  link.id = id;
+  link.rel = 'stylesheet';
+  link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+  link.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
+  link.crossOrigin = '';
+  document.head.appendChild(link);
+}
 
 type Station = {
   id: string; name: string; address: string; status: string;
@@ -196,6 +211,7 @@ export default function StationMap({
   // Initialize Map
   useEffect(() => {
     mountedRef.current = true;
+    injectLeafletCss();
     if (!mapRef.current || mapInstance.current) return;
 
     import('leaflet').then((L) => {

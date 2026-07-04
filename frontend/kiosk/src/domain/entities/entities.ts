@@ -93,6 +93,8 @@ export interface StopSessionResponse {
   totalKwh: number;
   totalCostVnd: number;
   stopReason: string;
+  energyFeeVnd?: number;
+  idleFeeVnd?: number;
 }
 
 // ---- Pricing ----
@@ -101,6 +103,7 @@ export interface StopSessionResponse {
 export interface PricingInfo {
   pricePerKwh: number;      // VND
   idleFeePerMinute: number; // VND
+  idleGraceMinutes?: number; // Free parking minutes after full charge
   totalEstimateVnd: number;
 }
 

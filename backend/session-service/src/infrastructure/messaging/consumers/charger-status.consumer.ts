@@ -37,7 +37,7 @@ export class ChargerStatusConsumer {
       await this.processQueue.execute(payload.chargerId);
     }
     
-    if (payload.eventId) await this.peRepo.save({ eventId, eventType: 'slot.available' });
+    if (payload.eventId) await this.peRepo.upsert({ eventId, eventType: 'slot.available' }, ['eventId']);
   }
 
   /**
@@ -55,7 +55,7 @@ export class ChargerStatusConsumer {
 
     await this.processQueue.execute(payload.chargerId);
     
-    if (payload.eventId) await this.peRepo.save({ eventId: payload.eventId, eventType: 'booking.cancelled' });
+    if (payload.eventId) await this.peRepo.upsert({ eventId: payload.eventId, eventType: 'booking.cancelled' }, ['eventId']);
   }
 
   @RabbitSubscribe({
@@ -69,6 +69,6 @@ export class ChargerStatusConsumer {
 
     await this.processQueue.execute(payload.chargerId);
     
-    if (payload.eventId) await this.peRepo.save({ eventId: payload.eventId, eventType: 'booking.completed' });
+    if (payload.eventId) await this.peRepo.upsert({ eventId: payload.eventId, eventType: 'booking.completed' }, ['eventId']);
   }
 }

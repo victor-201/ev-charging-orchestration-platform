@@ -34,6 +34,13 @@ export class GetActiveSessionUseCase {
   }
 }
 
+export class GetLatestTelemetryUseCase {
+  private repo = new SessionRepositoryImpl();
+  execute(sessionId: string): Promise<any> {
+    return this.repo.getLatestTelemetry(sessionId);
+  }
+}
+
 export class StartSessionUseCase {
   private repo = new SessionRepositoryImpl();
   execute(chargerId: string, bookingId?: string, qrToken?: string): Promise<ChargingSession> {

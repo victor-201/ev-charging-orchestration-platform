@@ -36,13 +36,21 @@ export class ClickHouseTelemetryService implements OnModuleInit, OnModuleDestroy
     this._database = database;
 
     try {
-      this.client = createClient({ url, database, username, password });
-
+      // Step 1: Connect WITHOUT database first so DDL (CREATE DATABASE) works
+      this.client = createClient({ url, username, password });
       await this.client.ping();
+      this.logger.log(`ClickHouse ping OK: ${url}`);
+
+      // Step 2: Ensure database exists (no database context required for DDL)
+      await this.ensureTable();
+
+      // Step 3: Reconnect WITH the database context for queries
+      await this.client.close();
+      this.client = createClient({ url, database, username, password });
+      await this.client.ping();
+
       this.connected = true;
       this.logger.log(`ClickHouse connected: ${url} database=${database}`);
-
-      await this.ensureTable();
 
       this.flushTimer = setInterval(() => this.flushBatch(), this.FLUSH_INTERVAL_MS);
     } catch (err: any) {
@@ -57,15 +65,13 @@ export class ClickHouseTelemetryService implements OnModuleInit, OnModuleDestroy
   private async ensureTable(): Promise<void> {
     if (!this.client) return;
 
-    await this.client.exec({
-      query: `
-        CREATE DATABASE IF NOT EXISTS ev_telemetry;
-      `,
+    await this.client.command({
+      query: `CREATE DATABASE IF NOT EXISTS ev_telemetry;`,
     });
 
-    await this.client.exec({
+    await this.client.command({
       query: `
-        CREATE TABLE IF NOT EXISTS telemetry_logs (
+        CREATE TABLE IF NOT EXISTS ev_telemetry.telemetry_logs (
           event_id           String,
           charger_id         String,
           session_id         String,
@@ -82,7 +88,7 @@ export class ClickHouseTelemetryService implements OnModuleInit, OnModuleDestroy
         ENGINE = MergeTree()
         PARTITION BY toYYYYMMDD(hardware_timestamp)
         ORDER BY (charger_id, hardware_timestamp)
-        TTL hardware_timestamp + INTERVAL 90 DAY
+        TTL toDateTime(hardware_timestamp) + INTERVAL 90 DAY
         SETTINGS index_granularity = 8192;
       `,
     });
@@ -124,7 +130,7 @@ export class ClickHouseTelemetryService implements OnModuleInit, OnModuleDestroy
           soc_percent:        r.socPercent   ?? null,
           temperature_c:      r.temperatureC ?? null,
           error_code:         r.errorCode    ?? null,
-          hardware_timestamp: r.hardwareTimestamp ?? r.recordedAt,
+          hardware_timestamp: this.formatDateForClickHouse(r.hardwareTimestamp ?? r.recordedAt),
         })),
         format: 'JSONEachRow',
       });
@@ -235,6 +241,26 @@ export class ClickHouseTelemetryService implements OnModuleInit, OnModuleDestroy
       this.logger.error(`ClickHouse getLatestReading failed: ${err?.message ?? err}`);
       return null;
     }
+  }
+
+  private formatDateForClickHouse(val: string | Date | null | undefined): string | null {
+    if (!val) return null;
+    const date = typeof val === 'string' ? new Date(val) : val;
+    if (isNaN(date.getTime())) return null;
+
+    // Convert to Asia/Ho_Chi_Minh (UTC+7)
+    const tzOffset = 7 * 60 * 60 * 1000; // 7 hours in ms
+    const localDate = new Date(date.getTime() + tzOffset);
+
+    const yyyy = localDate.getUTCFullYear();
+    const mm = String(localDate.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(localDate.getUTCDate()).padStart(2, '0');
+    const hh = String(localDate.getUTCHours()).padStart(2, '0');
+    const min = String(localDate.getUTCMinutes()).padStart(2, '0');
+    const sec = String(localDate.getUTCSeconds()).padStart(2, '0');
+    const ms = String(localDate.getUTCMilliseconds()).padStart(3, '0');
+
+    return `${yyyy}-${mm}-${dd} ${hh}:${min}:${sec}.${ms}`;
   }
 
   getConnectionStatus(): { connected: boolean; database: string; bufferedRows: number } {

@@ -6,7 +6,7 @@
 
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Zap, ShieldCheck, Wifi, ArrowRight, WrenchIcon, QrCode } from "lucide-react";
+import { Zap, ShieldCheck, Wifi, ArrowRight, WrenchIcon, QrCode, RefreshCw } from "lucide-react";
 import { CHARGER_ID, STATION_ID, POINT_ID, setChargerId } from "../../data/sources/localStorage";
 import { GetStationDetailUseCase, GetAvailabilitySlotsUseCase } from "../../application/useCases";
 import type { ChargerInfo } from "../../domain/entities/entities";
@@ -172,7 +172,9 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   let buttonLabel = 'BẮT ĐẦU SẠC';
   let buttonDisabled = !selectedCharger || loading;
 
-  if (isInUse) {
+  if (loading) {
+    buttonLabel = 'ĐANG KÍCH HOẠT...';
+  } else if (isInUse) {
     buttonLabel = `TRỤ ${currentCharger?.name || ''} ĐANG ĐƯỢC SỬ DỤNG`.toUpperCase().trim();
     buttonDisabled = true;
   } else if (isOffline) {
@@ -317,7 +319,13 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                 opacity: 1,
               }}
             >
-              {isOffline ? <WrenchIcon size={20} /> : <Zap size={20} />}
+              {loading ? (
+                <RefreshCw size={20} className="animate-spin relative z-10" />
+              ) : isOffline ? (
+                <WrenchIcon size={20} />
+              ) : (
+                <Zap size={20} />
+              )}
               <span className="relative z-10">{buttonLabel}</span>
               {!buttonDisabled && <ArrowRight size={20} className="relative z-10" />}
             </motion.button>

@@ -639,7 +639,7 @@ export default function DashboardPage() {
                             <td className="max-w-xs truncate text-xs">{inc.description}</td>
                             <td>
                               <span className={`badge ${inc.severity === 'CRITICAL' || inc.severity === 'HIGH' ? 'badge-danger' : 'badge-warning'}`}>
-                                {t(`dashboard:data.severity.${inc.severity}`) || inc.severity}
+                                {t(`dashboard:data.severity.${inc.severity.toUpperCase()}`) || inc.severity}
                               </span>
                             </td>
                             <td>

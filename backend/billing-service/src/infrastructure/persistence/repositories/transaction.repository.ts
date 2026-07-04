@@ -35,36 +35,42 @@ export class TransactionRepository implements ITransactionRepository {
 
   async findByUserId(userId: string, limit = 20, offset = 0, type?: string, status?: string): Promise<Transaction[]> {
     const where: any = { userId };
-    if (type) {
-      where.type = type.toLowerCase();
-    }
-    if (status) {
-      where.status = status.toLowerCase();
-    }
+    if (type)   where.type   = type.toLowerCase();
+    if (status) where.status = status.toLowerCase();
     const entities = await this.repo.find({
       where,
-      order:  { createdAt: 'DESC' },
-      take:   limit,
-      skip:   offset,
+      order: { createdAt: 'DESC' },
+      take:  limit,
+      skip:  offset,
     });
     return entities.map(this.toDomain.bind(this));
   }
 
+  async countByUserId(userId: string, type?: string, status?: string): Promise<number> {
+    const where: any = { userId };
+    if (type)   where.type   = type.toLowerCase();
+    if (status) where.status = status.toLowerCase();
+    return this.repo.count({ where });
+  }
+
   async findAll(limit = 20, offset = 0, type?: string, status?: string): Promise<Transaction[]> {
     const where: any = {};
-    if (type) {
-      where.type = type.toLowerCase();
-    }
-    if (status) {
-      where.status = status.toLowerCase();
-    }
+    if (type)   where.type   = type.toLowerCase();
+    if (status) where.status = status.toLowerCase();
     const entities = await this.repo.find({
       where,
-      order:  { createdAt: 'DESC' },
-      take:   limit,
-      skip:   offset,
+      order: { createdAt: 'DESC' },
+      take:  limit,
+      skip:  offset,
     });
     return entities.map(this.toDomain.bind(this));
+  }
+
+  async countAll(type?: string, status?: string): Promise<number> {
+    const where: any = {};
+    if (type)   where.type   = type.toLowerCase();
+    if (status) where.status = status.toLowerCase();
+    return this.repo.count({ where });
   }
 
   async findPending(userId: string): Promise<Transaction[]> {

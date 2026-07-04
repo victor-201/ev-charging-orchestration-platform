@@ -29,11 +29,12 @@ type UserCache = {
   hasOutstandingDebt: boolean;
   arrearsAmount: number;
   syncedAt: string;
+  avatarUrl?: string | null;
 };
 
 type PagedUsers = { items: UserCache[]; total: number };
 
-const LIMIT = 15;
+const LIMIT = 20;
 
 export default function UsersPage() {
   const { user, isCheckingAuth } = useAuthStore();
@@ -266,10 +267,10 @@ export default function UsersPage() {
                 <table className="ev-table">
                   <thead>
                     <tr>
-                      <th>Khách hàng</th>
-                      <th>Số điện thoại</th>
-                      <th>Trạng thái</th>
-                      <th>Nợ xấu</th>
+                      <th className="text-left">Khách hàng</th>
+                      <th className="text-center">Số điện thoại</th>
+                      <th className="text-center">Trạng thái</th>
+                      <th className="text-center">Nợ xấu</th>
                       <th className="text-right pr-6">Chi tiết</th>
                     </tr>
                   </thead>
@@ -292,22 +293,31 @@ export default function UsersPage() {
                           className={`cursor-pointer transition-colors ${selectedUser?.userId === u.userId ? 'bg-cyan/5 border-l-2 border-cyan' : 'hover:bg-white/[0.02]'}`}
                         >
                           <td>
-                            <p className="text-text-main font-medium">{u.fullName}</p>
-                            <p className="text-xs text-text-muted">{u.email}</p>
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan to-lime flex items-center justify-center text-white font-bold text-sm shrink-0">
+                                {u.fullName?.trim().split(' ').pop()?.slice(0, 1).toUpperCase() || 'KH'}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-text-main truncate">{u.fullName}</p>
+                                <p className="text-xs text-text-muted mt-0.5 truncate">{u.email}</p>
+                              </div>
+                            </div>
                           </td>
-                          <td className="text-xs font-mono text-text-muted">{u.phone || '—'}</td>
-                          <td>
+                          <td className="text-center">
+                            <span className="text-sm font-mono text-text-muted">{u.phone || '—'}</span>
+                          </td>
+                          <td className="text-center">
                             <span className={`badge ${u.status === 'active' ? 'badge-success' : 'badge-danger'}`}>
                               {u.status === 'active' ? 'Hoạt động' : 'Tạm khóa'}
                             </span>
                           </td>
-                          <td>
+                          <td className="text-center">
                             {u.hasOutstandingDebt ? (
                               <span className="badge badge-danger" title="Nhấn để xem chi tiết nợ">
                                 {Number(u.arrearsAmount).toLocaleString('vi-VN')} đ
                               </span>
                             ) : (
-                              <span className="text-xs text-text-muted/60">Không nợ</span>
+                              <span className="text-xs text-text-muted/50">—</span>
                             )}
                           </td>
                           <td className="text-right pr-6" onClick={(e) => e.stopPropagation()}>
@@ -323,7 +333,7 @@ export default function UsersPage() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={5} className="text-center py-12 text-text-muted">
+                        <td colSpan={5} className="text-center py-12 text-text-muted text-sm">
                           Không tìm thấy khách hàng nào phù hợp.
                         </td>
                       </tr>
@@ -355,8 +365,26 @@ export default function UsersPage() {
 
               {/* Profile card summary */}
               <div className="flex items-center gap-3.5 p-3.5 bg-white/[0.02] border border-white/5 rounded-2xl">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs text-white shrink-0" style={{ background: 'var(--brand-gradient)' }}>
-                  {selectedUser.fullName?.split(' ').pop()?.slice(0, 2).toUpperCase() || 'KH'}
+                {selectedUser.avatarUrl ? (
+                  <img
+                    src={selectedUser.avatarUrl}
+                    alt={selectedUser.fullName}
+                    className="w-10 h-10 rounded-xl object-cover shrink-0"
+                    onError={(e) => {
+                      const t = e.currentTarget.parentElement;
+                      if (t) {
+                        e.currentTarget.style.display = 'none';
+                        const fb = t.querySelector('.avatar-fallback-lg') as HTMLElement;
+                        if (fb) fb.style.display = 'flex';
+                      }
+                    }}
+                  />
+                ) : null}
+                <div
+                  className="avatar-fallback-lg w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs text-white shrink-0"
+                  style={{ background: 'var(--brand-gradient)', display: selectedUser.avatarUrl ? 'none' : 'flex' }}
+                >
+                  {selectedUser.fullName?.split(' ').pop()?.slice(0, 1).toUpperCase() || 'KH'}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="font-bold text-text-main text-sm truncate">{selectedUser.fullName}</p>

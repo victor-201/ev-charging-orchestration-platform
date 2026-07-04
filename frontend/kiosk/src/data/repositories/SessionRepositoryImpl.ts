@@ -46,4 +46,9 @@ export class SessionRepositoryImpl implements ISessionRepository {
     const { data } = await apiClient.get<ChargingSession>(`/charging/session/${sessionId}`);
     return data;
   }
+
+  async getLatestTelemetry(sessionId: string): Promise<any> {
+    const { data } = await apiClient.get<any>(`/charging/telemetry/${sessionId}`);
+    return data;
+  }
 }

@@ -57,11 +57,13 @@ export class CreatePaymentUseCase {
   }): Promise<{ transactionId: string; paymentUrl: string }> {
     const returnUrl = this.config.get('VNPAY_RETURN_URL', 'http://localhost:3005/api/v1/payments/vnpay-return');
 
+    const finalAmount = Math.max(cmd.amount, 10000);
+
     // Create transaction record
     const txn = Transaction.create({
       userId:      cmd.userId,
       type:        'payment',
-      amount:      cmd.amount,
+      amount:      finalAmount,
       method:      'bank_transfer',
       relatedId:   cmd.bookingId,
       relatedType: cmd.relatedType as any ?? 'booking',
@@ -72,7 +74,7 @@ export class CreatePaymentUseCase {
     const orderInfo = `EV booking payment ${cmd.bookingId.substring(0, 8)}`;
 
     const paymentUrl = this.vnpay.buildPaymentUrl({
-      amount:    cmd.amount,
+      amount:    finalAmount,
       orderInfo,
       orderType: 'billpayment',
       txnRef,
@@ -85,7 +87,7 @@ export class CreatePaymentUseCase {
 
     await this.txRepo.save(txn);
 
-    this.logger.log(`Payment initiated: tx=${txn.id} ref=${txnRef} amount=${cmd.amount}`);
+    this.logger.log(`Payment initiated: tx=${txn.id} ref=${txnRef} amount=${finalAmount}`);
     return { transactionId: txn.id, paymentUrl };
   }
 }
@@ -156,6 +158,7 @@ export class HandleVNPayCallbackUseCase {
         if (tx.type === 'topup') {
           const wallet = await this.walletRepo.findByUserId(tx.userId);
           if (wallet) {
+            await this.walletRepo.lockForUpdate(wallet.id, manager);
             await this.walletRepo.credit(wallet.id, tx.id, tx.amount, manager);
             events.push(new WalletTopupCompletedEvent(
               wallet.id,
@@ -250,10 +253,12 @@ export class WalletTopupInitUseCase {
 
     wallet.validateCredit(cmd.amount);
 
+    const finalAmount = Math.max(cmd.amount, 10000);
+
     const txn = Transaction.create({
       userId: cmd.userId,
       type:   'topup',
-      amount: cmd.amount,
+      amount: finalAmount,
       method: 'bank_transfer',
     });
 
@@ -261,7 +266,7 @@ export class WalletTopupInitUseCase {
     const returnUrl = this.config.get('VNPAY_RETURN_URL', 'http://localhost:3005/api/v1/payments/vnpay-return');
 
     const paymentUrl = this.vnpay.buildPaymentUrl({
-      amount:    cmd.amount,
+      amount:    finalAmount,
       orderInfo: `EV wallet topup user ${cmd.userId.substring(0, 8)}`,
       orderType: 'topup',
       txnRef,
@@ -437,11 +442,26 @@ export class GetTransactionHistoryUseCase {
     @Inject(TRANSACTION_REPOSITORY) private readonly txRepo: ITransactionRepository,
   ) {}
 
-  async execute(userId: string, limit = 20, offset = 0, isAdmin = false, type?: string, status?: string): Promise<Transaction[]> {
+  async execute(
+    userId: string,
+    limit = 20,
+    offset = 0,
+    isAdmin = false,
+    type?: string,
+    status?: string,
+  ): Promise<{ items: Transaction[]; total: number }> {
     if (isAdmin) {
-      return this.txRepo.findAll(limit, offset, type, status);
+      const [items, total] = await Promise.all([
+        this.txRepo.findAll(limit, offset, type, status),
+        this.txRepo.countAll(type, status),
+      ]);
+      return { items, total };
     }
-    return this.txRepo.findByUserId(userId, limit, offset, type, status);
+    const [items, total] = await Promise.all([
+      this.txRepo.findByUserId(userId, limit, offset, type, status),
+      this.txRepo.countByUserId(userId, type, status),
+    ]);
+    return { items, total };
   }
 }
 
@@ -758,10 +778,7 @@ export class PayArrearsVNPayInitUseCase {
     }
 
     const totalArrears = unpaidInvoices.reduce((sum, inv) => sum + Number(inv.totalAmount), 0);
-
-    if (totalArrears < 1000) {
-      throw new Error('ARREARS_TOO_SMALL: Arrears amount is below minimum VNPay threshold (1,000 VND)');
-    }
+    const finalAmount = Math.max(totalArrears, 10000);
 
     // Create a pending transaction to track this arrears payment
     // NOTE: relatedId is null because arrears don't link to a single booking/session UUID.
@@ -769,7 +786,7 @@ export class PayArrearsVNPayInitUseCase {
     const txn = Transaction.create({
       userId:      cmd.userId,
       type:        'payment',
-      amount:      totalArrears,
+      amount:      finalAmount,
       method:      'bank_transfer',
       relatedId:   undefined,      // NOT a UUID, leave null
       relatedType: undefined,      // 'arrears' not in DB enum, stored in meta
@@ -779,7 +796,7 @@ export class PayArrearsVNPayInitUseCase {
     const returnUrl = this.config.get('VNPAY_RETURN_URL', 'http://localhost:3005/api/v1/payments/vnpay-return');
 
     const paymentUrl = this.vnpay.buildPaymentUrl({
-      amount:    totalArrears,
+      amount:    finalAmount,
       orderInfo: `EV arrears payment user ${cmd.userId.substring(0, 8)}`,
       orderType: 'billpayment',
       txnRef,
@@ -791,7 +808,7 @@ export class PayArrearsVNPayInitUseCase {
     txn.attachVNPayRef(txnRef, { type: 'arrears', invoiceCount: unpaidInvoices.length, vnpayTxnRef: txnRef });
     await this.txRepo.save(txn);
 
-    this.logger.log(`Arrears VNPay initiated: user=${cmd.userId} total=${totalArrears} txnRef=${txnRef}`);
+    this.logger.log(`Arrears VNPay initiated: user=${cmd.userId} total=${finalAmount} txnRef=${txnRef}`);
     return { transactionId: txn.id, paymentUrl, totalArrears };
   }
 }

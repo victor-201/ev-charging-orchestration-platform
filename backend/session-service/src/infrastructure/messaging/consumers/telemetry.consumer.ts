@@ -77,10 +77,28 @@ export class TelemetryConsumer {
 
     try {
       // Look up session to get userId for downstream events
-      const sessionOrm = await this.sessionRepo.findOne({
-        where: { id: payload.sessionId },
-        select: ['id', 'userId', 'chargerId', 'startSocPercent', 'startMeterWh', 'status'],
-      });
+      let sessionOrm: SessionOrmEntity | null = null;
+      
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(payload.sessionId);
+      if (isUuid) {
+        sessionOrm = await this.sessionRepo.findOne({
+          where: { id: payload.sessionId },
+          select: ['id', 'userId', 'chargerId', 'startSocPercent', 'startMeterWh', 'status'],
+        });
+      }
+
+      if (!sessionOrm && payload.chargerId) {
+        // Fallback: look up the active session for this charger
+        sessionOrm = await this.sessionRepo.findOne({
+          where: { chargerId: payload.chargerId, status: 'active' },
+          select: ['id', 'userId', 'chargerId', 'startSocPercent', 'startMeterWh', 'status'],
+        });
+        if (sessionOrm) {
+          this.logger.log(
+            `Telemetry fallback: matched transactionId ${payload.sessionId} to active session ${sessionOrm.id} for charger ${payload.chargerId}`,
+          );
+        }
+      }
 
       if (!sessionOrm) {
         this.logger.warn(
@@ -104,7 +122,7 @@ export class TelemetryConsumer {
       // Step 1: Persist telemetry reading
       await this.telemetryRepo.save({
         id:           uuidv4(),
-        sessionId:    payload.sessionId,
+        sessionId:    sessionOrm.id,
         chargerId:    payload.chargerId,
         powerKw:      payload.powerKw,
         currentA:     payload.currentA,
@@ -126,11 +144,11 @@ export class TelemetryConsumer {
         this.outboxRepo.create({
           id:            telemetryEventId,
           aggregateType: 'session',
-          aggregateId:   payload.sessionId,
+          aggregateId:   sessionOrm.id,
           eventType:     'session.telemetry',
           payload: {
             eventType:    'session.telemetry',
-            sessionId:    payload.sessionId,
+            sessionId:    sessionOrm.id,
             userId:       sessionOrm.userId,
             chargerId:    payload.chargerId,
             powerKw:      payload.powerKw,
@@ -154,7 +172,7 @@ export class TelemetryConsumer {
       // Broadcast immediately via WebSocket Gateway for instant real-time telemetry
       const wsPayload = {
         eventType:    'session.telemetry',
-        sessionId:    payload.sessionId,
+        sessionId:    sessionOrm.id,
         userId:       sessionOrm.userId,
         chargerId:    payload.chargerId,
         powerKw:      payload.powerKw,
@@ -168,13 +186,13 @@ export class TelemetryConsumer {
         recordedAt:   payload.recordedAt ?? payload.publishedAt,
       };
 
-      this.chargingGateway.broadcastToSession(payload.sessionId, 'charging_updated', wsPayload);
+      this.chargingGateway.broadcastToSession(sessionOrm.id, 'charging_updated', wsPayload);
       this.chargingGateway.broadcastToCharger(payload.chargerId, 'charging_updated', wsPayload);
 
       // Step 3: Analyze for faults (battery overtemp, voltage anomaly, etc.)
       await this.faultDetection.analyze({
         chargerId:  payload.chargerId,
-        sessionId:  payload.sessionId,
+        sessionId:  sessionOrm.id,
         powerKw:    payload.powerKw,
         currentA:   payload.currentA,
         voltageV:   payload.voltageV,
@@ -189,7 +207,7 @@ export class TelemetryConsumer {
       });
 
       this.logger.debug(
-        `Telemetry ingested: session=${payload.sessionId} charger=${payload.chargerId} ` +
+        `Telemetry ingested: session=${payload.sessionId} (resolved=${sessionOrm.id}) charger=${payload.chargerId} ` +
         `power=${payload.powerKw}kW soc=${estimatedSoc ?? '--'}%`,
       );
     } catch (err) {

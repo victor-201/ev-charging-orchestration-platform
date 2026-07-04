@@ -3,11 +3,12 @@ import {
   HttpCode, HttpStatus, ParseUUIDPipe, UseGuards, NotFoundException
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import {
   PlanOrmEntity,
   SubscriptionOrmEntity,
   InvoiceOrmEntity,
+  UserReadModelOrmEntity,
 } from '../../infrastructure/persistence/typeorm/entities/payment.orm-entities';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
@@ -25,6 +26,8 @@ export class BillingController {
     private readonly subRepo: Repository<SubscriptionOrmEntity>,
     @InjectRepository(InvoiceOrmEntity)
     private readonly invoiceRepo: Repository<InvoiceOrmEntity>,
+    @InjectRepository(UserReadModelOrmEntity)
+    private readonly userReadModelRepo: Repository<UserReadModelOrmEntity>,
   ) {}
 
   /**
@@ -47,10 +50,25 @@ export class BillingController {
     }
     
     const invoices = await query.getMany();
-    return invoices.map(inv => ({
-      ...inv,
-      status: inv.status === 'paid' ? 'SUCCESS' : 'PENDING',
-    }));
+
+    // Fetch user details from read model
+    const userIds = [...new Set(invoices.map(inv => inv.userId))].filter(Boolean);
+    const users = userIds.length > 0
+      ? await this.userReadModelRepo.findBy({ userId: In(userIds) })
+      : [];
+    const userMap = new Map(users.map(u => [u.userId, u]));
+
+    return invoices.map(inv => {
+      const userRead = userMap.get(inv.userId);
+      return {
+        ...inv,
+        status: inv.status === 'paid' ? 'SUCCESS' : 'PENDING',
+        user: userRead ? {
+          fullName: userRead.fullName,
+          email: userRead.email,
+        } : null,
+      };
+    });
   }
 
   /**

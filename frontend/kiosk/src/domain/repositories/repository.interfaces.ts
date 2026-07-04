@@ -18,6 +18,7 @@ export interface ISessionRepository {
   startChargingSession(chargerId: string, bookingId?: string, qrToken?: string): Promise<ChargingSession>;
   stopChargingSession(sessionId: string, endMeterWh?: number): Promise<StopSessionResponse>;
   getSession(sessionId: string): Promise<ChargingSession>;
+  getLatestTelemetry(sessionId: string): Promise<any>;
 }
 
 export interface IPricingRepository {

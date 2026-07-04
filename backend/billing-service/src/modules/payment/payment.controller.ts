@@ -3,6 +3,9 @@ import {
   HttpCode, HttpStatus, ParseUUIDPipe, Logger, Redirect,
   BadRequestException, NotFoundException, UseGuards, Res,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, In } from 'typeorm';
+import { UserReadModelOrmEntity } from '../../infrastructure/persistence/typeorm/entities/payment.orm-entities';
 
 import {
   CreatePaymentUseCase,
@@ -62,6 +65,8 @@ export class PaymentController {
     private readonly payArrears:              PayArrearsUseCase,
     private readonly payArrearsVNPayInit:     PayArrearsVNPayInitUseCase,
     private readonly config:                  ConfigService,
+    @InjectRepository(UserReadModelOrmEntity)
+    private readonly userReadModelRepo: Repository<UserReadModelOrmEntity>,
   ) {}
 
   /**
@@ -253,7 +258,15 @@ export class PaymentController {
   ) {
     const tx = await this.getPayment.execute(id);
     if (!tx) throw new NotFoundException('Transaction not found');
-    return tx;
+    
+    const userRead = await this.userReadModelRepo.findOne({ where: { userId: tx.userId } });
+    return {
+      ...tx.toJSON(),
+      user: userRead ? {
+        fullName: userRead.fullName,
+        email: userRead.email,
+      } : null,
+    };
   }
 
   /**
@@ -382,6 +395,32 @@ export class PaymentController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     const isAdmin = user.role === 'admin' || user.roles?.includes('admin');
-    return this.getTxHistory.execute(user.id, query.limit ?? 20, query.offset ?? 0, isAdmin, query.type, query.status);
+    const { items: txs, total } = await this.getTxHistory.execute(
+      user.id,
+      query.limit ?? 20,
+      query.offset ?? 0,
+      isAdmin,
+      query.type,
+      query.status,
+    );
+
+    const userIds = [...new Set(txs.map(tx => tx.userId))].filter(Boolean);
+    const users = userIds.length > 0
+      ? await this.userReadModelRepo.findBy({ userId: In(userIds) })
+      : [];
+    const userMap = new Map(users.map(u => [u.userId, u]));
+
+    const items = txs.map(tx => {
+      const userRead = userMap.get(tx.userId);
+      return {
+        ...tx.toJSON(),
+        user: userRead ? {
+          fullName: userRead.fullName,
+          email: userRead.email,
+        } : null,
+      };
+    });
+
+    return { items, total };
   }
 }

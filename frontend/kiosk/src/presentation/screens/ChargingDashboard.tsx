@@ -18,7 +18,7 @@
  *   - MetricChip  → ./widgets/MetricChip.tsx
  */
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Power,
@@ -26,6 +26,8 @@ import {
   Activity,
   Thermometer,
   Clock,
+  Timer,
+  AlertTriangle,
 } from "lucide-react";
 import type { TelemetryData, ChargingSession, PricingInfo } from "../../domain/entities/entities";
 import HudMetric from "./widgets/HudMetric";
@@ -49,6 +51,31 @@ const formatNumber = (num: number, decimals: number = 2) =>
     maximumFractionDigits: decimals,
   });
 
+const LS_PREFIX = 'kiosk_full_charge_';
+
+function loadPersistedState(sessionId: string) {
+  const sid = typeof window !== 'undefined' ? localStorage.getItem(LS_PREFIX + 'session_id') : null;
+  if (sid !== sessionId) return {};
+  const ts = localStorage.getItem(LS_PREFIX + 'timestamp');
+  const time = localStorage.getItem(LS_PREFIX + 'time');
+  const cost = localStorage.getItem(LS_PREFIX + 'cost');
+  const energy = localStorage.getItem(LS_PREFIX + 'energy');
+  return {
+    fullChargeTimestamp: ts ? Number(ts) : null,
+    fullChargeTime: time,
+    finalChargingCost: cost ? Number(cost) : null,
+    finalEnergyDelivered: energy ? Number(energy) : null,
+  };
+}
+
+function persistState(sessionId: string, ts: number, time: string, cost: number, energy: number) {
+  localStorage.setItem(LS_PREFIX + 'session_id', sessionId);
+  localStorage.setItem(LS_PREFIX + 'timestamp', String(ts));
+  localStorage.setItem(LS_PREFIX + 'time', time);
+  localStorage.setItem(LS_PREFIX + 'cost', String(cost));
+  localStorage.setItem(LS_PREFIX + 'energy', String(energy));
+}
+
 const ChargingDashboard: React.FC<ChargingDashboardProps> = ({
   telemetry,
   session,
@@ -56,22 +83,56 @@ const ChargingDashboard: React.FC<ChargingDashboardProps> = ({
   onStop,
 }) => {
   const [isConfirmingStop, setIsConfirmingStop] = useState(false);
-  const [fullChargeTime, setFullChargeTime] = useState<string | null>(null);
-  const [finalChargingCost, setFinalChargingCost] = useState<number | null>(null);
-  const [finalEnergyDelivered, setFinalEnergyDelivered] = useState<number | null>(null);
+
+  const persisted = useMemo(() => loadPersistedState(session.id), [session.id]);
+  const [fullChargeTime, setFullChargeTime] = useState<string | null>(persisted.fullChargeTime ?? null);
+  const [fullChargeTimestamp, setFullChargeTimestamp] = useState<number | null>(persisted.fullChargeTimestamp ?? null);
+  const [finalChargingCost, setFinalChargingCost] = useState<number | null>(persisted.finalChargingCost ?? null);
+  const [finalEnergyDelivered, setFinalEnergyDelivered] = useState<number | null>(persisted.finalEnergyDelivered ?? null);
+  const [graceElapsedSec, setGraceElapsedSec] = useState<number>(0);
+  const [idleFeeAccumulated, setIdleFeeAccumulated] = useState<number>(0);
+
+  const idleGraceMinutes = pricing?.idleGraceMinutes ?? 20;
+  const idleFeePerMin = pricing?.idleFeePerMinute ?? 1000;
+  const graceRemainingSec = Math.max(0, idleGraceMinutes * 60 - graceElapsedSec);
+  const graceRemainingMin = Math.ceil(graceRemainingSec / 60);
+  const isGraceExpired = graceElapsedSec >= idleGraceMinutes * 60;
 
   useEffect(() => {
     if (telemetry.soc >= 100 && !fullChargeTime) {
-      setFullChargeTime(
-        new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
-      );
+      const now = Date.now();
+      const timeStr = new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+      setFullChargeTime(timeStr);
+      setFullChargeTimestamp(now);
       setFinalChargingCost(telemetry.estimatedCost);
       setFinalEnergyDelivered(telemetry.energyDelivered);
+      persistState(session.id, now, timeStr, telemetry.estimatedCost, telemetry.energyDelivered);
     }
   }, [telemetry.soc, fullChargeTime, telemetry.estimatedCost, telemetry.energyDelivered]);
 
+  // Grace countdown tick
+  useEffect(() => {
+    if (!fullChargeTimestamp) return;
+    const interval = setInterval(() => {
+      setGraceElapsedSec(Math.floor((Date.now() - fullChargeTimestamp) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [fullChargeTimestamp]);
+
+  // Idle fee accumulator after grace period expires
+  useEffect(() => {
+    if (!isGraceExpired || finalChargingCost === null) return;
+    const interval = setInterval(() => {
+      const idleMs = Date.now() - fullChargeTimestamp! - idleGraceMinutes * 60 * 1000;
+      setIdleFeeAccumulated(Math.max(0, Math.floor(idleMs / 60000)) * idleFeePerMin);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isGraceExpired, finalChargingCost, fullChargeTimestamp, idleGraceMinutes, idleFeePerMin]);
+
   const chargingFee = finalChargingCost !== null ? finalChargingCost : telemetry.estimatedCost;
-  const idleFee = finalChargingCost !== null ? Math.max(0, telemetry.estimatedCost - finalChargingCost) : 0;
+  const totalDisplayCost = isGraceExpired && finalChargingCost !== null
+    ? finalChargingCost + idleFeeAccumulated
+    : chargingFee;
   const energyConsumed = finalEnergyDelivered !== null ? finalEnergyDelivered : telemetry.energyDelivered;
 
   const offset = useMemo(
@@ -213,34 +274,44 @@ const ChargingDashboard: React.FC<ChargingDashboardProps> = ({
             <div className="absolute top-0 right-0 w-[40%] h-[40%] bg-[var(--primary)]/5 blur-3xl rounded-full pointer-events-none" />
 
             <div>
-              <p className="caption-branded mb-5">Tiền điện sạc</p>
+              <p className="caption-branded mb-5">{isGraceExpired && idleFeeAccumulated > 0 ? "Tổng cộng" : "Tiền điện sạc"}</p>
               <motion.div
-                key={Math.floor(chargingFee / 1000)}
+                key={Math.floor(totalDisplayCost / 1000)}
                 initial={{ y: 12, opacity: 0 }}
-                animate={{ y: 0, opacity: 1, scale: idleFee > 0 ? 0.8 : 1 }}
+                animate={{ y: 0, opacity: 1 }}
                 transition={{ duration: 0.5, ease: "easeInOut" }}
                 className="flex items-baseline gap-3 origin-left"
               >
                 <span className="text-[64px] font-black tabular-nums leading-none">
-                  {chargingFee.toLocaleString("vi-VN")}
+                  {totalDisplayCost.toLocaleString("vi-VN")}
                 </span>
                 <span className="text-[43px] font-black text-[var(--text-secondary)] opacity-50">₫</span>
               </motion.div>
 
+              {/* Grace countdown shown when battery is full */}
               <AnimatePresence>
-                {idleFee > 0 && (
+                {fullChargeTimestamp && (
                   <motion.div
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     className="flex flex-col items-end mt-2 pr-4"
                   >
-                    <p className="text-sm font-bold text-[var(--danger)] uppercase tracking-widest opacity-80 mb-1">
-                      + Phí nhàn rỗi
-                    </p>
-                    <p className="text-[38px] font-black text-[var(--danger)] tabular-nums leading-none">
-                      {idleFee.toLocaleString("vi-VN")}
-                      <span className="text-[25px] font-black ml-2 opacity-60">₫</span>
-                    </p>
+                    {isGraceExpired ? (
+                      <p className="text-sm font-bold text-[var(--danger)] uppercase tracking-widest opacity-80 mb-1">
+                        <AlertTriangle size={14} className="inline mr-1" />
+                        ĐÃ HẾT THỜI GIAN ĐẬU MIỄN PHÍ
+                      </p>
+                    ) : (
+                      <>
+                        <p className="text-sm font-bold text-[var(--warning)] tracking-wide mb-1">
+                          <Timer size={14} className="inline mr-1" />
+                          Còn {graceRemainingMin} phút đậu miễn phí
+                        </p>
+                        <p className="text-xs text-[var(--text-muted)]">
+                          Sau đó thu {(pricing?.idleFeePerMinute ?? 1000).toLocaleString()} ₫/phút
+                        </p>
+                      </>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -249,6 +320,13 @@ const ChargingDashboard: React.FC<ChargingDashboardProps> = ({
             <div className="border-t border-[var(--card-border)] pt-5 space-y-3">
               <BillingRow label="Giá điện" value={pricing ? `${(pricing.pricePerKwh ?? 0).toLocaleString()} ₫/kWh` : "—"} />
               <BillingRow label="Phí nhàn rỗi (Đơn giá)" value={pricing ? `${(pricing.idleFeePerMinute ?? 0).toLocaleString()} ₫/phút` : "—"} />
+              {isGraceExpired && finalChargingCost !== null && (
+                <BillingRow
+                  label="Phí nhàn rỗi đã tích lũy"
+                  value={`${idleFeeAccumulated.toLocaleString("vi-VN")} ₫`}
+                />
+              )}
+              <BillingRow label="Thời gian đậu miễn phí" value={pricing ? `${(pricing.idleGraceMinutes ?? 20)} phút` : "—"} />
               <BillingRow
                 label="Giờ bắt đầu"
                 value={new Date(session.startTime).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
@@ -258,14 +336,14 @@ const ChargingDashboard: React.FC<ChargingDashboardProps> = ({
           </div>
 
           {/* Session Summary Chips */}
-          <div className={`grid gap-4 ${telemetry.soc >= 100 ? "grid-cols-2" : "grid-cols-1"}`}>
+          <div className={`grid gap-4 ${finalChargingCost !== null ? "grid-cols-2" : "grid-cols-1"}`}>
             <MetricChip label="Điện năng tiêu thụ" value={formatNumber(energyConsumed, 2)} unit="kWh" />
-            {telemetry.soc >= 100 && (
+            {finalChargingCost !== null && (
               <MetricChip
-                label="Tổng thanh toán"
-                value={telemetry.estimatedCost.toLocaleString("vi-VN")}
+                label={isGraceExpired && idleFeeAccumulated > 0 ? "Tổng cộng (bao gồm phí nhàn rỗi)" : "Tổng thanh toán"}
+                value={totalDisplayCost.toLocaleString("vi-VN")}
                 unit="₫"
-                variant="danger"
+                variant={isGraceExpired && idleFeeAccumulated > 0 ? "danger" : "danger"}
               />
             )}
           </div>

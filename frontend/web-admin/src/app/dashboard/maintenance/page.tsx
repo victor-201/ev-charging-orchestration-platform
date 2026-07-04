@@ -37,7 +37,7 @@ type Maintenance = {
 type PagedIncidents = { items: Incident[]; total: number };
 type PagedMaintenance = { items: Maintenance[]; total: number };
 
-const LIMIT = 15;
+const LIMIT = 20;
 
 export default function MaintenancePage() {
   const [tab, setTab] = useState<'incidents' | 'schedules'>('incidents');

@@ -14,17 +14,18 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle2, Clock, Zap, RotateCcw, Loader2 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
-import type { StopSessionResponse } from '../../domain/entities/entities';
+import type { StopSessionResponse, PricingInfo } from '../../domain/entities/entities';
 
 interface BilledScreenProps {
   summary: StopSessionResponse;
   vnpayUrl: string | null;
   isPaid?: boolean;
   isAppUserSession?: boolean;
+  pricing: PricingInfo | null;
   onReset: () => void;
 }
 
-const BilledScreen: React.FC<BilledScreenProps> = ({ summary, vnpayUrl, isPaid, isAppUserSession, onReset }) => {
+const BilledScreen: React.FC<BilledScreenProps> = ({ summary, vnpayUrl, isPaid, isAppUserSession, pricing, onReset }) => {
   const [countdown, setCountdown] = useState(10);
 
   useEffect(() => {
@@ -44,6 +45,16 @@ const BilledScreen: React.FC<BilledScreenProps> = ({ summary, vnpayUrl, isPaid, 
 
   const durationMs = new Date(summary.endTime).getTime() - new Date(summary.startTime).getTime();
   const durationMin = Math.round(durationMs / 60000);
+
+  const startPricePerKwh = pricing?.pricePerKwh ?? 3500;
+  const startIdleFeePerMin = pricing?.idleFeePerMinute ?? 1000;
+
+  const energyFee = summary.energyFeeVnd ?? (summary.totalKwh * startPricePerKwh);
+  const idleFee = summary.idleFeeVnd ?? Math.max(0, summary.totalCostVnd - energyFee);
+  const idleMinutes = idleFee > 0 ? Math.round(idleFee / startIdleFeePerMin) : 0;
+
+  const chargingDurationMin = Math.max(0, durationMin - idleMinutes);
+  const chargingEndTime = new Date(new Date(summary.startTime).getTime() + chargingDurationMin * 60000);
 
   // Fallback QR data if no URL
   const qrData = vnpayUrl ||
@@ -91,17 +102,50 @@ const BilledScreen: React.FC<BilledScreenProps> = ({ summary, vnpayUrl, isPaid, 
             </div>
 
             {/* Session Details */}
-            <div className="border-y border-[var(--card-border)] py-6 space-y-3">
-              <SummaryRow
-                icon={<Zap size={16} className="text-[var(--primary)]" />}
-                label="Điện năng đã sạc"
-                value={`${summary.totalKwh.toLocaleString("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kWh`}
-              />
-              <SummaryRow
-                icon={<Clock size={16} className="text-[var(--text-muted)]" />}
-                label="Thời gian sạc"
-                value={`${durationMin} phút`}
-              />
+            <div className="border-y border-[var(--card-border)] py-6 space-y-4">
+              <h3 className="text-xs font-black uppercase tracking-wider text-[var(--text-muted)] mb-2">Chi tiết hóa đơn</h3>
+              
+              {/* Tiền điện sạc */}
+              <div className="space-y-1">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2 text-[var(--text-primary)] font-bold">
+                    <Zap size={16} className="text-[var(--primary)]" />
+                    <span>Tiền điện sạc</span>
+                  </div>
+                  <span className="text-xl font-bold text-[var(--text-primary)]">
+                    {Math.round(energyFee).toLocaleString('vi-VN')} ₫
+                  </span>
+                </div>
+                <div className="text-xs text-[var(--text-secondary)] pl-6 space-y-0.5">
+                  <p>• Chi tiết: Điện năng tiêu thụ thực tế của xe trong phiên sạc.</p>
+                  <p>• Công thức: {summary.totalKwh.toLocaleString("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kWh × {startPricePerKwh.toLocaleString('vi-VN')} ₫/kWh</p>
+                  <p>• Thời gian: {new Date(summary.startTime).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} - {chargingEndTime.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} (ngày {new Date(summary.startTime).toLocaleDateString("vi-VN")})</p>
+                </div>
+              </div>
+
+              {/* Phí nhàn rỗi */}
+              <div className="space-y-1">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2 text-[var(--text-primary)] font-bold">
+                    <Clock size={16} className={idleFee > 0 ? 'text-[var(--danger)]' : 'text-[var(--text-muted)]'} />
+                    <span>Phí nhàn rỗi</span>
+                  </div>
+                  <span className={`text-xl font-bold ${idleFee > 0 ? 'text-[var(--danger)]' : 'text-[var(--text-primary)]'}`}>
+                    {Math.round(idleFee).toLocaleString('vi-VN')} ₫
+                  </span>
+                </div>
+                <div className="text-xs text-[var(--text-secondary)] pl-6 space-y-0.5">
+                  <p>• Chi tiết: Áp dụng khi sạc đầy quá {(pricing?.idleGraceMinutes ?? 20)} phút ân hạn nhưng chưa rút sạc.</p>
+                  {idleFee > 0 ? (
+                    <>
+                      <p>• Công thức: {idleMinutes} phút × {startIdleFeePerMin.toLocaleString('vi-VN')} ₫/phút</p>
+                      <p>• Thời gian: Tính từ {new Date(chargingEndTime.getTime() + (pricing?.idleGraceMinutes ?? 15) * 60000).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} đến {new Date(summary.endTime).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</p>
+                    </>
+                  ) : (
+                    <p>• Trạng thái: Không phát sinh (rút cáp trước thời hạn tính phí phạt).</p>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Total Cost — Hero */}
@@ -124,16 +168,18 @@ const BilledScreen: React.FC<BilledScreenProps> = ({ summary, vnpayUrl, isPaid, 
           </div>
 
           {/* Reset Button */}
-          <motion.button
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.8 }}
-            className="btn-secondary flex items-center justify-center gap-3 mt-6 py-4"
-            onClick={onReset}
-          >
-            <RotateCcw size={18} />
-            {isPaid ? `PHIÊN SẠC MỚI (${countdown}s)` : 'PHIÊN SẠC MỚI'}
-          </motion.button>
+          {isPaid && (
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.8 }}
+              className="btn-secondary flex items-center justify-center gap-3 mt-6 py-4 w-full"
+              onClick={onReset}
+            >
+              <RotateCcw size={18} />
+              {`PHIÊN SẠC MỚI (${countdown}s)`}
+            </motion.button>
+          )}
         </div>
 
         {/* ── RIGHT: States ── */}

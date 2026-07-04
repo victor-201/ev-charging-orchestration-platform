@@ -64,11 +64,24 @@ function LiveSessionPanel({ chargerId }: { chargerId: string; stationId: string 
   const [energyKwh, setEnergyKwh] = useState<number | null>(null);
   const [amountDue, setAmountDue] = useState<number | null>(null);
 
+  // Reset state when chargerId changes to prevent showing stale values from previous charger
+  useEffect(() => {
+    setTelemetryReading(null);
+    setEnergyKwh(null);
+    setAmountDue(null);
+  }, [chargerId]);
+
   // Sync with session when it loads/changes
   useEffect(() => {
     if (session) {
-      setEnergyKwh(session.energyKwh);
-      setAmountDue(session.amountDue);
+      if (session.status !== 'active') {
+        setEnergyKwh(session.energyKwh);
+        setAmountDue(session.amountDue);
+      } else {
+        // Fallback for active session, initialized to whatever starting values exist
+        setEnergyKwh(prev => prev ?? session.energyKwh ?? 0);
+        setAmountDue(prev => prev ?? session.amountDue ?? 0);
+      }
     }
   }, [session]);
 
@@ -82,12 +95,23 @@ function LiveSessionPanel({ chargerId }: { chargerId: string; stationId: string 
     retry: false,
   });
 
-  // Seed initial telemetry
+  // Seed initial telemetry and compute initial active session values
   useEffect(() => {
-    if (telemetryData?.readings?.[0]) {
-      setTelemetryReading(telemetryData.readings[0]);
+    if (telemetryData?.readings?.[0] && session) {
+      const latest = telemetryData.readings[0];
+      setTelemetryReading(latest);
+      if (session.status === 'active' && latest.meterWh != null) {
+        const startMeter = Number(session.startMeterWh ?? 0);
+        const currentEnergy = Math.max(0, (latest.meterWh - startMeter) / 1000);
+        setEnergyKwh(currentEnergy);
+
+        const initialEnergy = Number(session.energyKwh ?? 0);
+        const initialCost = Number(session.amountDue ?? 0);
+        const pricePerKwh = initialEnergy > 0 ? (initialCost / initialEnergy) : 3500;
+        setAmountDue(currentEnergy * pricePerKwh);
+      }
     }
-  }, [telemetryData]);
+  }, [telemetryData, session]);
 
   // Hook up useTelemetrySocket for live updates
   useTelemetrySocket({
@@ -1823,14 +1847,14 @@ export default function MapPage() {
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
           <form 
             onSubmit={handleAddStation}
-            className="w-full max-w-sm p-6 rounded-2xl relative border shadow-2xl space-y-4 bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 animate-scale-up"
+            className="w-full max-w-3xl p-6 rounded-2xl relative border shadow-2xl bg-white dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-100 animate-scale-up"
           >
             <div className="corner-marker cm-tl" />
             <div className="corner-marker cm-tr" />
             <div className="corner-marker cm-bl" />
             <div className="corner-marker cm-br" />
 
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-2.5">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-3 mb-4">
               <div className="flex items-center gap-2">
                 <Plus className="w-4 h-4 text-cyan" />
                 <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">
@@ -1846,82 +1870,109 @@ export default function MapPage() {
               </button>
             </div>
 
-            <div className="space-y-3.5 text-xs">
-              <div className="flex flex-col gap-1">
-                <label className="text-slate-500 dark:text-slate-400 font-semibold">Tên trạm sạc</label>
-                <input 
-                  type="text"
-                  required
-                  value={stationName}
-                  onChange={(e) => setStationName(e.target.value)}
-                  placeholder="Ví dụ: Trạm sạc VinFast Sóc Sơn"
-                  className="ev-input w-full h-8 px-2.5 text-xs"
+            <div className="flex gap-4" style={{ minHeight: 400 }}>
+              {/* Left: Map */}
+              <div className="flex-1 min-h-[300px] rounded-xl overflow-hidden border border-slate-200 dark:border-white/10">
+                <StationMap
+                  stations={[{
+                    id: 'new-station',
+                    name: stationName || 'Trạm mới',
+                    address: stationAddress || '',
+                    status: 'active',
+                    latitude: stationLat,
+                    longitude: stationLng,
+                    availableChargers: 0,
+                    totalChargers: 0,
+                  }]}
+                  editingStationId="new-station"
+                  onCoordinatesChange={(lat, lng) => {
+                    setStationLat(lat);
+                    setStationLng(lng);
+                  }}
                 />
               </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-slate-500 dark:text-slate-400 font-semibold">Địa chỉ</label>
-                <input 
-                  type="text"
-                  value={stationAddress}
-                  onChange={(e) => setStationAddress(e.target.value)}
-                  placeholder="Ví dụ: Số 204 Nguyễn Trãi, Sóc Sơn, Hà Nội"
-                  className="ev-input w-full h-8 px-2.5 text-xs"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-slate-500 dark:text-slate-400 font-semibold">Thành phố</label>
-                <CustomSelect
-                  value={stationCityId}
-                  onChange={setStationCityId}
-                  options={cities.map((city: any) => ({
-                    value: city.id,
-                    label: `${city.cityName} (${city.region})`,
-                  }))}
-                  placeholder="Chọn thành phố"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+              {/* Right: Form */}
+              <div className="w-[280px] shrink-0 space-y-3.5 text-xs overflow-y-auto">
                 <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Vĩ độ (Latitude)</label>
+                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Tên trạm sạc</label>
                   <input 
-                    type="number"
-                    step="0.000001"
+                    type="text"
                     required
-                    value={stationLat}
-                    onChange={(e) => setStationLat(Number(e.target.value))}
+                    value={stationName}
+                    onChange={(e) => setStationName(e.target.value)}
+                    placeholder="Ví dụ: Trạm sạc VinFast Sóc Sơn"
                     className="ev-input w-full h-8 px-2.5 text-xs"
                   />
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Kinh độ (Longitude)</label>
+                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Địa chỉ</label>
                   <input 
-                    type="number"
-                    step="0.000001"
-                    required
-                    value={stationLng}
-                    onChange={(e) => setStationLng(Number(e.target.value))}
+                    type="text"
+                    value={stationAddress}
+                    onChange={(e) => setStationAddress(e.target.value)}
+                    placeholder="Ví dụ: Số 204 Nguyễn Trãi, Sóc Sơn, Hà Nội"
                     className="ev-input w-full h-8 px-2.5 text-xs"
                   />
                 </div>
-              </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-slate-500 dark:text-slate-400 font-semibold">Tên chủ sở hữu (Tùy chọn)</label>
-                <input 
-                  type="text"
-                  value={stationOwnerName}
-                  onChange={(e) => setStationOwnerName(e.target.value)}
-                  placeholder="Ví dụ: VinFast Việt Nam"
-                  className="ev-input w-full h-8 px-2.5 text-xs"
-                />
+                <div className="flex flex-col gap-1">
+                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Thành phố</label>
+                  <CustomSelect
+                    value={stationCityId}
+                    onChange={setStationCityId}
+                    options={cities.map((city: any) => ({
+                      value: city.id,
+                      label: `${city.cityName} (${city.region})`,
+                    }))}
+                    placeholder="Chọn thành phố"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-slate-500 dark:text-slate-400 font-semibold">Vĩ độ</label>
+                    <input 
+                      type="number"
+                      step="0.000001"
+                      required
+                      value={stationLat}
+                      onChange={(e) => setStationLat(Number(e.target.value))}
+                      className="ev-input w-full h-8 px-2.5 text-xs font-mono"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-slate-500 dark:text-slate-400 font-semibold">Kinh độ</label>
+                    <input 
+                      type="number"
+                      step="0.000001"
+                      required
+                      value={stationLng}
+                      onChange={(e) => setStationLng(Number(e.target.value))}
+                      className="ev-input w-full h-8 px-2.5 text-xs font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Tên chủ sở hữu (Tùy chọn)</label>
+                  <input 
+                    type="text"
+                    value={stationOwnerName}
+                    onChange={(e) => setStationOwnerName(e.target.value)}
+                    placeholder="Ví dụ: VinFast Việt Nam"
+                    className="ev-input w-full h-8 px-2.5 text-xs"
+                  />
+                </div>
+
+                <div className="p-3 rounded-xl bg-cyan/5 border border-cyan/15 text-[11px] text-cyan leading-relaxed">
+                  💡 Kéo thả ghim trên bản đồ để chọn vị trí trạm sạc, tọa độ sẽ tự động cập nhật!
+                </div>
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2 pt-4 mt-4 border-t border-slate-100 dark:border-white/10">
               <button
                 type="button"
                 onClick={() => setIsAddStationModalOpen(false)}

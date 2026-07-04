@@ -15,6 +15,7 @@ import type {
 } from '../../domain/entities/entities';
 import {
   GetActiveSessionUseCase,
+  GetLatestTelemetryUseCase,
   StartSessionUseCase,
   StopSessionUseCase,
   GetPricingUseCase,
@@ -71,6 +72,7 @@ interface StateMachineReturn {
 
 // Instantiate Use Cases cleanly
 const getActiveSessionUseCase = new GetActiveSessionUseCase();
+const getLatestTelemetryUseCase = new GetLatestTelemetryUseCase();
 const startSessionUseCase = new StartSessionUseCase();
 const stopSessionUseCase = new StopSessionUseCase();
 const getPricingUseCase = new GetPricingUseCase();
@@ -103,19 +105,33 @@ export const useSessionStateMachine = (): StateMachineReturn => {
    * Seed initial telemetry values from session record so the dashboard
    * doesn't start at 0% SoC and 0s elapsed on mount.
    */
-  const seedTelemetryFromSession = useCallback((session: ChargingSession) => {
-    const initialSoc = session.startSocPercent ?? 0;
+  const seedTelemetryFromSession = useCallback((session: ChargingSession, latestTelemetry?: any, pricePerKwh?: number) => {
+    const initialSoc = latestTelemetry?.socPercent ?? session.startSocPercent ?? 0;
     const elapsedSecs = session.startTime
       ? Math.max(0, Math.floor((Date.now() - new Date(session.startTime).getTime()) / 1000))
       : 0;
-    const initialEnergy = session.energyKwh ?? 0;
-    const initialCost = session.amountDue ?? 0;
+    
+    let initialEnergy = session.energyKwh ?? 0;
+    let initialCost = session.amountDue ?? 0;
+
+    if (latestTelemetry?.meterWh != null) {
+      const startMeter = Number(session.startMeterWh ?? 0);
+      initialEnergy = Math.max(0, (latestTelemetry.meterWh - startMeter) / 1000);
+      
+      const rate = pricePerKwh ?? 3500;
+      initialCost = Math.ceil(initialEnergy * rate);
+    }
+
     setTelemetry(prev => ({
       ...prev,
       soc: initialSoc,
       elapsedSeconds: elapsedSecs,
-      energyDelivered: initialEnergy,
+      energyDelivered: parseFloat(initialEnergy.toFixed(3)),
       estimatedCost: initialCost,
+      power: latestTelemetry?.powerKw ? Number(latestTelemetry.powerKw) : 0,
+      voltage: latestTelemetry?.voltageV ? Number(latestTelemetry.voltageV) : 380,
+      current: latestTelemetry?.currentA ? Number(latestTelemetry.currentA) : 0,
+      temperature: latestTelemetry?.temperatureC ? Number(latestTelemetry.temperatureC) : 25,
     }));
   }, []);
 
@@ -148,7 +164,18 @@ export const useSessionStateMachine = (): StateMachineReturn => {
           setActiveSession(active);
           setPricing(price);
           setIsAppUserSession(active.userId !== KIOSK_GUEST_USER_ID);
-          seedTelemetryFromSession(active);
+
+          let latestTelemetry = null;
+          try {
+            const telRes = await getLatestTelemetryUseCase.execute(active.id);
+            if (telRes?.readings?.[0]) {
+              latestTelemetry = telRes.readings[0];
+            }
+          } catch (telErr) {
+            console.warn('[Kiosk] Failed to fetch latest telemetry for active session:', telErr);
+          }
+
+          seedTelemetryFromSession(active, latestTelemetry, price.pricePerKwh);
           setStatus('ACTIVE');
           startElapsedTimer();
         } else if (price) {
@@ -188,7 +215,7 @@ export const useSessionStateMachine = (): StateMachineReturn => {
       setActiveSession(session);
       setPricing(price);
       setIsAppUserSession(false);
-      seedTelemetryFromSession(session);
+      seedTelemetryFromSession(session, undefined, price.pricePerKwh);
       setStatus('ACTIVE');
       startElapsedTimer();
     } catch (err) {
@@ -228,7 +255,7 @@ export const useSessionStateMachine = (): StateMachineReturn => {
       setActiveSession(session);
       setPricing(price);
       setIsAppUserSession(true);
-      seedTelemetryFromSession(session);
+      seedTelemetryFromSession(session, undefined, price.pricePerKwh);
       setStatus('ACTIVE');
       startElapsedTimer();
     } catch (err) {
@@ -359,6 +386,8 @@ export const useSessionStateMachine = (): StateMachineReturn => {
       totalKwh: payload.kwhConsumed ?? 0,
       totalCostVnd: totalCostVnd,
       stopReason: payload.stopReason || 'Remote Stop',
+      energyFeeVnd: payload.energyFeeVnd ?? 0,
+      idleFeeVnd: payload.idleFeeVnd ?? 0,
     };
 
     let paymentUrl: string | null = null;
@@ -431,8 +460,9 @@ export const useSessionStateMachine = (): StateMachineReturn => {
   useWebSocket({
     chargerId: kioskPointId || POINT_ID,
     sessionId: activeSession?.id ?? null,
-    startMeterWh: activeSession?.startMeterWh ?? 0,
-    startSocPercent: activeSession?.startSocPercent ?? 0,
+    startMeterWh: activeSession ? activeSession.startMeterWh : 0,
+    currentMeterWh: activeSession ? (activeSession.startMeterWh + telemetry.energyDelivered * 1000) : 0,
+    startSocPercent: telemetry.soc,
     onTelemetry: updateTelemetry,
     onSessionStarted: useCallback((session: ChargingSession) => {
       setActiveSession(session);

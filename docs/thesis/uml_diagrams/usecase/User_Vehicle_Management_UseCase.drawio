@@ -1,11 +1,11 @@
 <mxfile host="Electron">
   <diagram name="User Vehicle Management" id="diagram_uvm">
-    <mxGraphModel dx="2571" dy="1529" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2400" pageHeight="1600" math="0" shadow="0">
+    <mxGraphModel dx="2175" dy="1368" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2400" pageHeight="1600" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
         <mxCell id="SYS" parent="1" style="swimlane;whiteSpace=wrap;html=1;startSize=40;fontSize=16;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Phân hệ Người dùng &amp; Phương tiện" vertex="1">
-          <mxGeometry height="1490" width="870" x="240" y="40" as="geometry" />
+          <mxGeometry height="1490" width="930" x="240" y="40" as="geometry" />
         </mxCell>
         <mxCell id="A01" parent="SYS" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Khách" vertex="1">
           <mxGeometry height="120" width="60" x="-120.23000000000003" y="200" as="geometry" />
@@ -67,7 +67,7 @@
           <mxGeometry height="50" width="250" x="505" y="130" as="geometry" />
         </mxCell>
         <mxCell id="UC01d" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="UC-01d: Xác thực đa yếu tố (MFA)" vertex="1">
-          <mxGeometry height="50" width="230" x="600" y="270" as="geometry" />
+          <mxGeometry height="50" width="250" x="600" y="270" as="geometry" />
         </mxCell>
         <mxCell id="UC03" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);fontStyle=1" value="UC-03: Tra cứu thông tin hạ tầng sạc" vertex="1">
           <mxGeometry height="60" width="340" x="50.000000000000014" y="310" as="geometry" />
@@ -76,19 +76,19 @@
           <mxGeometry height="50" width="230" x="105" y="410" as="geometry" />
         </mxCell>
         <mxCell id="UC03b" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="UC-03b: Xem báo giá theo khung giờ" vertex="1">
-          <mxGeometry height="50" width="265" x="390" y="410" as="geometry" />
+          <mxGeometry height="50" width="290" x="390" y="410" as="geometry" />
         </mxCell>
         <mxCell id="UC05" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);fontStyle=1" value="UC-05: Quản lý điều khiển phiên sạc" vertex="1">
           <mxGeometry height="60" width="340" x="50.000000000000014" y="910" as="geometry" />
         </mxCell>
         <mxCell id="UC05a" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="UC-05a: Kích hoạt phiên sạc" vertex="1">
-          <mxGeometry height="50" width="195" x="560" y="930" as="geometry" />
+          <mxGeometry height="50" width="220" x="560" y="930" as="geometry" />
         </mxCell>
         <mxCell id="UC05b" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="UC-05b: Kết thúc phiên sạc" vertex="1">
-          <mxGeometry height="50" width="190" x="125" y="1065" as="geometry" />
+          <mxGeometry height="50" width="215" x="125" y="1065" as="geometry" />
         </mxCell>
         <mxCell id="UC05c" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="UC-05c: Khởi chạy Walk-in session" vertex="1">
-          <mxGeometry height="50" width="255" x="290" y="990" as="geometry" />
+          <mxGeometry height="50" width="255" x="280" y="1000" as="geometry" />
         </mxCell>
         <mxCell id="UC01a" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="UC-01a: Đăng ký tài khoản" vertex="1">
           <mxGeometry height="50" width="230" x="105" y="210" as="geometry" />
@@ -105,7 +105,7 @@
           <mxGeometry height="60" width="340" x="50.000000000000014" y="1355" as="geometry" />
         </mxCell>
         <mxCell id="UC07a" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="UC-07a: Đăng ký thiết bị nhận thông báo" vertex="1">
-          <mxGeometry height="50" width="290" x="460" y="1425" as="geometry" />
+          <mxGeometry height="50" width="310" x="460" y="1425" as="geometry" />
         </mxCell>
         <mxCell id="UC07b" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="UC-07b: Cài đặt kênh nhận tin" vertex="1">
           <mxGeometry height="50" width="230" x="460" y="1330" as="geometry" />
@@ -123,13 +123,13 @@
           <mxGeometry height="60" width="340" x="50.000000000000014" y="1150" as="geometry" />
         </mxCell>
         <mxCell id="UC06a" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="UC-06a: Nạp tiền qua cổng VNPay" vertex="1">
-          <mxGeometry height="50" width="230" x="105" y="1260" as="geometry" />
+          <mxGeometry height="50" width="255" x="80" y="1260" as="geometry" />
         </mxCell>
         <mxCell id="UC06b" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="UC-06c: Thanh toán bằng số dư ví" vertex="1">
-          <mxGeometry height="50" width="230" x="540" y="1180" as="geometry" />
+          <mxGeometry height="50" width="272.5" x="607.5" y="1170" as="geometry" />
         </mxCell>
         <mxCell id="UC06c" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="UC-06d: Đăng ký gói dịch vụ" vertex="1">
-          <mxGeometry height="50" width="230" x="490" y="1110" as="geometry" />
+          <mxGeometry height="50" width="230" x="440" y="1110" as="geometry" />
         </mxCell>
         <mxCell id="UC05d" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="UC-05d: Khởi chạy qua mã QR Booking" vertex="1">
           <mxGeometry height="50" width="290" x="525" y="840" as="geometry" />
@@ -159,25 +159,25 @@
           <mxGeometry height="60" width="340" x="50.000000000000014" y="510" as="geometry" />
         </mxCell>
         <mxCell id="UC02a" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="UC-02a: Quản lý thông tin cá nhân" vertex="1">
-          <mxGeometry height="50" width="230" x="105" y="610" as="geometry" />
+          <mxGeometry height="50" width="255" x="92.5" y="610" as="geometry" />
         </mxCell>
         <mxCell id="UC02b" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="UC-02b: Quản lý xe điện" vertex="1">
           <mxGeometry height="50" width="230" x="370" y="600" as="geometry" />
         </mxCell>
         <mxCell id="UC02c" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="UC-02c: Cấu hình AutoCharge MAC" vertex="1">
-          <mxGeometry height="50" width="230" x="572.5" y="515" as="geometry" />
+          <mxGeometry height="50" width="267.5" x="572.5" y="515" as="geometry" />
         </mxCell>
         <mxCell id="UC04" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);fontStyle=1" value="UC-04: Điều phối đặt lịch sạc" vertex="1">
           <mxGeometry height="60" width="340" x="50.000000000000014" y="710" as="geometry" />
         </mxCell>
         <mxCell id="UC04a" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="UC-04a: Thực hiện đặt lịch trước" vertex="1">
-          <mxGeometry height="50" width="230" x="350" y="780" as="geometry" />
+          <mxGeometry height="50" width="240" x="350" y="780" as="geometry" />
         </mxCell>
         <mxCell id="UC04b" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="UC-04b: Hủy đặt lịch sạc" vertex="1">
           <mxGeometry height="50" width="230" x="105" y="810" as="geometry" />
         </mxCell>
         <mxCell id="UC04c" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="UC-04c: Đăng ký hàng đợi thông minh" vertex="1">
-          <mxGeometry height="50" width="260" x="555" y="670" as="geometry" />
+          <mxGeometry height="50" width="275" x="540" y="670" as="geometry" />
         </mxCell>
         <mxCell id="A02" parent="SYS" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="Người dùng" vertex="1">
           <mxGeometry height="120" width="60" x="-120.23000000000003" y="900.0033333333333" as="geometry" />
@@ -208,25 +208,25 @@
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="UC01e" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="UC-01e: Đăng xuất tài khoản" vertex="1">
-          <mxGeometry height="50" width="200" x="460" y="60" as="geometry" />
+          <mxGeometry height="50" width="210" x="460" y="60" as="geometry" />
         </mxCell>
         <mxCell id="L_UC01_UC01e" edge="1" parent="SYS" source="UC01" style="endArrow=open;dashed=1;html=1;rounded=1;endSize=10;strokeWidth=1.5;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);exitX=1;exitY=0;entryX=0;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;;fontSize=16" target="UC01e" value="&amp;laquo;include&amp;raquo;">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="UC04d" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="UC-04d: Nhận gợi ý trạm sạc tối ưu (DP Optimizer)" vertex="1">
-          <mxGeometry height="60" width="200" x="655" y="750" as="geometry" />
+          <mxGeometry height="60" width="220" x="690" y="770" as="geometry" />
         </mxCell>
         <mxCell id="L_UC04a_UC04d" edge="1" parent="SYS" source="UC04a" style="endArrow=open;dashed=1;html=1;rounded=1;endSize=10;strokeWidth=1.5;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);exitX=1;exitY=0.5;entryX=0;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;;fontSize=16" target="UC04d" value="&amp;laquo;include&amp;raquo;">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="UC05e" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="UC-05e: Khởi chạy qua AutoCharge (Plug &amp;amp; Charge)" vertex="1">
-          <mxGeometry height="55" width="210" x="560" y="1010" as="geometry" />
+          <mxGeometry height="55" width="247.5" x="542.5" y="1020" as="geometry" />
         </mxCell>
         <mxCell id="L_UC05e_UC05a" edge="1" parent="SYS" source="UC05e" style="endArrow=open;dashed=1;html=1;rounded=1;endSize=10;strokeWidth=1.5;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);exitX=0.5;exitY=0;entryX=0.5;entryY=1;exitDx=0;exitDy=0;entryDx=0;entryDy=0;;fontSize=16" target="UC05a" value="&amp;laquo;extend&amp;raquo;">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="UC06d" parent="SYS" style="ellipse;whiteSpace=wrap;html=1;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="UC-06b: Tự động điều phối thanh toán hỗn hợp" vertex="1">
-          <mxGeometry height="55" width="320" x="440" y="1257.5" as="geometry" />
+          <mxGeometry height="55" width="360" x="460" y="1257.5" as="geometry" />
         </mxCell>
         <mxCell id="L_UC06d_UC06b" edge="1" parent="SYS" source="UC06d" style="endArrow=open;dashed=1;html=1;rounded=1;endSize=10;strokeWidth=1.5;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);exitX=0.5;exitY=0;entryX=0.5;entryY=1;exitDx=0;exitDy=0;entryDx=0;entryDy=0;;fontSize=16" target="UC06b" value="&amp;laquo;extend&amp;raquo;">
           <mxGeometry relative="1" as="geometry" />
@@ -235,7 +235,7 @@
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="A07" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="&lt;html&gt;&amp;laquo;system&amp;raquo;&lt;br&gt;Trụ sạc IoT&lt;/html&gt;" vertex="1">
-          <mxGeometry height="120" width="60" x="1190" y="1070" as="geometry" />
+          <mxGeometry height="120" width="60" x="1200" y="1070" as="geometry" />
         </mxCell>
         <mxCell id="A06" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fontSize=16;fillColor=#fff2cc;strokeColor=light-dark(#000000, #6d5100);" value="&lt;html&gt;&amp;laquo;system&amp;raquo;&lt;br&gt;Cổng thanh toán&lt;/html&gt;" vertex="1">
           <mxGeometry height="120" width="60" x="80" y="1260" as="geometry" />

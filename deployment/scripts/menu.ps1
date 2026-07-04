@@ -642,6 +642,7 @@ function Sub-Frontend-Kiosk {
         Write-MenuItem "1" "Setup (npm install)" Green
         Write-MenuItem "2" "Run Dev Server"      Green
         Write-MenuItem "3" "Build Production"    Yellow
+        Write-MenuItem "4" "Run Production Server" Yellow
         Write-Host ""
         Show-Separator
         Write-MenuItem -IsBack
@@ -651,6 +652,7 @@ function Sub-Frontend-Kiosk {
             "1" { Run-Frontend "kiosk\setup.ps1" }
             "2" { Run-Frontend "kiosk\run.ps1" }
             "3" { Run-Frontend "kiosk\build.ps1" }
+            "4" { Run-Frontend "kiosk\start.ps1" }
             "0" { return }
         }
     }

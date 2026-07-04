@@ -14,7 +14,9 @@ export interface ITransactionRepository {
   findById(id: string): Promise<Transaction | null>;
   findByReferenceCode(referenceCode: string): Promise<Transaction | null>;
   findByUserId(userId: string, limit?: number, offset?: number, type?: string, status?: string): Promise<Transaction[]>;
+  countByUserId(userId: string, type?: string, status?: string): Promise<number>;
   findAll(limit?: number, offset?: number, type?: string, status?: string): Promise<Transaction[]>;
+  countAll(type?: string, status?: string): Promise<number>;
   findPending(userId: string): Promise<Transaction[]>;
   /** Find PENDING transactions created before cutoff (for auto-cancel) */
   findPendingBefore(cutoff: Date): Promise<Transaction[]>;

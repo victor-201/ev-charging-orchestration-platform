@@ -38,7 +38,7 @@ function GlassTooltip({ active, payload, label }: any) {
       <p style={{ color: 'var(--text-faded)', marginBottom: 4 }}>{label}</p>
       {payload.map((p: any) => (
         <p key={p.name} style={{ color: p.color ?? '#10bfc9', fontWeight: 600 }}>
-          {p.name}: {typeof p.value === 'number' && p.value > 1_000_000
+          {p.name}: {typeof p.value === 'number'
             ? formatCurrency(p.value)
             : p.value}
         </p>
@@ -119,7 +119,7 @@ export default function AnalyticsPage() {
   const [peakForecast, setPeakForecast] = useState(false);
 
   // ── Pagination for usage top stations ──
-  const USAGE_LIMIT = 10;
+  const USAGE_LIMIT = 20;
   const [usagePage, setUsagePage] = useState(1);
 
   // ── Queries ──
@@ -295,7 +295,7 @@ export default function AnalyticsPage() {
           <div className="grid grid-cols-3 gap-4">
             {[
               { label: 'Tổng phiên sạc',  value: usageData.summary.totalSessions, color: 'text-cyan' },
-              { label: 'Tổng điện (kWh)', value: usageData.summary.totalKwh?.toFixed(1), color: 'text-lime' },
+              { label: 'Tổng điện (kWh)', value: usageData.summary.totalKwh?.toFixed(1), color: 'text-success' },
               { label: 'Doanh thu',        value: formatCurrency(usageData.summary.totalRevenueVnd), color: 'text-warning' },
             ].map(({ label, value, color }) => (
               <div key={label} className="p-4 rounded-xl bg-white/[0.02] border border-white/5 text-center">
@@ -325,7 +325,7 @@ export default function AnalyticsPage() {
                       <td className="text-text-muted">{(usagePage - 1) * USAGE_LIMIT + i + 1}</td>
                       <td className="font-mono text-xs text-text-main" title={s.station_id}>{s.station_id.slice(0,8)}…</td>
                       <td className="font-semibold text-cyan">{parseInt(s.total_sessions).toLocaleString()}</td>
-                      <td className="text-lime">{parseFloat(s.total_kwh).toFixed(1)}</td>
+                      <td className="text-success">{parseFloat(s.total_kwh).toFixed(1)}</td>
                       <td className="text-warning">{formatCurrency(parseInt(s.total_revenue_vnd))}</td>
                       <td className="text-text-muted">{s.avg_session_min ?? '—'}</td>
                     </tr>

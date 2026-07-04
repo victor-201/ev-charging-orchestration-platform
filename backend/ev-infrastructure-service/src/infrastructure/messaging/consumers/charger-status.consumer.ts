@@ -52,7 +52,8 @@ export class ChargerStatusConsumer {
     try {
       // Map status if needed
       let finalStatus = payload.newStatus;
-      if (!finalStatus && payload.status) {
+      const isOcppEvent = !payload.newStatus && !!payload.status;
+      if (isOcppEvent && payload.status) {
         const ocppStatus = payload.status.toLowerCase();
         switch (ocppStatus) {
           case 'available':
@@ -91,6 +92,22 @@ export class ChargerStatusConsumer {
       }
       const stationId = payload.stationId ?? charger.stationId;
 
+      // IMPORTANT: OCPP-originated 'available' must NOT overwrite platform 'in_use'.
+      // Once the platform sets a charger to in_use (via StartSessionUseCase),
+      // the physical charger may still send StatusNotification(Available) for
+      // various reasons (reconnect, connector state sync). We must preserve
+      // the platform status until the session is explicitly stopped.
+      if (isOcppEvent && finalStatus === 'available' && charger.status === 'in_use') {
+        this.logger.log(
+          `Charger ${payload.chargerId}: OCPP 'available' ignored — charger is in_use (active session)`,
+        );
+        await this.processedRepo.upsert(
+          { eventId, eventType: 'charger.status.changed' },
+          ['eventId'],
+        );
+        return;
+      }
+
       // Update charger status in DB
       await this.chargerRepo.update(
         { id: payload.chargerId },
@@ -105,10 +122,10 @@ export class ChargerStatusConsumer {
       await this.cache.invalidateStation(stationId);
 
       // Mark as processed
-      await this.processedRepo.save({
-        eventId,
-        eventType: 'charger.status.changed',
-      });
+      await this.processedRepo.upsert(
+        { eventId, eventType: 'charger.status.changed' },
+        ['eventId'],
+      );
 
       this.logger.log(
         `Charger ${payload.chargerId} status → ${finalStatus} (station ${stationId})`,
@@ -143,10 +160,10 @@ export class ChargerStatusConsumer {
     await this.cache.setChargerStatus(payload.chargerId, 'faulted');
     await this.cache.invalidateStation(payload.stationId);
 
-    await this.processedRepo.save({
-      eventId: payload.eventId,
-      eventType: 'charger.fault.detected',
-    });
+    await this.processedRepo.upsert(
+      { eventId: payload.eventId, eventType: 'charger.fault.detected' },
+      ['eventId'],
+    );
 
     this.logger.warn(
       `Charger ${payload.chargerId} fault detected: ${payload.errorCode}`,

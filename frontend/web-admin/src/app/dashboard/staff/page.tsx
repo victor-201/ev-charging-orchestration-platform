@@ -54,7 +54,7 @@ type Charger = {
   maxPowerKw: number; status: string;
 };
 
-const LIMIT = 15;
+const LIMIT = 20;
 
 const formatPosition = (pos: string) => {
   if (!pos) return '—';
@@ -479,7 +479,7 @@ export default function StaffPage() {
                             <div className="grid grid-cols-12 gap-4 items-center">
                               <div className="col-span-5 flex items-center gap-3 min-w-0">
                                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan to-lime flex items-center justify-center text-white font-bold text-sm shrink-0">
-                                  {(s.User?.fullName || '?').charAt(0).toUpperCase()}
+                                  {((s.User?.fullName || '?').trim().split(' ').pop() || '?').charAt(0).toUpperCase()}
                                 </div>
                                 <div className="min-w-0">
                                   <p className="text-sm font-medium text-text-main truncate text-left">{s.User?.fullName || '—'}</p>
@@ -647,7 +647,7 @@ export default function StaffPage() {
                 <div className="px-5 py-3.5 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
                   <div className="min-w-0 mr-2 flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan to-lime flex items-center justify-center text-white font-bold text-xs shrink-0">
-                      {(selectedStaff.User?.fullName || '?').charAt(0).toUpperCase()}
+                      {((selectedStaff.User?.fullName || '?').trim().split(' ').pop() || '?').charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0">
                       <h3 className="font-semibold text-text-main text-sm truncate">{selectedStaff.User?.fullName || '—'}</h3>
@@ -695,11 +695,11 @@ export default function StaffPage() {
                       </div>
                       <div className="bg-white/[0.03] border border-white/5 rounded-xl px-3 py-2.5">
                         <p className="text-[9px] text-text-muted uppercase tracking-wider font-bold">Mã hồ sơ</p>
-                        <p className="text-[10px] font-mono text-text-main mt-1 break-all">{selectedStaff.id}</p>
+                        <p className="text-[10px] font-mono text-text-main mt-1 break-all" title={selectedStaff.id}>{selectedStaff.id.slice(0, 8)}…</p>
                       </div>
                       <div className="bg-white/[0.03] border border-white/5 rounded-xl px-3 py-2.5">
                         <p className="text-[9px] text-text-muted uppercase tracking-wider font-bold">Mã tài khoản</p>
-                        <p className="text-[10px] font-mono text-text-main mt-1 break-all">{selectedStaff.userId}</p>
+                        <p className="text-[10px] font-mono text-text-main mt-1 break-all" title={selectedStaff.userId}>{selectedStaff.userId.slice(0, 8)}…</p>
                       </div>
                     </div>
                   </div>

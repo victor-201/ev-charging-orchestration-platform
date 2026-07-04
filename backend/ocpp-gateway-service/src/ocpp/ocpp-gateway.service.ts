@@ -49,8 +49,29 @@ export class OcppGatewayService implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit(): void {
     const port = this.config.get<number>('OCPP_WS_PORT', 9000);
+    const expectedUser = this.config.get<string>('OCPP_USERNAME', 'admin');
+    const expectedPass = this.config.get<string>('OCPP_PASSWORD', 'secret');
 
-    this.wss = new WebSocketServer({ port, path: '/ocpp' });
+    this.wss = new WebSocketServer({
+      port,
+      path: '/ocpp',
+      verifyClient: (info, callback) => {
+        const auth = info.req.headers.authorization;
+        if (!auth || !auth.startsWith('Basic ')) {
+          this.logger.warn(`WS Connection rejected: Missing or invalid Authorization header`);
+          return callback(false, 401, 'Unauthorized');
+        }
+        try {
+          const credentials = Buffer.from(auth.split(' ')[1], 'base64').toString('ascii');
+          const [username, password] = credentials.split(':');
+          if (username === expectedUser && password === expectedPass) {
+            return callback(true);
+          }
+        } catch {}
+        this.logger.warn(`WS Connection rejected: Invalid credentials`);
+        return callback(false, 401, 'Unauthorized');
+      }
+    });
 
     this.wss.on('connection', (socket: WebSocket, req: IncomingMessage) => {
       // chargerId from URL: /ocpp/:chargerId
@@ -158,13 +179,34 @@ export class OcppGatewayService implements OnModuleInit, OnModuleDestroy {
       case 'StopTransaction':
         await this.handleStopTransaction(chargerId, messageId, payload as any);
         break;
-      case 'Authorize':
-        this.sendCallResult(chargerId, messageId, { idTagInfo: { status: 'Accepted' } });
+      case 'Authorize': {
+        const idTag = (payload as any)?.idTag ?? '';
+        const status = await this.validateRfidTag(idTag);
+        this.sendCallResult(chargerId, messageId, { idTagInfo: { status } });
         break;
+      }
       default:
         this.logger.warn(`Unhandled OCPP action from ${chargerId}: ${action}`);
         this.sendCallResult(chargerId, messageId, {});
     }
+  }
+
+  private async validateRfidTag(idTag: string): Promise<string> {
+    if (!idTag) return 'Invalid';
+    try {
+      const sessionSvcUrl = this.config.get<string>('SESSION_SERVICE_URL', 'http://ev-session:3004');
+      const response = await (global as any).fetch(`${sessionSvcUrl}/api/v1/charging/rfid/validate/${idTag}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (response.ok) {
+        const data = await response.json() as { status: string };
+        return data.status || 'Invalid';
+      }
+    } catch (err: any) {
+      this.logger.error(`Failed to validate RFID tag ${idTag} via session-service: ${err.message}`);
+    }
+    return 'Invalid';
   }
 
   
