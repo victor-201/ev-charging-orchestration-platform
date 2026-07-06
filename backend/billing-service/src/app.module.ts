@@ -53,6 +53,9 @@ import { PaymentModule } from './modules/payment/payment.module';
         logging:     cfg.get('NODE_ENV') !== 'production',
         poolSize:    20,
         connectTimeoutMS: 15000,
+        extra: {
+          ssl: { rejectUnauthorized: false },
+        },
       }),
       inject: [ConfigService],
     }),

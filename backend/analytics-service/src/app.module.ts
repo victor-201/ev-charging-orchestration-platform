@@ -106,6 +106,9 @@ const ALL_ENTITIES = [
         logging:     cfg.get('NODE_ENV') !== 'production',
         poolSize:    12,
         connectTimeoutMS: 15000,
+        extra: {
+          ssl: { rejectUnauthorized: false },
+        },
       }),
       inject: [ConfigService],
     }),

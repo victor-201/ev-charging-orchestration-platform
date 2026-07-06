@@ -61,6 +61,7 @@ import { OutboxPublisher } from './infrastructure/messaging/outbox/outbox.publis
           max: 15,
           idleTimeoutMillis: 30000,
           connectionTimeoutMillis: 20000,
+          ssl: { rejectUnauthorized: false },
         },
       }),
       inject: [ConfigService],

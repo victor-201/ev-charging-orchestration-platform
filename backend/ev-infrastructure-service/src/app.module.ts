@@ -63,6 +63,9 @@ import { StationModule }   from './modules/station/station.module';
         logging:     cfg.get('NODE_ENV') !== 'production',
         poolSize:    15,
         connectTimeoutMS: 15000,
+        extra: {
+          ssl: { rejectUnauthorized: false },
+        },
       }),
       inject: [ConfigService],
     }),
