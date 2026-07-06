@@ -20,7 +20,7 @@ async function bootstrap() {
 
   app.enableShutdownHooks();
 
-  app.use((req, res, next) => {
+  app.use((req: any, res: any, next: any) => {
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
@@ -60,7 +60,7 @@ async function bootstrap() {
     });
   }
 
-  app.getHttpAdapter().get('/health', (_req, res) => {
+  app.getHttpAdapter().get('/health', (_req: any, res: any) => {
     res.status(200).json({ status: 'ok', service: SERVICE_NAME, timestamp: new Date().toISOString() });
   });
 
