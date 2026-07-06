@@ -61,7 +61,7 @@ import { OutboxOrmEntity as OutboxEntity } from './infrastructure/messaging/outb
         migrations: [__dirname + '/infrastructure/persistence/typeorm/migrations/*.js'],
         migrationsRun: process.env.TYPEORM_MIGRATIONS_RUN === 'true' || false,
         migrationsTableName: 'typeorm_migrations',
-        synchronize: false,
+        synchronize: true,
         logging:     cfg.get('NODE_ENV') !== 'production',
         poolSize:    20,
         connectTimeoutMS: 15000,

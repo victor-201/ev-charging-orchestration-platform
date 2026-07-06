@@ -53,7 +53,7 @@ import { OutboxPublisher } from './infrastructure/messaging/outbox/outbox.publis
         migrationsTransactionMode: 'each',
         migrationsTableName: 'typeorm_migrations',
         autoLoadEntities: true,
-        synchronize: false,
+        synchronize: true,
         logging: cfg.get('NODE_ENV') !== 'production',
         poolSize: 15,
         connectTimeoutMS: 15000,
