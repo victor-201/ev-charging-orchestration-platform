@@ -201,10 +201,10 @@ services:
   # ─────────────────────────────────────────────────────────────────────────
   - name: ev-infrastructure-service
     url: http://ev-infrastructure-service.onrender.com
-    connect_timeout: 10000
-    read_timeout: 30000
-    write_timeout: 30000
-    retries: 3
+    connect_timeout: 30000
+    read_timeout: 60000
+    write_timeout: 60000
+    retries: 5
     routes:
       - name: stations-route
         paths: ["/api/v1/stations"]
@@ -276,10 +276,10 @@ services:
   # ─────────────────────────────────────────────────────────────────────────
   - name: notification-service
     url: http://ev-notification-service.onrender.com
-    connect_timeout: 10000
-    read_timeout: 30000
-    write_timeout: 30000
-    retries: 3
+    connect_timeout: 30000
+    read_timeout: 60000
+    write_timeout: 60000
+    retries: 5
     routes:
       - name: notifications-route
         paths: ["/api/v1/notifications"]
