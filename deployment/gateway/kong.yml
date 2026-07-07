@@ -29,6 +29,8 @@ plugins:
         - "http://localhost:5000"   # Web-admin (Next.js)
         - "http://localhost:5001"   # Kiosk (Vite)
         - "https://ev-platform.yourdomain.com"
+        - "https://ev-admin.pages.dev"
+        - "https://ev-kiosk.pages.dev"
       methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
       headers:
         - Authorization
@@ -37,7 +39,6 @@ plugins:
         - X-Request-ID
         - X-Correlation-ID
         - Idempotency-Key
-        - ngrok-skip-browser-warning
         - X-Kiosk-Key
       exposed_headers:
         - X-Correlation-ID
