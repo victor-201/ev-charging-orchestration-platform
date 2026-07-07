@@ -3,7 +3,7 @@ import { StationRepositoryImpl } from "../repositories/StationRepositoryImpl";
 export let STATION_ID = new URLSearchParams(window.location.search).get('stationId') ||
   localStorage.getItem('kiosk-station-id') ||
   import.meta.env.VITE_STATION_ID ||
-  '55555555-0000-4000-8000-000000000168';
+  '';
 
 export let POINT_ID = new URLSearchParams(window.location.search).get('pointId') ||
   localStorage.getItem('kiosk-point-id') ||
