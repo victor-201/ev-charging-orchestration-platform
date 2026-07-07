@@ -1,7 +1,6 @@
 import './tracing';
 import 'reflect-metadata';
 import express from 'express';
-import * as http from 'http';
 import { NestFactory } from '@nestjs/core';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import { ValidationPipe, Logger } from '@nestjs/common';
@@ -76,10 +75,7 @@ async function bootstrap() {
 
   const port = process.env.PORT ?? DEFAULT_PORT;
 
-  const httpServer = http.createServer(expressApp);
-  httpServer.listen(port);
-
-  await app.init();
+  await app.listen(port);
 
   new Logger('Bootstrap').log(`[${SERVICE_NAME}] Running on :${port} | Swagger: /api/docs`);
 }

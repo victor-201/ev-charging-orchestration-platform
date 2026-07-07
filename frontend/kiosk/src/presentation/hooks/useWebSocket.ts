@@ -126,14 +126,12 @@ export const useWebSocket = ({
     try {
       const parsed = new URL(wsUrlRaw);
       connectionUrl = `${parsed.origin}/charging`;
-      socketPath = parsed.pathname.includes('/socket.io/charging')
-        ? '/socket.io/charging'
-        : parsed.pathname;
+      socketPath = '/socket.io';
     } catch {
       if (wsUrlRaw.includes('/socket.io/charging')) {
         const origin = wsUrlRaw.split('/socket.io/charging')[0];
         connectionUrl = `${origin}/charging`;
-        socketPath = '/socket.io/charging';
+        socketPath = '/socket.io';
       }
     }
 

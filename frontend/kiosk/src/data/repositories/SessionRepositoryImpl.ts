@@ -1,11 +1,11 @@
 import { ISessionRepository } from "../../domain/repositories/repository.interfaces";
 import { ChargingSession, StopSessionResponse } from "../../domain/entities/entities";
-import { apiClient } from "../sources/apiClient";
+import { apiSessionClient } from "../sources/apiSessionClient";
 
 export class SessionRepositoryImpl implements ISessionRepository {
   async getActiveSession(chargerId: string): Promise<ChargingSession | null> {
     try {
-      const { data } = await apiClient.get<ChargingSession>(
+      const { data } = await apiSessionClient.get<ChargingSession>(
         `/charging/charger/${chargerId}/active`
       );
       return data;
@@ -19,7 +19,7 @@ export class SessionRepositoryImpl implements ISessionRepository {
     bookingId?: string,
     qrToken?: string
   ): Promise<ChargingSession> {
-    const { data } = await apiClient.post<ChargingSession>('/charging/start', {
+    const { data } = await apiSessionClient.post<ChargingSession>('/charging/start', {
       chargerId,
       ...(bookingId && { bookingId }),
       ...(qrToken && { qrToken }),
@@ -32,7 +32,7 @@ export class SessionRepositoryImpl implements ISessionRepository {
     sessionId: string,
     endMeterWh?: number
   ): Promise<StopSessionResponse> {
-    const { data } = await apiClient.post<StopSessionResponse>(
+    const { data } = await apiSessionClient.post<StopSessionResponse>(
       `/charging/stop/${sessionId}`,
       {
         ...(endMeterWh !== undefined && { endMeterWh }),
@@ -43,12 +43,12 @@ export class SessionRepositoryImpl implements ISessionRepository {
   }
 
   async getSession(sessionId: string): Promise<ChargingSession> {
-    const { data } = await apiClient.get<ChargingSession>(`/charging/session/${sessionId}`);
+    const { data } = await apiSessionClient.get<ChargingSession>(`/charging/session/${sessionId}`);
     return data;
   }
 
   async getLatestTelemetry(sessionId: string): Promise<any> {
-    const { data } = await apiClient.get<any>(`/charging/telemetry/${sessionId}`);
+    const { data } = await apiSessionClient.get<any>(`/charging/telemetry/${sessionId}`);
     return data;
   }
 }
