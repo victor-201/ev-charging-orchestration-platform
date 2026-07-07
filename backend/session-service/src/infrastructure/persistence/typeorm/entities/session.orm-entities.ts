@@ -39,7 +39,7 @@ export class SessionOrmEntity {
 
   @Column({
     type: 'enum',
-    enum: ['pending', 'active', 'completed', 'error', 'interrupted'],
+    enum: ['pending', 'init', 'active', 'stopped', 'billed', 'completed', 'error', 'interrupted'],
     default: 'pending',
   })
   status: string;
