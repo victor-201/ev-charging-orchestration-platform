@@ -103,16 +103,19 @@ const App: React.FC = () => {
 
   const getStationDetailUseCase = new GetStationDetailUseCase();
 
-  const fetchChargers = useCallback(async () => {
+  const fetchChargers = useCallback(async (stationId?: string) => {
     setIsLoadingChargers(true);
     setDevError(null);
+    const targetId = stationId ?? STATION_ID;
     try {
-      const detail = await getStationDetailUseCase.execute(STATION_ID);
+      const detail = await getStationDetailUseCase.execute(targetId);
       setStationDetail(detail);
       setChargers(detail.chargers || []);
     } catch (err) {
       console.error("[DevTools] Failed to fetch station detail:", err);
       setDevError("Không thể tải thông tin trạm.");
+      setStationDetail(null);
+      setChargers([]);
     } finally {
       setIsLoadingChargers(false);
     }
@@ -120,9 +123,14 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (isDevToolsOpen) {
-      fetchChargers();
+      fetchChargers(STATION_ID);
     }
   }, [isDevToolsOpen, fetchChargers]);
+
+  const handlePreviewStation = async () => {
+    if (!inputStationId.trim()) return;
+    await fetchChargers(inputStationId.trim());
+  };
 
   const handleSaveStation = () => {
     if (!inputStationId.trim()) return;
@@ -400,7 +408,7 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              {/* 2. Station ID configuration */}
+              {/* 2. Station ID configuration with preview */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Cấu hình Station ID</label>
                 <div className="flex gap-2">
@@ -417,6 +425,14 @@ const App: React.FC = () => {
                     }}
                   />
                   <button
+                    onClick={handlePreviewStation}
+                    disabled={isLoadingChargers}
+                    className="px-3 py-2 rounded-xl text-xs font-bold uppercase transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer border border-[var(--pill-border)]"
+                    style={{ color: "var(--text-primary)", background: "var(--pill-bg)" }}
+                  >
+                    {isLoadingChargers ? "..." : "Xem"}
+                  </button>
+                  <button
                     onClick={handleSaveStation}
                     className="px-4 py-2 rounded-xl text-xs font-black uppercase transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
                     style={{
@@ -428,6 +444,12 @@ const App: React.FC = () => {
                     Lưu
                   </button>
                 </div>
+                {stationDetail?.name && (
+                  <span className="text-[11px] font-semibold text-emerald-500 px-1 flex items-center gap-1">
+                    <Check size={11} />
+                    {stationDetail.name}
+                  </span>
+                )}
               </div>
 
               {/* 3. Chargers list */}
