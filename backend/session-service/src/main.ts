@@ -1,8 +1,10 @@
 import './tracing';
 import 'reflect-metadata';
 import express from 'express';
+import * as http from 'http';
 import { NestFactory } from '@nestjs/core';
 import { ExpressAdapter } from '@nestjs/platform-express';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
@@ -75,7 +77,11 @@ async function bootstrap() {
 
   const port = process.env.PORT ?? DEFAULT_PORT;
 
-  await app.listen(port);
+  const httpServer = http.createServer(expressApp);
+  httpServer.listen(port);
+  app.useWebSocketAdapter(new IoAdapter(httpServer));
+
+  await app.init();
 
   new Logger('Bootstrap').log(`[${SERVICE_NAME}] Running on :${port} | Swagger: /api/docs`);
 }
