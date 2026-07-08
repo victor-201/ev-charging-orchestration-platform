@@ -3,17 +3,17 @@ import { StationRepositoryImpl } from "../repositories/StationRepositoryImpl";
 export let STATION_ID = new URLSearchParams(window.location.search).get('stationId') ||
   localStorage.getItem('kiosk-station-id') ||
   import.meta.env.VITE_STATION_ID ||
-  '';
+  '55555555-0000-4000-8000-000000000256';
 
 export let POINT_ID = new URLSearchParams(window.location.search).get('pointId') ||
   localStorage.getItem('kiosk-point-id') ||
   import.meta.env.VITE_POINT_ID ||
-  '';
+  'cccccccc-0000-4000-8000-000000001542';
 
 export let CHARGER_ID = new URLSearchParams(window.location.search).get('chargerId') ||
   localStorage.getItem('kiosk-charger-id') ||
   import.meta.env.VITE_CHARGER_ID ||
-  '';
+  'c0c0c0c0-0000-4000-8000-000000002458';
 
 export function setStationId(id: string) {
   STATION_ID = id;

@@ -1,4 +1,4 @@
-﻿-- ============================================
+-- ============================================
 -- Service : ev-infrastructure-service
 -- Table   : pricing_rules
 -- File    : database/seeds/ev-infrastructure-service/05_pricing_rules.sql

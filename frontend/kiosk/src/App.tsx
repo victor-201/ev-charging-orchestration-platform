@@ -20,9 +20,9 @@ import {
   STATION_ID,
   POINT_ID,
 } from "./data/sources/localStorage";
-import { GetAllStationsUseCase } from "./application/useCases";
+import { GetStationDetailUseCase } from "./application/useCases";
 import type { StationDetail, ChargerInfo } from "./domain/entities/entities";
-import { Wrench, X, RefreshCw, Check, RotateCcw, Zap, Clock, Activity, Sun, Moon, MapPin, ChevronDown, ChevronRight } from "lucide-react";
+import { Wrench, X, RefreshCw, Check, RotateCcw, Zap, Clock, Activity, Sun, Moon } from "lucide-react";
 
 // Hooks
 import { useSessionStateMachine } from "./presentation/hooks/useSessionStateMachine";
@@ -95,49 +95,53 @@ const App: React.FC = () => {
 
   // --- Dev Tools State and Logic ---
   const [isDevToolsOpen, setIsDevToolsOpen] = useState(false);
-  const [stations, setStations] = useState<StationDetail[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [chargers, setChargers] = useState<ChargerInfo[]>([]);
+  const [isLoadingChargers, setIsLoadingChargers] = useState(false);
+  const [inputStationId, setInputStationId] = useState(STATION_ID);
   const [devError, setDevError] = useState<string | null>(null);
-  const [expandedStation, setExpandedStation] = useState<string | null>(null);
-  const [selectedStationId, setSelectedStationId] = useState(STATION_ID);
-  const [selectedChargerPointId, setSelectedChargerPointId] = useState(POINT_ID);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [stationDetail, setStationDetail] = useState<StationDetail | null>(null);
 
-  const getAllStationsUseCase = new GetAllStationsUseCase();
+  const getStationDetailUseCase = new GetStationDetailUseCase();
 
-  const fetchAllStations = useCallback(async () => {
-    setIsLoading(true);
+  const fetchChargers = useCallback(async (stationId?: string) => {
+    setIsLoadingChargers(true);
     setDevError(null);
+    const targetId = stationId ?? STATION_ID;
     try {
-      const res = await getAllStationsUseCase.execute();
-      setStations(res.items || []);
+      const detail = await getStationDetailUseCase.execute(targetId);
+      setStationDetail(detail);
+      setChargers(detail.chargers || []);
     } catch (err) {
-      console.error("[DevTools] Failed to fetch stations:", err);
-      setDevError("Không thể tải danh sách trạm.");
-      setStations([]);
+      console.error("[DevTools] Failed to fetch station detail:", err);
+      setDevError("Không thể tải thông tin trạm.");
+      setStationDetail(null);
+      setChargers([]);
     } finally {
-      setIsLoading(false);
+      setIsLoadingChargers(false);
     }
   }, []);
 
   useEffect(() => {
-    if (isDevToolsOpen) {
-      fetchAllStations();
+    if (isDevToolsOpen && STATION_ID) {
+      fetchChargers(STATION_ID);
     }
-  }, [isDevToolsOpen, fetchAllStations]);
+  }, [isDevToolsOpen, fetchChargers]);
 
-  const handleSelectStation = (stationId: string) => {
-    setSelectedStationId(stationId);
-    setExpandedStation(expandedStation === stationId ? null : stationId);
+  const handlePreviewStation = async () => {
+    if (!inputStationId.trim()) return;
+    await fetchChargers(inputStationId.trim());
   };
 
-  const handleSelectCharger = (stationId: string, chargerPointId: string) => {
-    setSelectedChargerPointId(chargerPointId);
-    setStationId(stationId);
-    const station = stations.find(s => s.id === stationId);
-    const charger = station?.chargers?.find(c => c.id === chargerPointId);
-    if (charger?.connectors?.length) {
-      setChargerId(charger.connectors[0].id, charger.id);
+  const handleSaveStation = () => {
+    if (!inputStationId.trim()) return;
+    setStationId(inputStationId.trim());
+    window.location.reload();
+  };
+
+  const handleSelectCharger = (chargerPointId: string) => {
+    const matched = chargers.find(c => c.id === chargerPointId);
+    if (matched?.connectors?.length) {
+      setChargerId(matched.connectors[0].id, matched.id);
     } else {
       setChargerId(chargerPointId);
     }
@@ -341,56 +345,82 @@ const App: React.FC = () => {
             {/* Modal Body */}
             <div className="relative z-10 flex flex-col gap-5 max-h-[60vh] overflow-y-auto pr-1">
               
-              {/* 1. Current station & charger info */}
+              {/* 1. Current config */}
               <div className="flex flex-col gap-2 rounded-xl border p-3" style={{ background: "var(--pill-bg)", borderColor: "var(--pill-border)" }}>
                 <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Cấu hình hiện tại</span>
                 <div className="flex flex-col gap-1.5">
                   <div className="flex items-center gap-2 text-xs">
                     <Zap size={12} className="text-[var(--primary)] shrink-0" />
                     <span className="font-bold text-[var(--text-primary)]">Trạm:</span>
-                    <span className="font-mono text-[var(--text-secondary)] truncate" title={STATION_ID}>{STATION_ID}</span>
+                    <span className="font-mono text-[var(--text-secondary)] break-all" title={STATION_ID}>{STATION_ID}</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs">
                     <Zap size={12} className="text-amber-500 shrink-0" />
                     <span className="font-bold text-[var(--text-primary)]">Trụ (Point):</span>
-                    <span className="font-mono text-[var(--text-secondary)] truncate" title={POINT_ID}>{POINT_ID || "—"}</span>
+                    <span className="font-mono text-[var(--text-secondary)] break-all" title={POINT_ID}>{POINT_ID || "—"}</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs">
                     <Zap size={12} className="text-emerald-500 shrink-0" />
                     <span className="font-bold text-[var(--text-primary)]">Charger (Connector):</span>
-                    <span className="font-mono text-[var(--text-secondary)] truncate" title={CHARGER_ID}>{CHARGER_ID || "—"}</span>
+                    <span className="font-mono text-[var(--text-secondary)] break-all" title={CHARGER_ID}>{CHARGER_ID || "—"}</span>
                   </div>
                 </div>
               </div>
 
-              {/* 2. Station list */}
+              {/* 2. Station ID input + preview */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Nhập Station ID</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={inputStationId}
+                    onChange={(e) => setInputStationId(e.target.value)}
+                    placeholder="Ví dụ: 55555555-0000-4000-8000-000000000001"
+                    className="flex-1 px-4 py-2 rounded-xl text-xs font-semibold border transition-all focus:outline-none focus:border-[var(--primary)]"
+                    style={{ background: "var(--pill-bg)", borderColor: "var(--pill-border)", color: "var(--text-primary)" }}
+                  />
+                  <button
+                    onClick={() => handlePreviewStation()}
+                    disabled={isLoadingChargers}
+                    className="px-3 py-2 rounded-xl text-xs font-bold uppercase transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer border border-[var(--pill-border)]"
+                    style={{ color: "var(--text-primary)", background: "var(--pill-bg)" }}
+                  >
+                    {isLoadingChargers ? "..." : "Xem"}
+                  </button>
+                  <button
+                    onClick={handleSaveStation}
+                    className="px-4 py-2 rounded-xl text-xs font-black uppercase transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                    style={{ background: "linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%)", color: "#ffffff", border: "none" }}
+                  >
+                    Lưu
+                  </button>
+                </div>
+                {stationDetail?.name && (
+                  <span className="text-[11px] font-semibold text-emerald-500 px-1 flex items-center gap-1">
+                    <Check size={11} />
+                    {stationDetail.name}
+                  </span>
+                )}
+              </div>
+
+              {/* 3. Chargers list from preview */}
               <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 relative">
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Tìm trạm..."
-                      className="w-full px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all focus:outline-none focus:border-[var(--primary)] pl-8"
-                      style={{ background: "var(--pill-bg)", borderColor: "var(--pill-border)", color: "var(--text-primary)" }}
-                    />
-                    <Zap size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" />
-                  </div>
-                  {isLoading ? (
-                    <RefreshCw size={14} className="animate-spin text-[var(--primary)] shrink-0" />
-                  ) : (
-                    <span className="text-[10px] font-bold text-[var(--text-secondary)] whitespace-nowrap">{stations.length} trạm</span>
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+                    Danh sách trụ sạc
+                  </label>
+                  {isLoadingChargers && (
+                    <RefreshCw size={12} className="animate-spin text-[var(--primary)]" />
                   )}
                 </div>
 
-                <div className="flex flex-col gap-1.5 max-h-[360px] overflow-y-auto pr-1">
+                <div className="flex flex-col gap-2 max-h-[260px] overflow-y-auto pr-1">
                   {(() => {
-                    if (isLoading && stations.length === 0) {
+                    if (isLoadingChargers && chargers.length === 0) {
                       return (
                         <div className="text-center py-8 border border-dashed border-[var(--pill-border)] rounded-2xl">
                           <RefreshCw size={24} className="animate-spin mx-auto mb-2 text-[var(--text-secondary)]" />
-                          <p className="text-xs text-[var(--text-secondary)]">Đang tải danh sách trạm...</p>
+                          <p className="text-xs text-[var(--text-secondary)]">Đang tải danh sách trụ sạc...</p>
                         </div>
                       );
                     }
@@ -401,116 +431,74 @@ const App: React.FC = () => {
                         </div>
                       );
                     }
-                    if (stations.length === 0) {
+                    if (!stationDetail && !isLoadingChargers) {
                       return (
                         <div className="text-center py-8 border border-dashed border-[var(--pill-border)] rounded-2xl text-xs text-[var(--text-secondary)]">
-                          Không tìm thấy trạm sạc nào.
+                          Nhập Station ID và bấm "Xem" để tải danh sách trụ.
+                        </div>
+                      );
+                    }
+                    if (chargers.length === 0) {
+                      return (
+                        <div className="text-center py-8 border border-dashed border-[var(--pill-border)] rounded-2xl text-xs text-[var(--text-secondary)]">
+                          Không tìm thấy trụ sạc nào tại trạm này.
                         </div>
                       );
                     }
 
-                    const q = searchQuery.toLowerCase().trim();
-                    const filtered = q
-                      ? stations.filter(s => s.name?.toLowerCase().includes(q) || s.address?.toLowerCase().includes(q) || s.id.includes(q))
-                      : stations;
-
-                    if (filtered.length === 0) {
-                      return (
-                        <div className="text-center py-6 border border-dashed border-[var(--pill-border)] rounded-2xl text-xs text-[var(--text-secondary)]">
-                          Không tìm thấy trạm "{searchQuery}"
-                        </div>
-                      );
-                    }
-
-                    return filtered.map((station) => {
-                      const isStationSelected = station.id === selectedStationId;
-                      const isExpanded = expandedStation === station.id;
-                      const stationMeta = getStationStatusMeta(station.status);
-                      const chargers = station.chargers || [];
-                      const available = chargers.filter(c => c.status === 'available' || c.status === 'in_use').length;
+                    return chargers.map((c) => {
+                      const isSelected = c.id === POINT_ID || c.connectors?.some(conn => conn.id === CHARGER_ID);
+                      const meta = getChargerStatusMeta(c.status);
+                      const ChargerIcon = meta.Icon;
+                      const powerText = c.connectors?.length
+                        ? `${Math.max(...c.connectors.map(co => co.maxPowerKw || 0))} kW`
+                        : (c.maxPowerKw ? `${c.maxPowerKw} kW` : null);
+                      const connectorsText = c.connectors?.length
+                        ? c.connectors.map(co => `${co.connectorType} (${co.maxPowerKw}kW)`).join(', ')
+                        : null;
 
                       return (
-                        <div key={station.id} className="flex flex-col rounded-xl border overflow-hidden transition-all"
-                          style={{
-                            borderColor: isStationSelected ? "var(--primary)" : "var(--pill-border)",
-                            background: "var(--pill-bg)",
-                          }}
+                        <div
+                          key={c.id}
+                          onClick={() => handleSelectCharger(c.id)}
+                          className={`flex items-center justify-between p-3 rounded-2xl border transition-all duration-200 cursor-pointer active:scale-[0.98] ${
+                            isSelected
+                              ? 'bg-gradient-to-r from-[var(--primary)]/10 to-[var(--accent)]/10 border-[var(--primary)]/40 shadow-[0_0_15px_rgba(16,191,202,0.1)]'
+                              : 'bg-white/5 dark:bg-white/5 border-[var(--pill-border)] hover:bg-white/10'
+                          }`}
                         >
-                          <div
-                            onClick={() => handleSelectStation(station.id)}
-                            className="flex items-center justify-between px-3 py-2.5 cursor-pointer active:scale-[0.98] transition-all hover:bg-white/5"
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                              <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                                style={{ background: isStationSelected ? "var(--primary)" : "var(--pill-border)", color: isStationSelected ? "#fff" : "var(--text-secondary)" }}
-                              >
-                                <Zap size={13} />
-                              </div>
-                              <div className="flex flex-col min-w-0 flex-1">
-                                <span className="text-xs font-bold truncate max-w-[200px]">
-                                  {station.name || station.id.substring(0, 12)}
-                                </span>
-                                <span className="text-[8px] text-[var(--text-secondary)] truncate max-w-[200px] flex items-center gap-1">
-                                  <MapPin size={8} className="shrink-0" />
-                                  {station.address || station.id}
-                                </span>
-                              </div>
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isSelected ? 'bg-[var(--primary)]/20 text-[var(--primary)]' : 'bg-white/10 dark:bg-white/5 text-[var(--text-secondary)]'}`}>
+                              <ChargerIcon size={15} />
                             </div>
-                            <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-md ${
-                                station.status === 'active' ? 'bg-emerald-500/10 text-emerald-500' :
-                                station.status === 'closed' ? 'bg-red-500/10 text-red-500' :
-                                station.status === 'maintenance' ? 'bg-amber-500/10 text-amber-500' :
-                                'bg-slate-500/10 text-slate-400'
-                              }`}>
-                                {stationMeta.text}
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-sm font-bold truncate max-w-[200px]">
+                                {c.name || `Trụ ${c.id.substring(0, 4)}`}
                               </span>
-                              <span className="text-[8px] font-mono text-[var(--text-secondary)]">{available}/{chargers.length}</span>
-                              {isExpanded ? <ChevronDown size={12} className="text-[var(--text-secondary)]" /> : <ChevronRight size={12} className="text-[var(--text-secondary)]" />}
-                              {isStationSelected && (
-                                <div className="w-4 h-4 rounded-full bg-[var(--primary)] flex items-center justify-center text-white">
-                                  <Check size={8} strokeWidth={3} />
-                                </div>
+                              <span className="text-[9px] font-mono text-[var(--text-secondary)] truncate max-w-[200px]">
+                                {c.id}
+                              </span>
+                              {powerText && (
+                                <span className="text-[9px] font-semibold text-[var(--primary)] truncate max-w-[200px] flex items-center gap-1">
+                                  <Zap size={10} className="shrink-0" />
+                                  {powerText}
+                                </span>
+                              )}
+                              {connectorsText && (
+                                <span className="text-[8px] text-[var(--text-secondary)] truncate max-w-[200px] leading-tight mt-0.5">
+                                  {connectorsText}
+                                </span>
                               )}
                             </div>
                           </div>
-
-                          {isExpanded && chargers.length > 0 && (
-                            <div className="border-t border-[var(--pill-border)] px-3 py-1.5 flex flex-col gap-1 max-h-[180px] overflow-y-auto">
-                              {chargers.map((c) => {
-                                const isChargerSelected = c.id === selectedChargerPointId || c.connectors?.some(conn => conn.id === CHARGER_ID);
-                                const meta = getChargerStatusMeta(c.status);
-                                const powerText = c.connectors?.length
-                                  ? `${Math.max(...c.connectors.map(co => co.maxPowerKw || 0))} kW`
-                                  : (c.maxPowerKw ? `${c.maxPowerKw} kW` : null);
-                                const connectorsText = c.connectors?.length
-                                  ? c.connectors.map(co => `${co.connectorType} (${co.maxPowerKw}kW)`).join(', ')
-                                  : null;
-
-                                return (
-                                  <div
-                                    key={c.id}
-                                    onClick={() => handleSelectCharger(station.id, c.id)}
-                                    className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border cursor-pointer active:scale-[0.98] transition-all ${
-                                      isChargerSelected
-                                        ? 'bg-[var(--primary)]/10 border-[var(--primary)]/30'
-                                        : 'bg-transparent border-transparent hover:bg-white/5'
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                                      <span className="text-[10px] font-semibold truncate max-w-[140px]">{c.name || `Trụ ${c.id.substring(0, 4)}`}</span>
-                                      {powerText && <span className="text-[8px] font-semibold text-[var(--primary)]">{powerText}</span>}
-                                      {connectorsText && <span className="text-[7px] text-[var(--text-secondary)] truncate max-w-[120px]">{connectorsText}</span>}
-                                    </div>
-                                    <div className="flex items-center gap-1 shrink-0">
-                                      <span className={`text-[8px] font-semibold ${meta.colorClass}`}>{meta.text}</span>
-                                      {isChargerSelected && <Check size={8} strokeWidth={3} className="text-[var(--primary)]" />}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className={`text-[10px] font-semibold ${meta.colorClass}`}>{meta.text}</span>
+                            {isSelected && (
+                              <div className="w-5 h-5 rounded-full bg-[var(--primary)] flex items-center justify-center text-white">
+                                <Check size={11} strokeWidth={3} />
+                              </div>
+                            )}
+                          </div>
                         </div>
                       );
                     });
@@ -523,12 +511,12 @@ const App: React.FC = () => {
             <div className="relative z-10 pt-4 border-t border-[var(--card-border)] flex flex-col gap-3">
               <div className="flex gap-3">
                 <button
-                  onClick={fetchAllStations}
-                  disabled={isLoading}
+                  onClick={() => fetchChargers(inputStationId)}
+                  disabled={isLoadingChargers}
                   className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all border border-[var(--pill-border)] hover:bg-white/10 dark:hover:bg-white/5 cursor-pointer flex items-center justify-center gap-1.5"
                   style={{ color: "var(--text-primary)" }}
                 >
-                  <RefreshCw size={12} className={isLoading ? "animate-spin" : ""} />
+                  <RefreshCw size={12} className={isLoadingChargers ? "animate-spin" : ""} />
                   Làm mới danh sách
                 </button>
                 <button
