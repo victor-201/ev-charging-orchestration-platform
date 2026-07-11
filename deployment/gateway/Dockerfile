@@ -1,20 +1,11 @@
-FROM kong:3.6
+FROM nginx:1.27-alpine
 
-COPY kong.yml /usr/local/kong/declarative/kong.yml
+RUN apk add --no-cache ca-certificates gettext
 
-ENV KONG_DATABASE=off
-ENV KONG_DECLARATIVE_CONFIG=/usr/local/kong/declarative/kong.yml
-ENV KONG_PROXY_LISTEN=0.0.0.0:${PORT:-8000}
-ENV KONG_ADMIN_LISTEN=off
-ENV KONG_PROXY_ACCESS_LOG=/dev/stdout
-ENV KONG_ADMIN_ACCESS_LOG=/dev/stdout
-ENV KONG_PROXY_ERROR_LOG=/dev/stderr
-ENV KONG_ADMIN_ERROR_LOG=/dev/stderr
-ENV KONG_NGINX_WORKER_PROCESSES=1
-ENV KONG_LOG_LEVEL=info
+COPY nginx.conf /etc/nginx/nginx.conf.template
 
 EXPOSE ${PORT:-8000}
 
 STOPSIGNAL SIGQUIT
 
-CMD ["kong", "docker-start"]
+CMD envsubst '${PORT}' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf && nginx -g 'daemon off;'
