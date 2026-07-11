@@ -73,7 +73,7 @@ plugins:
 services:
   # Health check endpoint (returns 200 for Render health checks)
   - name: health-service
-    url: http://httpbin.org/anything
+    url: https://httpbin.org/anything
     routes:
       - name: health-route
         paths:
@@ -86,7 +86,8 @@ services:
   # IAM SERVICE (auth + user profile)
   # ─────────────────────────────────────────────────────────────────────────
   - name: iam-service
-    url: http://ev-iam-service.onrender.com
+    url: https://ev-iam-service.onrender.com
+    tls_verify: false
     connect_timeout: 10000
     read_timeout: 30000
     write_timeout: 30000
@@ -142,7 +143,8 @@ services:
   # SESSION SERVICE (booking + charging)
   # ─────────────────────────────────────────────────────────────────────────
   - name: session-service
-    url: http://ev-session-service.onrender.com
+    url: https://ev-session-service.onrender.com
+    tls_verify: false
     connect_timeout: 10000
     read_timeout: 60000
     write_timeout: 60000
@@ -178,7 +180,8 @@ services:
 
   # ── Session WebSocket Route ──────────────────────────────────────────────
   - name: session-ws-service
-    url: http://ev-session-service.onrender.com
+    url: https://ev-session-service.onrender.com
+    tls_verify: false
     connect_timeout: 10000
     read_timeout: 60000
     write_timeout: 60000
@@ -196,7 +199,8 @@ services:
   # EV INFRASTRUCTURE SERVICE (stations, chargers, geo)
   # ─────────────────────────────────────────────────────────────────────────
   - name: ev-infrastructure-service
-    url: http://ev-infrastructure-service.onrender.com
+    url: https://ev-infrastructure-service.onrender.com
+    tls_verify: false
     connect_timeout: 30000
     read_timeout: 60000
     write_timeout: 60000
@@ -217,7 +221,8 @@ services:
   # BILLING SERVICE (payments, wallet, transactions)
   # ─────────────────────────────────────────────────────────────────────────
   - name: billing-service
-    url: http://ev-billing-service.onrender.com
+    url: https://ev-billing-service.onrender.com
+    tls_verify: false
     connect_timeout: 10000
     read_timeout: 60000
     write_timeout: 60000
@@ -271,7 +276,8 @@ services:
   # NOTIFICATION SERVICE
   # ─────────────────────────────────────────────────────────────────────────
   - name: notification-service
-    url: http://ev-notification-service.onrender.com
+    url: https://ev-notification-service.onrender.com
+    tls_verify: false
     connect_timeout: 30000
     read_timeout: 60000
     write_timeout: 60000
@@ -304,7 +310,8 @@ services:
   # ANALYTICS SERVICE
   # ─────────────────────────────────────────────────────────────────────────
   - name: analytics-service
-    url: http://ev-analytics-service.onrender.com
+    url: https://ev-analytics-service.onrender.com
+    tls_verify: false
     connect_timeout: 10000
     read_timeout: 120000
     write_timeout: 60000
@@ -324,7 +331,8 @@ services:
   # TELEMETRY INGESTION SERVICE (high-throughput IoT data)
   # ─────────────────────────────────────────────────────────────────────────
   - name: telemetry-ingestion-service
-    url: http://ev-telemetry-ingestion.onrender.com
+    url: https://ev-telemetry-ingestion.onrender.com
+    tls_verify: false
     connect_timeout: 5000
     read_timeout: 10000
     write_timeout: 10000
@@ -338,7 +346,8 @@ services:
   # OCPP GATEWAY SERVICE (OCPP 1.6J WebSocket Bridge)
   # ─────────────────────────────────────────────────────────────────────────
   - name: ocpp-gateway-service
-    url: http://ev-ocpp-gateway.onrender.com
+    url: https://ev-ocpp-gateway.onrender.com
+    tls_verify: false
     connect_timeout: 10000
     read_timeout: 10000
     write_timeout: 10000
