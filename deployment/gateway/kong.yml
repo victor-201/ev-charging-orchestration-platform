@@ -88,10 +88,10 @@ services:
   - name: iam-service
     url: https://ev-iam-service.onrender.com
     tls_verify: false
-    connect_timeout: 10000
-    read_timeout: 30000
-    write_timeout: 30000
-    retries: 2
+    connect_timeout: 60000
+    read_timeout: 120000
+    write_timeout: 120000
+    retries: 3
     routes:
       - name: auth-route
         paths: ["/api/v1/auth"]
