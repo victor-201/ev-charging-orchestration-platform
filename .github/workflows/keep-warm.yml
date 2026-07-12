@@ -1,0 +1,23 @@
+name: Keep Services Warm
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping-gateway:
+    name: Ping API Gateway
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Gateway
+        run: |
+          echo "Pinging https://ev-api-gateway.onrender.com/health ..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
+            "https://ev-api-gateway.onrender.com/health" 2>&1)
+          echo "Gateway responded with HTTP $HTTP_CODE"
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "502" ]; then
+            # 200 = healthy, 502 = still waking up (gateway tries upstreams on the way)
+            echo "Gateway is running."
+          else
+            echo "Unexpected status: $HTTP_CODE"
+          fi
