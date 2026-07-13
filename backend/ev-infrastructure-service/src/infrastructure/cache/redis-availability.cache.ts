@@ -32,8 +32,10 @@ export class RedisAvailabilityCache {
       db:          parseInt(config.get('REDIS_DB', '1')),
       lazyConnect: true,
       enableReadyCheck: true,
-      maxRetriesPerRequest: 2,
-      connectTimeout: 3000,
+      connectTimeout: 1000,
+      maxRetriesPerRequest: 1,
+      retryStrategy: () => null,
+      enableOfflineQueue: false,
     });
     this.client.on('error', (err) => this.logger.error(`[Redis] ${err.message}`));
     this.client.on('ready', ()    => this.logger.log('[Redis] Connected'));

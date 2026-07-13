@@ -81,7 +81,8 @@ import { RiskScoringService } from '../../domain/services/risk-scoring.service';
     RolesGuard,
     // Domain services
     RiskScoringService,
-    // Redis client
+    // Redis client — Render free tier has no Redis, so fail fast instead of
+    // hanging for 30s with the default retry strategy.
     {
       provide: 'REDIS_CLIENT',
       useFactory: (cfg: ConfigService) => new Redis({
@@ -90,6 +91,10 @@ import { RiskScoringService } from '../../domain/services/risk-scoring.service';
         password: cfg.get('REDIS_PASSWORD', undefined),
         db: parseInt(cfg.get('REDIS_DB', '0')),
         lazyConnect: true,
+        connectTimeout: 1000,
+        maxRetriesPerRequest: 1,
+        retryStrategy: () => null,
+        enableOfflineQueue: false,
       }),
       inject: [ConfigService],
     },
