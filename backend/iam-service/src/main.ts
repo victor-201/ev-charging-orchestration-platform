@@ -86,17 +86,19 @@ async function bootstrap() {
     next();
   });
 
-  // Initialise NestJS (lifecycle hooks). Time out after 60s so the server
-  // doesn't block forever if a hook (e.g. RabbitMQ) is unreachable.
-  await Promise.race([
-    app.init(),
-    new Promise<void>((_, reject) =>
-      setTimeout(() => reject(new Error('NestJS init timed out after 60s')), 60_000)
-    ),
-  ]).catch((err: Error) => {
-    new Logger('Bootstrap').warn(`[${SERVICE_NAME}] ${err.message} — starting anyway`);
+  // Routes are already registered by NestFactory.create() above.
+  // app.init() only runs lifecycle hooks (OnModuleInit etc.) which may
+  // hang (e.g. RabbitMQ). Fire it in the background and continue.
+  app.init().then(() => {
+    healthStatus = 'ok';
+    new Logger('Bootstrap').log(`[${SERVICE_NAME}] Init complete`);
+  }).catch((err: Error) => {
+    new Logger('Bootstrap').warn(`[${SERVICE_NAME}] Init error: ${err.message} — accepting traffic anyway`);
+    healthStatus = 'ok';
   });
 
+  // Set health ok immediately so the readiness guard lets requests through
+  // while lifecycle hooks run in the background.
   healthStatus = 'ok';
 
   new Logger('Bootstrap').log(`[${SERVICE_NAME}] Running on :${port} | Swagger: /api/docs`);
