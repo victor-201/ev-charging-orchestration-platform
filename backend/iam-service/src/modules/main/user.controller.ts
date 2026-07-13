@@ -5,6 +5,8 @@ import {
   UnsupportedMediaTypeException, PayloadTooLargeException,
   Inject,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, In } from 'typeorm';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Express } from 'express';
 import {
@@ -30,6 +32,7 @@ import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../shared/guards/jwt-auth.guard';
 import { IUserRepository, USER_REPOSITORY } from '../../domain/repositories/auth.repository.interface';
 import { IUsersCacheRepository, USERS_CACHE_REPOSITORY } from '../../domain/repositories/user-profile.repository.interface';
+import { UsersCacheOrmEntity } from '../../infrastructure/persistence/typeorm/entities/user.orm-entities';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -49,7 +52,41 @@ export class UserController {
     private readonly uploadAvatarUC: UploadAvatarUseCase,
     @Inject(USER_REPOSITORY) private readonly userRepo: IUserRepository,
     @Inject(USERS_CACHE_REPOSITORY) private readonly cacheRepo: IUsersCacheRepository,
+    @InjectRepository(UsersCacheOrmEntity)
+    private readonly usersCacheRepo: Repository<UsersCacheOrmEntity>,
   ) {}
+
+
+  /**
+   * Batch lookup users by comma-separated IDs — used by admin panel booking list
+   * to show user names instead of raw UUIDs.
+   */
+  @Get()
+  @Roles('admin', 'staff')
+  @Header('Cache-Control', 'no-store')
+  async list(
+    @Query('ids') ids?: string,
+    @Query('role') role?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const where: any = {};
+    if (ids) {
+      const idList = ids.split(',').map(s => s.trim()).filter(Boolean);
+      if (idList.length > 0) {
+        where.userId = In(idList);
+      }
+    }
+    if (role) {
+      where.roleName = role;
+    }
+    const take = limit ? Math.min(parseInt(limit), 200) : 50;
+    const [items, total] = await this.usersCacheRepo.findAndCount({
+      where,
+      take,
+      order: { fullName: 'ASC' },
+    });
+    return { items, total };
+  }
 
 
   @Get('me')

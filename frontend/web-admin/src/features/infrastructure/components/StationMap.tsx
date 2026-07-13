@@ -188,6 +188,7 @@ export default function StationMap({
   // Track map camera and popups to prevent lag and infinite snaps
   const lastFitStationIds = useRef<string>('');
   const hasShownEditPopupRef = useRef<Record<string, boolean>>({});
+  const fallbackTilesRef = useRef(false);
 
   // Detect Theme Changes
   useEffect(() => {
@@ -269,6 +270,18 @@ export default function StationMap({
         maxZoom: 19,
         subdomains: 'abcd',
       }).addTo(mapInstance.current!);
+
+      // Fallback to OSM if CartoDB tiles fail to load
+      tileLayerRef.current.on('tileerror', () => {
+        if (mountedRef.current && mapInstance.current && !fallbackTilesRef.current) {
+          fallbackTilesRef.current = true;
+          mapInstance.current.removeLayer(tileLayerRef.current!);
+          tileLayerRef.current = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap',
+            maxZoom: 19,
+          }).addTo(mapInstance.current!);
+        }
+      });
     });
   }, [theme, mapReady]);
 
@@ -375,10 +388,11 @@ export default function StationMap({
   return (
     <>
       <style>{`
-        .leaflet-container { background: var(--bg-color) !important; border-radius: 20px; }
+        .leaflet-container { background: #1a1f2e !important; border-radius: 20px; }
         .leaflet-popup-content-wrapper { background: var(--card-bg) !important; border: 1.5px solid var(--card-border) !important; border-radius: 12px !important; color: var(--text-main) !important; box-shadow: var(--card-shadow) !important; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
         .leaflet-popup-tip { background: var(--card-bg) !important; }
         .leaflet-popup-close-button { color: var(--text-faded) !important; }
+        .leaflet-tile-pane { filter: brightness(0.9) saturate(0.8); }
       `}</style>
       <div ref={mapRef} style={{ width: '100%', height: '100%', borderRadius: '20px' }} />
     </>
